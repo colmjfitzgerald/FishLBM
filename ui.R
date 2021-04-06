@@ -25,6 +25,15 @@ sidebar <- sidebarPanel(
             multiple = TRUE, accept = c(".csv", ".xls", ".xlsx", ".XLS")
             #, icon = icon("upload"),
   ),
+  
+  # length column select - paired with updateVarSelectInput in server.R
+  varSelectInput(
+    inputId = "lengthColSelect",
+    label = "Select length column",
+    data = NULL ,
+    selected = NULL
+  ),
+  
   #  withTags({
   #    div(class="form-group shiny-input-container",
   #        label(class="control-label", id="test_label", `for`="test"),
@@ -33,10 +42,13 @@ sidebar <- sidebarPanel(
   #               `data-for`="test", 
   #               `data-nonempty`="">{"plugins":["selectize-plugin-a11y"]}))
   #  })
-  uiOutput(outputId = "lengthSelect", width = "100%"),
-  uiOutput(outputId = "checkboxData", width = "100%"),
+  #uiOutput(outputId = "checkboxData", width = "100%"),
+  checkboxGroupInput(inputId = "checkboxCatchData", 
+                     label = "Select attributes",
+                     choices = NULL, selected = NULL),
   
-  div(id = "columnSelect", hr("Select and submit data columns")),
+  hr(),
+  div(id = "columnSelect"),#, h5("Apply data filters")),
   # # species, sex, gear, age, maturity, year
   # fluidRow(
   #   column(width = 6, 
@@ -62,7 +74,7 @@ body <-   mainPanel(
   tabsetPanel(
     id = "tabDataPlotAnalysis",
     type = "tabs",
-    tabPanel("Configure data", 
+    tabPanel("Tabulate", 
              dataTableOutput(outputId = "catchDataTable", height = "auto"),
              icon = icon("table")),
     tabPanel("Visualise", 
@@ -71,18 +83,34 @@ body <-   mainPanel(
                           height = "400px"),
              icon = icon("chart-bar")
     ),
-    tabPanel("LB-SPR assessment", 
+    tabPanel("Configure", 
+             fluidRow(
+               h4("Convert length units"),
+               selectInput(inputId = "dataLengthUnits", label = "Current length units", 
+                           choices = c("mm", "cm", "m", "in"), selected = "cm"),
+               selectInput(inputId = "newLengthUnits", label = "New length units", 
+                           choices = c("mm", "cm", "m", "in"), selected = "cm"),
+               actionButton(inputId = "convertLengthUnits", label = "Convert units"),
+               #textInput(inputId = "inputLengthColName", label = "Length column name")
+             ),
+             fluidRow(
+               h4("Filter length records"),
+               uiOutput(outputId = "checkboxFilterData"),
+               uiOutput(outputId = "filterBtn")
+             )
+             #icon = icon("table")
+    ),
+    tabPanel("LB-SPR", 
              #         plotlyOutput(outputId = "lengthAge",
              #                      width = "90%"),
-             navbarPage(title = "Data and parameters",
+             navbarPage(title = "GTG LB-SPR",
                         id = "parLBSPR",
-                        tabPanel("Length composition data"),
-                        tabPanel("Growth",
+                        tabPanel("Stock biological parameters",
                                  fluidRow(
                                    column(width = 6, 
                                           h3("Parameter specification"),
                                           uiOutput(outputId = "growthParRBtn")
-#                                          actionButton(inputId = "fitGrowth", label = "Fit LVB growth curve")
+                                          #  actionButton(inputId = "fitGrowth", label = "Fit LVB growth curve")
                                    )
                                  ),
                                  fluidRow(
@@ -109,16 +137,121 @@ body <-   mainPanel(
                                    column(width = 6,
                                           h3("Growth curve"),
                                           plotlyOutput(outputId = "lvbGrowthCurve"))
-                                 )),
-                        tabPanel("Maturity"),
+                                 ),
+                                 fluidRow(
+                                   # tags$head(
+                                   #   tags$style(
+                                   #     'thead {
+                                   #        display: table-header-group;
+                                   #        vertical-align: middle;
+                                   #        border-color: inherit;
+                                   #      }
+                                   # 
+                                   #      tr:nth-child(1) {
+                                   #        border: solid thick;
+                                   #      }
+                                   # 
+                                   #      tr:nth-child(2) {
+                                   #        border: solid thick;
+                                   #      }
+                                   # 
+                                   #      th {
+                                   #        text-align: center;
+                                   #      }
+                                   # 
+                                   #      td, th {
+                                   #        outline: none;
+                                   #      }
+                                   # 
+                                   #      table { 
+                                   #        display: table;
+                                   #        border-collapse: separate;
+                                   #        white-space: normal;
+                                   #        line-height: normal;
+                                   #        font-family: times-new-roman;
+                                   #        font-weight: normal;
+                                   #        font-size: medium;
+                                   #        font-style: normal;
+                                   #        color: -internal-quirk-inherit;
+                                   #        text-align: start;
+                                   #        border-spacing: 2px;
+                                   #        border-color: grey;
+                                   #        font-variant: normal;
+                                   #        }  '
+                                   #   )
+                                   # ),
+                                   column(width = 12,
+                                          tags$table(
+                                            tags$thead("Biological parameters"),
+                                            tags$tr(tags$th("Parameter"), tags$th("Value")),
+                                            tags$tr(tags$td("M"), 
+                                                    tags$td(numericInput(inputId = "M", label = NULL, value = 0.3))),
+                                            tags$tr(tags$td("K (LVB)"), 
+                                                    tags$td(uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
+                                            tags$tr(tags$td("Linf"), 
+                                                    tags$td(uiOutput(outputId = "numLinf"))), #numericInput(inputId = "Linf", label = "Linf", value = input$sliderLinf),
+                                            tags$tr(tags$td("CV for Linf"), 
+                                                    tags$td(numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
+                                                                         min = 0.001, max = 1, step = 0.001))),
+                                            tags$tr(tags$td("Walpha"), 
+                                                    tags$td(numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
+                                            tags$tr(tags$td("Wbeta"), 
+                                                    tags$td(numericInput(inputId = "Wbeta", label = NULL, value = 3))),
+                                            tags$tr(tags$td("FecB"), 
+                                                    tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))
+                                            ),
+                                            tags$tr(tags$td("Steepness"),
+                                                    tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))
+                                            ),
+                                            tags$tr(tags$td("Mpow"),
+                                                    tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.8))
+                                            ),
+                                            tags$tr(tags$td("NGTG"),
+                                                    tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))
+                                            ),
+                                            tags$tr(tags$td("GTG Max SD about Linf"),
+                                                    tags$td(numericInput(inputId = "MaxSD", label = NULL, 
+                                                                         value = 2, min = 0, max = 4))),
+                                            tags$tfoot()
+                                          )
+                                   )
+                                 ),
+                                 fluidRow(
+                                   actionButton(inputId = "btnStockPars",
+                                                label = "Enter Stock Pars"
+                                   )
+                                 )
+                        ),
+                        tabPanel("Length composition",
+                                 fluidRow(
+                                   column(width = 6,
+                                          sliderInput(inputId = "Linc", 
+                                                      label = paste0("Length increment"),
+                                                      min = 0, max = 5, value = 1,
+                                                      step = 0.5, ticks = TRUE)
+                                   ),
+                                 ),
+                                 fluidRow(
+                                   plotlyOutput(outputId = "plotResponsiveLengthComposition",
+                                                width = "100%",
+                                                height = "400px")
+                                 )
+                        ),
                         tabPanel("Fishery"),
-                        tabPanel("GTG"),
+                        tabPanel("Model fit",
+                                 actionButton("fitLBSPR", "Apply GTG-LBSPR", icon = icon("chart-line")),
+                                 verbatimTextOutput(outputId = "textLBSPRFit"),
+                                 plotlyOutput(outputId = "visFitLBSPR",
+                                              width = "100%",
+                                              height = "400px"),
+                                 icon = icon("chart-line")
+                        ),
                         tabPanel("Diagnostics",
-                                 verbatimTextOutput(outputId = "textLVBGrowthFit"),
-                                 icon = icon("chart-line"))),
+                                 verbatimTextOutput(outputId = "textFitLBSPR")
+                                 )),
              icon = icon("list-ui")
     ),
-    tabPanel("LBB assessment"), 
+    tabPanel("LBB"), 
     #inline = FALSE))
     tabPanel("Stock assessment\n - diagnostics", 
              fluidRow(width = 12,
@@ -134,6 +267,7 @@ body <-   mainPanel(
   )
   #  )
 )
+
 
 
 ui <- fluidPage(

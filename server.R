@@ -15,108 +15,323 @@ server <- function(input, output, session){
   })
   
   
+  observeEvent(input$uploadFile,
+               {updateVarSelectInput(session = getDefaultReactiveDomain(),
+                                     "lengthColSelect",
+                                     data = catchdata_read(),
+                                     selected = ifelse(any(grepl("[length]", colnames(catchdata_read()), ignore.case = TRUE)),
+                                                       grep("[length]", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE),
+                                                       NULL))})
+  
+  observeEvent(input$lengthColSelect,
+               {
+                 print(any(grepl("[length]", colnames(catchdata_read()), ignore.case = TRUE)))
+                 print(grep("[length]", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE))
+                 print(paste0("str(input$lengthColSelect) = ", str(input$lengthColSelect)))
+                 print(.data[[input$lengthColSelect]])
+                 updateCheckboxGroupInput(session = getDefaultReactiveDomain(),
+                                          inputId = "checkboxCatchData",
+                                          choices = setdiff(colnames(catchdata_read()),
+                                                            paste0(input$lengthColSelect)))
+                                          #choices = colnames(catchdata_read()))
+                                          # paste0() converts input$lengthColSelect to string
+                                          
+               })
   
   
   # dynamic UI elements (renderUI, insertUI etc.) ----
   
-  # length data is the minimum required
-  output$lengthSelect <- renderUI({
-    catchdata <- catchdata_read()
-    choice <-  colnames(catchdata)
-    selectInput("lengthCol", "Select length column", choices = choice, multiple = FALSE)
+  # # length data is the minimum required
+  # output$lengthSelect <- renderUI({
+  #   catchdata <- catchdata_read()
+  #   choice <-  colnames(catchdata)
+  #   selectInput("lengthCol", "Select length column", choices = choice, multiple = FALSE)
+  # })
+  
+  # output$checkboxData <- renderUI({
+  #   catchdata <- catchdata_read()
+  #   choice <-  c("sex", "age", "year", "maturity", "gear")
+  #   expr = list(
+  #     checkboxGroupInput("checkboxUserData", "Select data categories", choices = choice, selected = NULL),
+  #     actionButton("submitDataTypes", "Submit categories", icon = icon("table"))
+  #   )
+  # })
+  
+  #submittedCBData <- 
+  #  eventReactive(input$submitDataTypes,
+  #              {input$checkboxUserData}#, ignoreInit = TRUE
+  #  )
+  
+  # observeEvent(
+  #   input$submitDataTypes,
+  #   {
+  #     catchdata <- catchdata_read()
+  #     choice <-  colnames(catchdata)
+  #     if("sex" %in% submittedCBData()){
+  #       insertUI(
+  #         selector = "#columnSelect",
+  #         where = "beforeEnd",
+  #         ui = selectInput("sexCol", "Select sex column", choices = choice, multiple = FALSE)
+  #       )
+  #     }
+  #     if("gear" %in% submittedCBData()){
+  #       insertUI(
+  #         selector = "#columnSelect",
+  #         where = "beforeEnd",
+  #         ui = selectInput("gearCol", "Select gear column", choices = choice, multiple = FALSE)
+  #       )
+  #     }
+  #     print(paste("all user categories", input$checkboxUserData, sep = " = "))
+  #     print(paste("submittedCheckBoxData", submittedCBData(), sep = "="))
+  #     print(paste0("is.vector submittedCBData? ", is.vector(submittedCBData)))
+  #     print(paste0("gear col query:", input$gearCol))
+  #   }
+  #   # how to use ignoreInit effectively?
+  # )
+  
+  
+
+
+  
+  
+  
+  # Tabulate data action button and reaction ====
+  
+  # length data category column selection ####
+  output$submitColsBtn <- renderUI({
+    actionButton("submitCols", "Tabulate data", icon = icon("table"))
   })
   
-  output$checkboxData <- renderUI({
-    catchdata <- catchdata_read()
-    choice <-  c("sex", "age", "year", "maturity", "gear")
-    expr = list(
-      checkboxGroupInput("checkboxUserData", "Select data categories", choices = choice, selected = NULL),
-      actionButton("submitDataTypes", "Submit categories", icon = icon("table"))
-    )
-  })
   
-  submittedCBData <- 
-    eventReactive(input$submitDataTypes,
-                {input$checkboxUserData}#, ignoreInit = TRUE
-    )
+  # catchDataCategorise <- eventReactive(
+  #   input$submitCols, {
+  #     catchdata <- catchdata_read()
+  #     if(!is.null(input$sexCol)){
+  #       if(!is.null(input$gearCol)) {
+  #         catchdata <- catchdata %>%
+  #           select(input$sexCol, input$gearCol, input$lengthCol)
+  #         pg <- ggplot(catchdata) +
+  #           geom_histogram(aes_(x = as.name(input$lengthCol),
+  #                               fill = as.name(input$sexCol)),
+  #                          closed = "left", boundary = 0, binwidth = 20) +
+  #           facet_grid(rows = sym(input$gearCol), scales = "free")
+  #       } else {
+  #         catchdata <- catchdata %>%
+  #           select(input$sexCol, input$lengthCol)
+  #         pg <- ggplot(catchdata) +
+  #           geom_histogram(aes_(x = as.name(input$lengthCol),
+  #                               fill = as.name(input$sexCol)),
+  #                          closed = "left", boundary = 0, binwidth = 20)
+  #       }
+  #     }  else{
+  #       if(!is.null(input$gearCol)) {
+  #         catchdata <- catchdata %>%
+  #           select(input$gearCol, input$lengthCol)
+  #         pg <- ggplot(catchdata) +
+  #           geom_histogram(aes_(x = as.name(input$lengthCol)),
+  #                          closed = "left", boundary = 0, binwidth = 20) +
+  #           facet_grid(rows = sym(input$gearCol))
+  #       } else {
+  #         catchdata <- catchdata %>%
+  #           select(input$lengthCol)
+  #         pg <- ggplot(catchdata) +
+  #           geom_histogram(aes_(x = as.name(input$lengthCol)))
+  #       }
+  #     }
+  #     list(catchdata, pg)
+  #   }#,
+  #   #ignoreInit = TRUE
+  # )
   
-  observeEvent(
-    input$submitDataTypes,
-    {
-      catchdata <- catchdata_read()
-      choice <-  colnames(catchdata)
-      if("sex" %in% submittedCBData()){
-        insertUI(
-          selector = "#columnSelect",
-          where = "beforeEnd",
-          ui = selectInput("sexCol", "Select sex column", choices = choice, multiple = FALSE)
-        )
+  
+  # catchdata element for plotting and LBSPR
+  catchdata_table <- eventReactive(
+    input$submitCols,
+    {catchdata_read()[, c(input$checkboxCatchData, paste0(input$lengthColSelect))]}
+  )
+  
+  # catchdata_plot
+  catchdata_plot <- eventReactive(
+    input$submitCols,
+    { 
+      whichSexCol <- sapply(input$checkboxCatchData, grepl, "[sex]", ignore.case = TRUE)
+      whichGearCol <- sapply(input$checkboxCatchData, grepl, "[gear]", ignore.case = TRUE)
+      whichYearCol <- sapply(input$checkboxCatchData, grepl, "[year]", ignore.case = TRUE)
+      pg <- ggplot(catchdata_table())
+      # if(any(whichSexCol) & !any(whichGearCol) & !any(whichYearCol)){ # sex
+      #   
+      # } else if(any(whichSexCol) & !any(whichGearCol) & any(whichYearCol)) {  # sex + year
+      #   
+      # } else if(!any(whichSexCol) & !any(whichGearCol) & any(whichYearCol)){ # year
+      #   
+      # } else if(any(whichSexCol) & any(whichGearCol) & !any(whichYearCol)) { # sex + gear
+      #   
+      # } else if(!any(whichSexCol) & any(whichGearCol) & !any(whichYearCol)) { # gear + year
+      #   
+      # } else if(!any(whichSexCol) & any(whichGearCol) & !any(whichYearCol)) { # gear
+      #   
+      # } else if(any(whichSexCol) & any(whichGearCol) & any(whichYearCol)) { # sex + gear + year
+      #   
+      # } else {
+      #   
+      # }
+      gearCol <- input$checkboxCatchData[whichGearCol]
+      yearCol <- input$checkboxCatchData[whichYearCol]
+      if(any(whichSexCol)){  
+        sexCol <- input$checkboxCatchData[whichSexCol]
+        if(!any(whichGearCol) & !any(whichYearCol)){
+          pg <- pg +
+            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                           closed = "left", boundary = 0, binwidth = 20)
+        } else if(any(whichGearCol) & !any(whichYearCol)) {
+          pg <- pg +
+            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                           closed = "left", boundary = 0, binwidth = 20) +
+            facet_grid(rows = ensym(gearCol), scales = "free")
+        } else if(!any(whichGearCol) & any(whichYearCol)) {
+          pg <- pg +
+            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                           closed = "left", boundary = 0, binwidth = 20) +
+            facet_grid(rows = ensym(yearCol),  scales = "free")
+        } else {
+          pg <- pg +
+            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                           closed = "left", boundary = 0, binwidth = 20) +
+            facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
+        }
+      } else {
+          if(!any(whichGearCol) & !any(whichYearCol)){
+            pg <- pg +
+              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+                             closed = "left", boundary = 0, binwidth = 20)
+          } else if(any(whichGearCol) & !any(whichYearCol)) {
+            pg <- pg +
+              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+                             closed = "left", boundary = 0, binwidth = 20) +
+              facet_grid(rows = ensym(gearCol), scales = "free")
+          } else if(!any(whichGearCol) & any(whichYearCol)) {
+            pg <- pg +
+              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+                             closed = "left", boundary = 0, binwidth = 20) +
+              facet_grid(rows = ensym(yearCol), scales = "free")
+          } else {
+            pg <- pg +
+              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+                             closed = "left", boundary = 0, binwidth = 20) +
+              facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
+          }
       }
-      if("gear" %in% submittedCBData()){
-        insertUI(
-          selector = "#columnSelect",
-          where = "beforeEnd",
-          ui = selectInput("gearCol", "Select gear column", choices = choice, multiple = FALSE)
-        )
-      }
-      print(paste("all user categories", input$checkboxUserData, sep = " = "))
-      print(paste("submittedCheckBoxData", submittedCBData(), sep = "="))
-      print(paste0("is.vector submittedCBData? ", is.vector(submittedCBData)))
-      print(paste0("gear col query:", input$gearCol))
+    pg + theme_bw()
+    })
+  
+  
+  
+  
+  # Filtering data ====  
+
+  output$checkboxFilterData <- renderUI({
+    # does filterCols need to be an object to allow filtering??
+    dfCL <- catchdata_table()
+    filterCols <- setdiff(colnames(dfCL), paste0(input$lengthColSelect))
+    checkboxList <- NULL
+    for (fcol in filterCols){
+      choiceCat <- unique(dfCL[,fcol])
+      checkboxList <- append(checkboxList, 
+                             list(checkboxGroupInput(inputId = paste0("checkbox",fcol),
+                                                label = paste("Select", fcol, "levels", sep = " "), 
+                                                choices = choiceCat, selected = choiceCat))
+      )
     }
-    # how to use ignoreInit effectively?
+    #tagList(
+    checkboxGroupInput(inputId = paste0("checkbox", fcol),
+                       label = paste("Select", fcol, "levels", sep = " "), 
+                       choices = choiceCat, selected = choiceCat)
+    # checkboxGroupInput(inputId = paste0("checkbox",fcol),
+    #                    label = paste("Select", fcol, "levels", sep = " "), 
+    #                    choices = choiceCat, selected = choiceCat)
+    #)
+    #print(str(checkboxList))
+    tagList(checkboxList)
+  })
+  
+  output$filterBtn <- renderUI({
+    actionButton(inputId = "actionFilterData", label = "Filter length records",
+                 icon = icon("table"))
+  })
+  
+  # for debugging purposes
+  observeEvent(input$actionFilterData,
+               {
+                 dfCL <- catchdata_table()
+                 filterCols <- setdiff(colnames(dfCL), paste0(input$lengthColSelect))
+                 fcol <- filterCols[length(filterCols)]
+                 print(input[[paste0("checkbox", fcol)]])
+                 print(input[[paste0("checkbox", filterCols[1])]])
+                 print(input)
+                 print(head(catchDataFilter()))
+                 #print(get(paste0("input$checkbox", fcol)))
+               })
+  
+  catchDataFilter <- eventReactive(
+    input$actionFilterData, {
+      catchData <- catchdata_table()
+      filterCols <- setdiff(colnames(catchData), paste0(input$lengthColSelect))
+      print(filterCols)
+      for (fcol in filterCols) {
+        print(input[[paste0("checkbox", fcol)]])
+        catchData <- catchData %>% 
+          filter(!!sym(fcol) %in% input[[paste0("checkbox", fcol)]])
+      }
+      catchData
+    }
   )
   
   
   
-  # action button and reaction to data column selection ====
-  output$submitColsBtn <- renderUI({
-    actionButton("submitCols", "Add categories", icon = icon("table"))
-  })
+  # Length data conversion and column selection ====
+  newLengthCol <- eventReactive(
+    input$convertLengthUnits,
+    {paste0("length_", input$newLengthUnits)}
+  )
   
-  
-  catchdataCategorise <- eventReactive(
-    input$submitCols, {
-      catchdata <- catchdata_read()
-      if(!is.null(input$sexCol)){
-        if(!is.null(input$gearCol)) {
-          catchdata <- catchdata %>%
-            select(input$sexCol, input$gearCol, input$lengthCol)
-          pg <- ggplot(catchdata) +
-            geom_histogram(aes_(x = as.name(input$lengthCol), 
-                                fill = as.name(input$sexCol)), 
-                           closed = "left", boundary = 0, binwidth = 20) +
-            facet_grid(rows = sym(input$gearCol), scales = "free") 
-        } else {
-          catchdata <- catchdata %>%
-            select(input$sexCol, input$lengthCol)
-          pg <- ggplot(catchdata) +
-            geom_histogram(aes_(x = as.name(input$lengthCol), 
-                                fill = as.name(input$sexCol)), 
-                           closed = "left", boundary = 0, binwidth = 20)
-        }
-      }  else{
-        if(!is.null(input$gearCol)) {
-          catchdata <- catchdata %>%
-            select(input$gearCol, input$lengthCol)
-          pg <- ggplot(catchdata) +
-            geom_histogram(aes_(x = as.name(input$lengthCol)), 
-                           closed = "left", boundary = 0, binwidth = 20) + 
-            facet_grid(rows = sym(input$gearCol))
-        } else {
-          catchdata <- catchdata %>%
-            select(input$lengthCol)
-          pg <- ggplot(catchdata) +
-            geom_histogram(aes_(x = as.name(input$lengthCol)))
-        }
+  lengthRecordsScale <- eventReactive(
+    input$convertLengthUnits,
+    {
+      if(input$dataLengthUnits == input$newLengthUnits){
+        lengthScale <- 1
+      } else {
+        lengthScale <- 
+          switch(paste0(input$dataLengthUnits, "_to_", input$newLengthUnits),
+                 cm_to_m = 0.01,
+                 m_to_cm = 100,
+                 mm_to_cm = 0.1,
+                 cm_to_mm = 10,
+                 m_to_mm = 1000,
+                 mm_to_m = 0.001,
+                 in_to_cm = 2.54,
+                 cm_to_in = 1/2.54,
+                 in_to_m = 0.0254,
+                 m_to_in = 1/0.0254,
+                 in_to_mm = 25.4,
+                 mm_to_in = 1/25.4)
       }
-      list(catchdata, pg)
-    }#,
-    #ignoreInit = TRUE
+    }
+  )
+  
+  lengthRecordsConvert <- reactive(
+    #   eventReactive(input$convertLengthUnits,
+    { 
+      lengthScale <- lengthRecordsScale()
+      #length_records <- catchdata_table() %>% select(input$lengthColSelect) %>% 
+      #  mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
+      length_records <- catchdata_table()[input$catchDataTable_rows_all,] %>% select(input$lengthColSelect) %>% 
+        mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
+    }
   )
   
   
   # choose length-based assessment ====
+  # currently not functional
   observeEvent(
     input$submitCols,
     {
@@ -133,23 +348,39 @@ server <- function(input, output, session){
 
   
   # ui elements table and plot objects ----
+
+  # numeric inputs for LBSPR
+  # default to sliderInput values
+  output$numLinf <- renderUI({
+    numericInput("Linf", label = NULL, #"Linf", 
+                 value = input$sliderLinf)
+  })
   
-  # configure data ====
+  output$numKlvb <- renderUI({
+    numericInput("kLvb", label = NULL, #"K growth", 
+                 value = input$sliderK)
+  })
+  
+    
+  # tabulate data ====
   # present "raw" data in tabular form, once we submit dataTypes
+  # https://rstudio.github.io/DT/shiny.html
+  # "The first argument of DT::renderDT() can be either a data object 
+  # or a table widget returned by datatable(). The latter form can be 
+  # useful when you want to manipulate the widget before rendering it in 
+  # Shiny, e.g. you may apply a formatting function to a table widget"
   output$catchDataTable <- 
-    renderDataTable({
-      expr = datatable(catchdataCategorise()[[1]], 
-                       options = list(autowidth = TRUE, pageLength = 10, scrollX = TRUE, scrollY = FALSE), # position of options? 
-                       fillContainer = TRUE)})
-  
+    renderDataTable(
+      expr = datatable(catchdata_table(), 
+                       options = list(autowidth = TRUE, pageLength = 10, scrollX = TRUE, scrollY = FALSE,
+                                      orderClasses = TRUE), # position of options? 
+                       filter = "top", 
+                       fillContainer = TRUE)
+      )
   
   # visualise data ====
   output$lengthComposition <- renderPlotly({
-    print(paste0("str(input$lengthCol) = ", str(input$lengthCol)))
-    print(.data[[input$lengthCol]])
-    expr = ggplotly(p = catchdataCategorise()[[2]] + 
-                      theme_bw(),
-                    height = 800, width = 400)
+    expr = ggplotly(p = catchdata_plot())#, height = 800, width = 400)
   })
   
   
@@ -199,4 +430,121 @@ server <- function(input, output, session){
                 aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5)
   })
   
+  
+  
+  # reactive list for biological inputs
+  reactiveStockPars <- eventReactive(input$btnStockPars,
+                {expr = list(Linf = input$Linf,
+                             K = input$kLvb,
+                             M = input$M,
+                             Walpha = input$Walpha, 
+                             Wbeta = input$Wbeta, 
+                             FecB = input$FecB, 
+                             Steepness = input$Steepness,
+                             Mpow = input$Mpow,
+                             CVLinf = input$CVLinf,
+                             NGTG = input$NGTG, 
+                             MaxSD = input$MaxSD,
+                             sL50 = 45.31)
+                })
+  
+  
+  
+  # eventReactive??
+  slideLenBins <- reactive(
+    {# eventually have a reactive StockPars object
+      #                    StockPars <- list(MaxSD = input$MaxSD,
+      #                                      CVLinf = input$CVLinf,
+      #                                      Linc = input$Linc,
+      #                                      Linf = input$sliderLinf)
+      StockPars <- reactiveStockPars()
+      
+      SizeBins <- list(Linc = input$Linc, ToSize = NULL)
+      SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
+      
+      LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
+    }
+  )
+  
+  # change with slider input
+  output$plotResponsiveLengthComposition <- 
+    renderPlotly({
+      expr = ggplotly(
+        ggplot(lengthRecordsConvert()) + 
+          geom_histogram(mapping = aes_string(x = newLengthCol()), 
+                         breaks = slideLenBins(), 
+                         closed = "left", colour = "black", fill = "grey75") + 
+          theme_bw())
+      })
+  
+
+    
+  # Fit LBSPR ####
+  observeEvent(input$fitLBSPR,
+               {
+                 # as.name
+                 length_records <- lengthRecordsConvert()
+                 length_col <- newLengthCol()
+                 print(head(length_records[, length_col]))
+                 
+                 StockPars <- reactiveStockPars()
+                 StockPars$MK <- StockPars$M/StockPars$K
+                 
+  
+                 SizeBins <- list(Linc = input$Linc, ToSize = NULL)
+                 SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
+                 
+                 
+                 LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
+                 LenMids <- seq(from=0.5*SizeBins$Linc, 
+                                by=SizeBins$Linc, length.out=(length(LenBins)-1))
+                 
+                 histogram_length <- 
+                   hist(length_records[, length_col], plot = FALSE,  breaks = LenBins, right = FALSE)
+                 
+                 # apply knife-edge selection to length composition data
+                 LenDat <- histogram_length$counts
+                 
+                 # GTG-LBSPR optimisation
+                 optGTG <- DoOpt(StockPars, LenDat, SizeBins, "GTG")
+                 # optGTG$Ests
+                 # optGTG$PredLen
+                 
+                 optFleetPars <- list(SL50 = optGTG$Ests["SL50"], 
+                                      SL95 = optGTG$Ests["SL95"],
+                                      FM = optGTG$Ests["FM"])
+                 # per recruit theory
+                 prGTG <- GTGLBSPRSim(StockPars, optFleetPars, SizeBins)
+                 
+                 # numbers at length LBSPR
+                 NatL_LBSPR <- data.frame(length_mid = prGTG$LenMids,
+                                          catch_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
+                                          pop_unfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished))
+
+
+                 
+                 # output text on LBSPR fit 
+                 output$textFitLBSPR <- renderPrint({
+                   expr = prGTG
+                 })
+                                 
+                 # create ggplot with data...
+                 pg <- ggplot(length_records) + 
+                   geom_histogram(mapping = aes_string(x = length_col), breaks = LenBins, 
+                                  closed = "left", colour = "black", fill = "grey75")
+                 
+                 # ...and fit
+                 pg <- pg + 
+                   geom_area(data = NatL_LBSPR,
+                             mapping = aes(x = length_mid, y = max(LenDat)*catch_at_length), 
+                             fill = "salmon", alpha = 0.5)
+
+                 output$visFitLBSPR <- renderPlotly({
+                   expr = ggplotly(p = pg +  
+                                     scale_x_continuous(name = length_col) +
+                                     theme_bw(),
+                                   height = 400, width = 600)
+                 })
+               }
+               )
 }

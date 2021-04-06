@@ -27,6 +27,7 @@ if(!require(DT)){
 #library(htmltools)
 
 setwd("C:/Users/cfitzgerald/workspace/length_based_assessment/")
+source("C:/Users/cfitzgerald/Documents/R/GTG_LBSPR/GTG_LBSPR_CF.R")
 source("./ui.R")
 source("./server.R")
 
