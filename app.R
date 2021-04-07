@@ -6,6 +6,10 @@ if(!require(openxlsx)){
   install.packages("openxlsx", dependencies = TRUE)
   require(openxlsx)
 }
+if(!require(ggplot2)){
+  install.packages("ggplot2", dependencies = TRUE)
+  require(ggplot2)
+}
 if(!require(plotly)){
   install.packages("plotly", dependencies = TRUE)
   require(plotly)

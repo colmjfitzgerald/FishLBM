@@ -74,25 +74,39 @@ body <-   mainPanel(
   tabsetPanel(
     id = "tabDataPlotAnalysis",
     type = "tabs",
-    tabPanel("Tabulate", 
-             dataTableOutput(outputId = "catchDataTable", height = "auto"),
-             icon = icon("table")),
-    tabPanel("Visualise", 
-             plotlyOutput(outputId = "lengthComposition",
-                          width = "100%",
-                          height = "400px"),
+    tabPanel("Data Overview", 
+             fluidPage(
+               column(width = 4,
+                      h5("Raw data"),
+                      verbatimTextOutput(outputId = "headRawCatchData")
+               ),
+               column(width = 8,
+                      h5("Length composition by attribute"),
+                      plotlyOutput(outputId = "lengthComposition",
+                                   width = "100%",
+                                   height = "800px")
+               )
+             ),
              icon = icon("chart-bar")
     ),
     tabPanel("Configure", 
-             fluidRow(
-               h4("Convert length units"),
-               selectInput(inputId = "dataLengthUnits", label = "Current length units", 
-                           choices = c("mm", "cm", "m", "in"), selected = "cm"),
-               selectInput(inputId = "newLengthUnits", label = "New length units", 
-                           choices = c("mm", "cm", "m", "in"), selected = "cm"),
-               actionButton(inputId = "convertLengthUnits", label = "Convert units"),
-               #textInput(inputId = "inputLengthColName", label = "Length column name")
+             fluidPage(
+               column(width = 8,
+                      DTOutput(outputId = "catchDataTable", height = "auto")
+               ),
+               column(width = 4,
+                      h4("Convert length units"),
+                      selectInput(inputId = "dataLengthUnits", label = "Current length units", 
+                                  choices = c("mm", "cm", "m", "in"), selected = "cm"),
+                      selectInput(inputId = "newLengthUnits", label = "New length units", 
+                                  choices = c("mm", "cm", "m", "in"), selected = "cm"),
+                      actionButton(inputId = "convertLengthUnits", label = "Convert units"),
+                      #textInput(inputId = "inputLengthColName", label = "Length column name")
+               ),
              ),
+             icon = icon("table")
+    ),
+    tabPanel("Filter (deprecated)", 
              fluidRow(
                h4("Filter length records"),
                uiOutput(outputId = "checkboxFilterData"),
@@ -106,39 +120,82 @@ body <-   mainPanel(
              navbarPage(title = "GTG LB-SPR",
                         id = "parLBSPR",
                         tabPanel("Stock biological parameters",
-                                 fluidRow(
-                                   column(width = 6, 
-                                          h3("Parameter specification"),
-                                          uiOutput(outputId = "growthParRBtn")
-                                          #  actionButton(inputId = "fitGrowth", label = "Fit LVB growth curve")
+                                 # fluidRow(
+                                 #   column(width = 6, 
+                                 #          h3("Parameter specification"),
+                                 #          uiOutput(outputId = "growthParRBtn")
+                                 #          #  actionButton(inputId = "fitGrowth", label = "Fit LVB growth curve")
+                                 #   )
+                                 # ),
+                                 fluidPage(
+                                   fluidRow(
+                                     column(width = 5, 
+                                            h3("von Bertalanffy parameters"),
+                                            sliderInput(inputId = "sliderLinf", 
+                                                        label = "LVB Linf",
+                                                        min = 0, max = 150, value = 40,
+                                                        step = 1, ticks = TRUE),
+                                            sliderInput(inputId = "sliderK", 
+                                                        label = "LVB k",
+                                                        min = 0.05, max = 1, value = 0.25,
+                                                        step = 0.01, ticks = TRUE, round = FALSE),
+                                            sliderInput(inputId = "slidert0", 
+                                                        label = "LVB t0",
+                                                        min = -1.5, max = 1.5, value = 0.0,
+                                                        step = 0.05, ticks = TRUE, round = FALSE),
+                                            sliderInput(inputId = "sliderAgeMax", 
+                                                        label = "Max age",
+                                                        min = 6, max = 16, value = 11,
+                                                        step = 1, ticks = TRUE, round = FALSE),
+                                            h3("Growth curve"),
+                                            plotlyOutput(outputId = "lvbGrowthCurve")
+                                            # actionButton
+                                     ),
+                                     column(width = 7,
+                                            tags$table(
+                                              tags$thead("Biological parameters"),
+                                              tags$tr(tags$th("Parameter"), tags$th("Value")),
+                                              tags$tr(tags$td("M"), 
+                                                      tags$td(numericInput(inputId = "M", label = NULL, value = 0.3))),
+                                              tags$tr(tags$td("K (LVB)"), 
+                                                      tags$td(uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
+                                              tags$tr(tags$td("Linf"), 
+                                                      tags$td(uiOutput(outputId = "numLinf"))), #numericInput(inputId = "Linf", label = "Linf", value = input$sliderLinf),
+                                              tags$tr(tags$td("CV for Linf"), 
+                                                      tags$td(numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
+                                                                           min = 0.001, max = 1, step = 0.001))),
+                                              tags$tr(tags$td("Lm50"), 
+                                                      tags$td(numericInput(inputId = "L50", label = NULL, value = 45.31, 
+                                                                           min = 5, max = 100, step = 0.5))), 
+                                              tags$tr(tags$td("Lm95"), 
+                                                      tags$td(numericInput(inputId = "L95", label = NULL, value = 45.31 + 15,
+                                                                           min = 5, max = 120, step = 0.5))),
+                                              tags$tr(tags$td("Walpha"), 
+                                                      tags$td(numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
+                                              tags$tr(tags$td("Wbeta"), 
+                                                      tags$td(numericInput(inputId = "Wbeta", label = NULL, value = 3))),
+                                              tags$tr(tags$td("FecB"), 
+                                                      tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))
+                                              ),
+                                              tags$tr(tags$td("Steepness"),
+                                                      tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))
+                                              ),
+                                              tags$tr(tags$td("Mpow"),
+                                                      tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.8))
+                                              ),
+                                              tags$tr(tags$td("NGTG"),
+                                                      tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))
+                                              ),
+                                              tags$tr(tags$td("GTG Max SD about Linf"),
+                                                      tags$td(numericInput(inputId = "MaxSD", label = NULL, 
+                                                                           value = 2, min = 0, max = 4))),
+                                              tags$tfoot()
+                                            ),
+                                            # enter pars button
+                                            actionButton(inputId = "btnStockPars",
+                                                         label = "Enter Stock Pars")
+                                     ),
                                    )
-                                 ),
-                                 fluidRow(
-                                   column(width = 6, 
-                                          h3("von Bertalanffy parameters"),
-                                          sliderInput(inputId = "sliderLinf", 
-                                                      label = "LVB Linf",
-                                                      min = 0, max = 150, value = 40,
-                                                      step = 1, ticks = TRUE),
-                                          sliderInput(inputId = "sliderK", 
-                                                      label = "LVB k",
-                                                      min = 0.05, max = 1, value = 0.25,
-                                                      step = 0.01, ticks = TRUE, round = FALSE),
-                                          sliderInput(inputId = "slidert0", 
-                                                      label = "LVB t0",
-                                                      min = -1.5, max = 1.5, value = 0.0,
-                                                      step = 0.05, ticks = TRUE, round = FALSE),
-                                          sliderInput(inputId = "sliderAgeMax", 
-                                                      label = "Max age",
-                                                      min = 6, max = 16, value = 11,
-                                                      step = 1, ticks = TRUE, round = FALSE),
-                                          # actionButton
-                                   ),
-                                   column(width = 6,
-                                          h3("Growth curve"),
-                                          plotlyOutput(outputId = "lvbGrowthCurve"))
-                                 ),
-                                 fluidRow(
                                    # tags$head(
                                    #   tags$style(
                                    #     'thead {
@@ -180,46 +237,6 @@ body <-   mainPanel(
                                    #        }  '
                                    #   )
                                    # ),
-                                   column(width = 12,
-                                          tags$table(
-                                            tags$thead("Biological parameters"),
-                                            tags$tr(tags$th("Parameter"), tags$th("Value")),
-                                            tags$tr(tags$td("M"), 
-                                                    tags$td(numericInput(inputId = "M", label = NULL, value = 0.3))),
-                                            tags$tr(tags$td("K (LVB)"), 
-                                                    tags$td(uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
-                                            tags$tr(tags$td("Linf"), 
-                                                    tags$td(uiOutput(outputId = "numLinf"))), #numericInput(inputId = "Linf", label = "Linf", value = input$sliderLinf),
-                                            tags$tr(tags$td("CV for Linf"), 
-                                                    tags$td(numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
-                                                                         min = 0.001, max = 1, step = 0.001))),
-                                            tags$tr(tags$td("Walpha"), 
-                                                    tags$td(numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
-                                            tags$tr(tags$td("Wbeta"), 
-                                                    tags$td(numericInput(inputId = "Wbeta", label = NULL, value = 3))),
-                                            tags$tr(tags$td("FecB"), 
-                                                    tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))
-                                            ),
-                                            tags$tr(tags$td("Steepness"),
-                                                    tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))
-                                            ),
-                                            tags$tr(tags$td("Mpow"),
-                                                    tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.8))
-                                            ),
-                                            tags$tr(tags$td("NGTG"),
-                                                    tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))
-                                            ),
-                                            tags$tr(tags$td("GTG Max SD about Linf"),
-                                                    tags$td(numericInput(inputId = "MaxSD", label = NULL, 
-                                                                         value = 2, min = 0, max = 4))),
-                                            tags$tfoot()
-                                          )
-                                   )
-                                 ),
-                                 fluidRow(
-                                   actionButton(inputId = "btnStockPars",
-                                                label = "Enter Stock Pars"
-                                   )
                                  )
                         ),
                         tabPanel("Length composition",
@@ -237,18 +254,31 @@ body <-   mainPanel(
                                                 height = "400px")
                                  )
                         ),
-                        tabPanel("Fishery"),
+                        tabPanel("Fishery",
+                                 fluidRow("Under construction")),
                         tabPanel("Model fit",
                                  actionButton("fitLBSPR", "Apply GTG-LBSPR", icon = icon("chart-line")),
-                                 verbatimTextOutput(outputId = "textLBSPRFit"),
-                                 plotlyOutput(outputId = "visFitLBSPR",
-                                              width = "100%",
-                                              height = "400px"),
+                                 fluidPage(
+                                   column(width = 4,
+                                          verbatimTextOutput(outputId = "textLBSPREstFit"),
+                                          verbatimTextOutput(outputId = "textLBSPROpOut")
+                                          #DTOutput(outputId = "gtgLBSPREstModel"),
+                                          #DTOutput(outputId = "gtgLBSPROpModel"),
+                                   ),
+                                   column(width = 8,
+                                          plotlyOutput(outputId = "visFitLBSPR",
+                                                       width = "100%",
+                                                       height = "400px")
+                                   )
+                                 ),
                                  icon = icon("chart-line")
                         ),
                         tabPanel("Diagnostics",
-                                 verbatimTextOutput(outputId = "textFitLBSPR")
-                                 )),
+                                 verbatimTextOutput(outputId = "textFitLBSPR"),
+                                 plotlyOutput(outputId = "plotOpLBSPR",
+                                              width = "100%",
+                                              height = "400px")
+                        )),
              icon = icon("list-ui")
     ),
     tabPanel("LBB"), 

@@ -99,7 +99,7 @@ server <- function(input, output, session){
   
   # length data category column selection ####
   output$submitColsBtn <- renderUI({
-    actionButton("submitCols", "Tabulate data", icon = icon("table"))
+    actionButton("submitCols", "Input select data", icon = icon("table"))
   })
   
   
@@ -182,48 +182,52 @@ server <- function(input, output, session){
         if(!any(whichGearCol) & !any(whichYearCol)){
           pg <- pg +
             geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
-                           closed = "left", boundary = 0, binwidth = 20)
+                           closed = "left", boundary = 0, bins = 40)
         } else if(any(whichGearCol) & !any(whichYearCol)) {
           pg <- pg +
             geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
-                           closed = "left", boundary = 0, binwidth = 20) +
+                           closed = "left", boundary = 0, bins = 40) +
             facet_grid(rows = ensym(gearCol), scales = "free")
         } else if(!any(whichGearCol) & any(whichYearCol)) {
           pg <- pg +
             geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
-                           closed = "left", boundary = 0, binwidth = 20) +
+                           closed = "left", boundary = 0, bins = 40) +
             facet_grid(rows = ensym(yearCol),  scales = "free")
         } else {
           pg <- pg +
             geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
-                           closed = "left", boundary = 0, binwidth = 20) +
+                           closed = "left", boundary = 0, bins = 40) +
             facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
         }
       } else {
           if(!any(whichGearCol) & !any(whichYearCol)){
             pg <- pg +
               geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
-                             closed = "left", boundary = 0, binwidth = 20)
+                             closed = "left", boundary = 0, bins = 40)
           } else if(any(whichGearCol) & !any(whichYearCol)) {
             pg <- pg +
               geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
-                             closed = "left", boundary = 0, binwidth = 20) +
+                             closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(gearCol), scales = "free")
           } else if(!any(whichGearCol) & any(whichYearCol)) {
             pg <- pg +
               geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
-                             closed = "left", boundary = 0, binwidth = 20) +
+                             closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(yearCol), scales = "free")
           } else {
             pg <- pg +
               geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
-                             closed = "left", boundary = 0, binwidth = 20) +
+                             closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
           }
       }
     pg + theme_bw()
     })
   
+  # print head of raw catch data
+  output$headRawCatchData <- renderPrint({
+    expr = print(head(catchdata_read(), n = 20))
+  })
   
   
   
@@ -427,7 +431,8 @@ server <- function(input, output, session){
     growthcurve$length_cm <- input$sliderLinf*(1- exp(-input$sliderK*(growthcurve$age-input$slidert0)))
     p <- ggplot() + 
       geom_line(data = growthcurve,
-                aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5)
+                aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5) +
+      theme_bw()
   })
   
   
@@ -445,26 +450,54 @@ server <- function(input, output, session){
                              CVLinf = input$CVLinf,
                              NGTG = input$NGTG, 
                              MaxSD = input$MaxSD,
-                             sL50 = 45.31)
+                             L50 = input$L50, # length at first maturity
+                             L95 = input$L95)
                 })
   
   
   
   # eventReactive??
-  slideLenBins <- reactive(
-    {# eventually have a reactive StockPars object
-      #                    StockPars <- list(MaxSD = input$MaxSD,
-      #                                      CVLinf = input$CVLinf,
-      #                                      Linc = input$Linc,
-      #                                      Linf = input$sliderLinf)
-      StockPars <- reactiveStockPars()
-      
-      SizeBins <- list(Linc = input$Linc, ToSize = NULL)
-      SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
-      
-      LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
-    }
+  # slideLenBins <- reactive(
+  #   {# eventually have a reactive StockPars object
+  #     #                    StockPars <- list(MaxSD = input$MaxSD,
+  #     #                                      CVLinf = input$CVLinf,
+  #     #                                      Linc = input$Linc,
+  #     #                                      Linf = input$sliderLinf)
+  #     StockPars <- reactiveStockPars()
+  #     
+  #     SizeBins <- list(Linc = input$Linc, ToSize = NULL)
+  #     SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
+  #     
+  #     LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
+  #   }
+  # )
+  
+  # binned length data
+  binLengthData <- reactive({
+    StockPars <- reactiveStockPars() # eventReactive(input$btnStockPars
+    SizeBins <- list(Linc = input$Linc, ToSize = NULL) # input$Linc
+    SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
+    LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
+    LenMids <- seq(from=0.5*SizeBins$Linc, 
+                   by=SizeBins$Linc, length.out=(length(LenBins)-1))
+    
+    # input reactive expressions
+    length_records <- lengthRecordsConvert()
+    length_col <- newLengthCol()
+    
+    histogram_length <- hist(length_records[, length_col], plot = FALSE,  
+                             breaks = LenBins, right = FALSE)
+    # bins and binned counts
+    list(SizeBins = SizeBins,
+         LenBins = LenBins,
+         LenMids = LenMids,
+         LenDat = histogram_length$counts)
+  }
   )
+  
+  observeEvent(input$btnStockPars,
+               {print(binLengthData())})
+  
   
   # change with slider input
   output$plotResponsiveLengthComposition <- 
@@ -472,7 +505,7 @@ server <- function(input, output, session){
       expr = ggplotly(
         ggplot(lengthRecordsConvert()) + 
           geom_histogram(mapping = aes_string(x = newLengthCol()), 
-                         breaks = slideLenBins(), 
+                         breaks = binLengthData()$LenBins, # slideLenBins(), 
                          closed = "left", colour = "black", fill = "grey75") + 
           theme_bw())
       })
@@ -480,71 +513,141 @@ server <- function(input, output, session){
 
     
   # Fit LBSPR ####
-  observeEvent(input$fitLBSPR,
-               {
-                 # as.name
-                 length_records <- lengthRecordsConvert()
-                 length_col <- newLengthCol()
-                 print(head(length_records[, length_col]))
-                 
-                 StockPars <- reactiveStockPars()
-                 StockPars$MK <- StockPars$M/StockPars$K
-                 
+  fitGTGLBSPR <- eventReactive(
+    input$fitLBSPR,
+    {
+      # as.name
+      length_records <- lengthRecordsConvert()
+      length_col <- newLengthCol()
+#      print(head(length_records[, length_col]))
+      
+      StockPars <- reactiveStockPars()
+      StockPars$MK <- StockPars$M/StockPars$K
+      
+      
+      #SizeBins <- list(Linc = input$Linc, ToSize = NULL)
+      #SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
+      # 
+      # 
+      # LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
+      # LenMids <- seq(from=0.5*SizeBins$Linc, 
+      #                by=SizeBins$Linc, length.out=(length(LenBins)-1))
+      # 
+      # 
+      # histogram_length <- 
+      #   hist(length_records[, length_col], plot = FALSE,  breaks = LenBins, right = FALSE)
+      # # apply knife-edge selection to length composition data
+      # LenDat <- histogram_length$counts
+      SizeBins <- binLengthData()$SizeBins
+      LenBins <- binLengthData()$LenBins
+      LenMids <- binLengthData()$LenMids
+      LenDat <- binLengthData()$LenDat
+      
+      
+      
+      # GTG-LBSPR optimisation
+      optGTG <- DoOpt(StockPars, LenDat, SizeBins, "GTG")
+      # optGTG$Ests
+      # optGTG$PredLen
+      
+      optFleetPars <- list(SL50 = optGTG$Ests["SL50"], 
+                           SL95 = optGTG$Ests["SL95"],
+                           FM = optGTG$Ests["FM"])
+      # per recruit theory
+      prGTG <- GTGLBSPRSim(StockPars, optFleetPars, SizeBins)
+      
+      # configure outputs
+      VulLen2 <- 1.0/(1+exp(-log(19)*(LenMids-optFleetPars$SL50)/(optFleetPars$SL95-optFleetPars$SL50))) # Selectivity-at-Length
+      
+      # numbers-at-length (midpoints) LBSPR
+      NatL_LBSPR <- data.frame(length_mid = prGTG$LenMids,
+                               catch_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
+                               selectivityF_at_length = VulLen2,
+                               popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
+                               popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished)) #standardised??
+      
+      estModelFit <- data.frame(Parameter = c("FM", "SL50", "SL95"),
+                                Description = c("F/M: fishing-natural mortality ratio",
+                                                "Length at 50% selectivity",
+                                                "Length at 95% selectivity"),
+                                Estimate = c(unname(optFleetPars$FM), 
+                                             unname(optFleetPars$SL50), 
+                                             unname(optFleetPars$SL95)))
+      opModelOut <- data.frame(Parameter = c("SPR", "YPR"),
+                               Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
+                               Estimate = c(prGTG$SPR, prGTG$YPR))
+      
+      list(NatL_LBSPR = NatL_LBSPR,
+           estModelFit = estModelFit,
+           opModelOut = opModelOut)
+    }
+  )
   
-                 SizeBins <- list(Linc = input$Linc, ToSize = NULL)
-                 SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
-                 
-                 
-                 LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
-                 LenMids <- seq(from=0.5*SizeBins$Linc, 
-                                by=SizeBins$Linc, length.out=(length(LenBins)-1))
-                 
-                 histogram_length <- 
-                   hist(length_records[, length_col], plot = FALSE,  breaks = LenBins, right = FALSE)
-                 
-                 # apply knife-edge selection to length composition data
-                 LenDat <- histogram_length$counts
-                 
-                 # GTG-LBSPR optimisation
-                 optGTG <- DoOpt(StockPars, LenDat, SizeBins, "GTG")
-                 # optGTG$Ests
-                 # optGTG$PredLen
-                 
-                 optFleetPars <- list(SL50 = optGTG$Ests["SL50"], 
-                                      SL95 = optGTG$Ests["SL95"],
-                                      FM = optGTG$Ests["FM"])
-                 # per recruit theory
-                 prGTG <- GTGLBSPRSim(StockPars, optFleetPars, SizeBins)
-                 
-                 # numbers at length LBSPR
-                 NatL_LBSPR <- data.frame(length_mid = prGTG$LenMids,
-                                          catch_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
-                                          pop_unfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished))
-
-
-                 
-                 # output text on LBSPR fit 
-                 output$textFitLBSPR <- renderPrint({
-                   expr = prGTG
-                 })
-                                 
-                 # create ggplot with data...
-                 pg <- ggplot(length_records) + 
-                   geom_histogram(mapping = aes_string(x = length_col), breaks = LenBins, 
-                                  closed = "left", colour = "black", fill = "grey75")
-                 
-                 # ...and fit
-                 pg <- pg + 
-                   geom_area(data = NatL_LBSPR,
-                             mapping = aes(x = length_mid, y = max(LenDat)*catch_at_length), 
-                             fill = "salmon", alpha = 0.5)
-
-                 output$visFitLBSPR <- renderPlotly({
-                   expr = ggplotly(p = pg +  
-                                     scale_x_continuous(name = length_col) +
-                                     theme_bw(),
-                                   height = 400, width = 600)
-                 })
-               }
-               )
+  # print text on LBSPR estimating model fit 
+  output$textLBSPREstFit <- renderPrint({
+    expr = print(fitGTGLBSPR()$estModelFit)
+  })
+  
+  # print text on LBSPR operating model output
+  output$textLBSPROpOut <- renderPrint({
+    expr = print(fitGTGLBSPR()$opModelOut)
+  })
+  
+  output$visFitLBSPR <- renderPlotly({
+    # length data
+    length_records <- lengthRecordsConvert()
+    length_col <- newLengthCol()
+    
+    LenBins <- binLengthData()$LenBins
+    LenDat <- binLengthData()$LenDat
+    
+    NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+    
+    # pivot_longer
+    NatL_long <- NatL_LBSPR %>%
+      pivot_longer(cols = ends_with("at_length"),
+                   names_to = "quantity",
+                   names_pattern = "(.*)_at_length",
+                   values_to = "numbers-per-recruit")
+    
+    # create ggplot with data...
+    pg <- ggplot(length_records) + 
+      geom_histogram(mapping = aes_string(x = length_col), breaks = LenBins, 
+                     closed = "left", colour = "black", fill = "grey75")
+    
+    # ...and fit
+    pg <- pg + 
+      geom_area(data = NatL_LBSPR,
+                mapping = aes(x = length_mid, y = max(LenDat)*catch_at_length), 
+                fill = "salmon", alpha = 0.5)
+    
+    
+    
+    expr = ggplotly(p = pg +  
+                      scale_x_continuous(name = length_col) +
+                      theme_bw(),
+                    height = 400, width = 600)
+  })
+  
+  
+  output$plotOpLBSPR <- renderPlotly({
+    # operating model output based on estimating model fit
+    NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+    
+    # pivot_longer
+    NatL_long <- NatL_LBSPR %>%
+      pivot_longer(cols = ends_with("at_length"),
+                   names_to = "quantity",
+                   names_pattern = "(.*)_at_length",
+                   values_to = "numbers_per_recruit")
+    
+    # ...and fit
+    pg <- ggplot(NatL_long) +
+      geom_area(mapping = aes(x = length_mid, y = numbers_per_recruit ), 
+                fill = "salmon", alpha = 0.5) + 
+      facet_grid(rows = vars(quantity))
+    
+    expr = ggplotly(p = pg + theme_bw(),
+                    height = 400, width = 600)
+  })
 }
