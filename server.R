@@ -432,6 +432,14 @@ server <- function(input, output, session){
     p <- ggplot() + 
       geom_line(data = growthcurve,
                 aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5) +
+      geom_segment(data = data.frame(length_0 = 0, length_inf = input$sliderLinf, 
+                              age_0 = 0, age_max = input$sliderAgeMax),
+                   aes(x = age_0, y = length_inf, xend = age_max, yend = length_inf),
+                   colour = "red", linetype = 2) + 
+      geom_text(data = data.frame(length_0 = 0, length_inf = input$sliderLinf, 
+                                  age_0 = 0, age_max = input$sliderAgeMax),
+                aes(x = age_0, y = length_inf), label = "Linf", colour = "red",
+                nudge_x = 1, nudge_y = -5) + 
       theme_bw()
   })
   
@@ -453,6 +461,20 @@ server <- function(input, output, session){
                              L50 = input$L50, # length at first maturity
                              L95 = input$L95)
                 })
+  
+  
+  
+  # selectivity curve
+  observeEvent(input$btnSelectivity,
+               {
+                 if(input$specifySelectivity == "Specify"){
+#                   insertUI
+                   output$selectivityNote <- renderText("User specifies selectivity parameters")
+                 } else{
+                   output$selectivityNote <- renderText("Estimate selectivity parameters in model fitting process")
+                 }
+               })
+  
   
   
   
@@ -561,7 +583,8 @@ server <- function(input, output, session){
       
       # numbers-at-length (midpoints) LBSPR
       NatL_LBSPR <- data.frame(length_mid = prGTG$LenMids,
-                               catch_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
+                               catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
+                               catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
                                selectivityF_at_length = VulLen2,
                                popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
                                popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished)) #standardised??
@@ -600,6 +623,7 @@ server <- function(input, output, session){
     
     LenBins <- binLengthData()$LenBins
     LenDat <- binLengthData()$LenDat
+    maxLenDat <- max(LenDat)
     
     NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
     
@@ -618,8 +642,15 @@ server <- function(input, output, session){
     # ...and fit
     pg <- pg + 
       geom_area(data = NatL_LBSPR,
-                mapping = aes(x = length_mid, y = max(LenDat)*catch_at_length), 
-                fill = "salmon", alpha = 0.5)
+                mapping = aes(x = length_mid, y = max(LenDat)*catchFished_at_length), 
+                fill = "salmon", alpha = 0.5) +
+      geom_line(data = NatL_LBSPR,
+                mapping = aes(x = length_mid, y = max(LenDat)*selectivityF_at_length), 
+                colour = "red", lwd = 1) #+ 
+      #scale_y_continuous(sec.axis = sec_axis(~  . /maxLenDat, name = "selectivity",
+                                             #breaks = c(0, 1),
+                                             #labels = c("0", "1")
+      #                                       ) )
     
     
     
@@ -630,24 +661,72 @@ server <- function(input, output, session){
   })
   
   
-  output$plotOpLBSPR <- renderPlotly({
-    # operating model output based on estimating model fit
+  # output$plotOpLBSPR <- renderPlotly({
+  #   # operating model output based on estimating model fit
+  #   NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+  #   
+  #   # pivot_longer
+  #   NatL_long <- NatL_LBSPR %>%
+  #     pivot_longer(cols = ends_with("at_length"),
+  #                  names_to = "quantity",
+  #                  names_pattern = "(.*)_at_length",
+  #                  values_to = "numbers_per_recruit")
+  #   
+  #   # ...and fit
+  #   pg <- ggplot(NatL_long) +
+  #     geom_area(mapping = aes(x = length_mid, y = numbers_per_recruit ), 
+  #               fill = "salmon", alpha = 0.5) + 
+  #     facet_grid(rows = vars(quantity))
+  #   
+  #   expr = ggplotly(p = pg + theme_bw(),
+  #                   height = 400, width = 600)
+  # })
+  output$plotPopLBSPR <- renderPlot({
     NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+    LPopUnfished <- NatL_LBSPR$popUnfished_at_length
+    LPopFished <- NatL_LBSPR$popFished_at_length
+    LenMids <- NatL_LBSPR$length_mid
+    print(max(LenMids))
     
-    # pivot_longer
-    NatL_long <- NatL_LBSPR %>%
-      pivot_longer(cols = ends_with("at_length"),
-                   names_to = "quantity",
-                   names_pattern = "(.*)_at_length",
-                   values_to = "numbers_per_recruit")
+    estModelFit <- fitGTGLBSPR()$estModelFit  
+    SL50 <- estModelFit$Estimate[estModelFit$Parameter == "SL50"]
+    SL95 <- estModelFit$Estimate[estModelFit$Parameter == "SL95"]
+    SLmin <- SL50 - (SL95-SL50)
     
-    # ...and fit
-    pg <- ggplot(NatL_long) +
-      geom_area(mapping = aes(x = length_mid, y = numbers_per_recruit ), 
-                fill = "salmon", alpha = 0.5) + 
-      facet_grid(rows = vars(quantity))
+    par(mfrow = c(2,1), mgp = c(2,1,0), mar = c(4,3,3,1), cex = 1.15)
+    plot(LenMids, LPopFished, col = "grey25", pch = 1, lwd = 1.5,
+         xlab = newLengthCol(), ylab = "numbers per recruit",
+         main = "entire length range", font.main = 1)
+    points(LenMids, LPopUnfished, col = "grey75", pch = 16)
+    legend("topright", c("fished", "unfished"), 
+           col = c("grey25", "grey75"), 
+           pch = c(1, 16))
     
-    expr = ggplotly(p = pg + theme_bw(),
-                    height = 400, width = 600)
+    plot(LenMids, LPopFished, col = "grey25", pch = 1, lwd = 1.5,
+         xlab = newLengthCol(), ylab = "numbers per recruit",
+         xlim = c(SL50-(SL95-SL50), max(LenMids)),
+         ylim = c(0, 1.25*LPopUnfished[which(LenMids-SLmin == min(abs((LenMids-SLmin)))) ]),
+         main = "vulnerable length range", font.main = 1)
+    points(LenMids, LPopUnfished, col = "grey75", pch = 16)
+    legend("topright", c("fished", "unfished"), 
+           col = c("grey25", "grey75"), 
+           pch = c(1, 16))
+    
+  })
+  
+  output$plotCatchLBSPR <- renderPlot({
+    NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+    LCatchUnfished <- NatL_LBSPR$catchUnfished_at_length
+    LCatchFished <- NatL_LBSPR$catchFished_at_length
+    LenMids <- NatL_LBSPR$length_mid
+    
+    par(mfrow = c(1,1), mgp = c(2,1,0), mar = c(4,3,3,1), cex = 1.15)
+    plot(LenMids, LCatchFished, col = "grey25", pch = 1,
+         xlab = newLengthCol(), ylab = "numbers per recruit",
+         main = "catch-at-length", font.main = 1)
+    points(LenMids, LCatchUnfished, col = "grey75", pch = 16)
+    legend("topright", c("equilibrium fished", "no previous fishing"), 
+           col = c("grey25", "grey75"), 
+           pch = c(1, 16))
   })
 }

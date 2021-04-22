@@ -100,7 +100,8 @@ body <-   mainPanel(
                                   choices = c("mm", "cm", "m", "in"), selected = "cm"),
                       selectInput(inputId = "newLengthUnits", label = "New length units", 
                                   choices = c("mm", "cm", "m", "in"), selected = "cm"),
-                      actionButton(inputId = "convertLengthUnits", label = "Convert units"),
+                      actionButton(inputId = "convertLengthUnits", label = "Convert units",
+                                   class = "btn-success"),
                       #textInput(inputId = "inputLengthColName", label = "Length column name")
                ),
              ),
@@ -130,7 +131,7 @@ body <-   mainPanel(
                                  fluidPage(
                                    fluidRow(
                                      column(width = 5, 
-                                            h3("von Bertalanffy parameters"),
+                                            h3("von Bertalanffy Growth"),
                                             sliderInput(inputId = "sliderLinf", 
                                                         label = "LVB Linf",
                                                         min = 0, max = 150, value = 40,
@@ -147,13 +148,12 @@ body <-   mainPanel(
                                                         label = "Max age",
                                                         min = 6, max = 16, value = 11,
                                                         step = 1, ticks = TRUE, round = FALSE),
-                                            h3("Growth curve"),
                                             plotlyOutput(outputId = "lvbGrowthCurve")
                                             # actionButton
                                      ),
                                      column(width = 7,
                                             tags$table(
-                                              tags$thead("Biological parameters"),
+                                              tags$thead(h3("LB-SPR stock parameters")),
                                               tags$tr(tags$th("Parameter"), tags$th("Value")),
                                               tags$tr(tags$td("M"), 
                                                       tags$td(numericInput(inputId = "M", label = NULL, value = 0.3))),
@@ -193,7 +193,8 @@ body <-   mainPanel(
                                             ),
                                             # enter pars button
                                             actionButton(inputId = "btnStockPars",
-                                                         label = "Enter Stock Pars")
+                                                         label = "Enter Stock Pars",
+                                                         class = "btn-success")
                                      ),
                                    )
                                    # tags$head(
@@ -239,6 +240,29 @@ body <-   mainPanel(
                                    # ),
                                  )
                         ),
+                        tabPanel("Selectivity",
+                                 fluidRow(
+                                   column(width = 4,
+                                          radioButtons(inputId = "chooseSelectivityPattern",
+                                                       label = "Selectivity curve",
+                                                       choices = c("Knife-edge",
+                                                                   "Asymptotic",
+                                                                   "Dome-shaped")),
+                                          radioButtons(inputId = "specifySelectivity",
+                                                       label = "Selectivity parameters",
+                                                       choices = c("Estimate",
+                                                                   "Specify")),
+                                          actionButton(inputId = "btnSelectivity",
+                                                       label = "Input selectivity choices",
+                                                       class = "btn-success")
+                                          ),
+                                 column(width = 8,
+                                        div(id = "specifySelectivity", h4("Selectivity parameters")),
+                                        textOutput(outputId = "selectivityNote")
+                                        # specify parameters dependent on input
+                                        )
+                                 )
+                        ),
                         tabPanel("Length composition",
                                  fluidRow(
                                    column(width = 6,
@@ -254,10 +278,9 @@ body <-   mainPanel(
                                                 height = "400px")
                                  )
                         ),
-                        tabPanel("Fishery",
-                                 fluidRow("Under construction")),
                         tabPanel("Model fit",
-                                 actionButton("fitLBSPR", "Apply GTG-LBSPR", icon = icon("chart-line")),
+                                 actionButton("fitLBSPR", "Apply GTG-LBSPR", icon = icon("chart-line"),
+                                              class = "btn-success"),
                                  fluidPage(
                                    column(width = 4,
                                           verbatimTextOutput(outputId = "textLBSPREstFit"),
@@ -274,26 +297,36 @@ body <-   mainPanel(
                                  icon = icon("chart-line")
                         ),
                         tabPanel("Diagnostics",
-                                 verbatimTextOutput(outputId = "textFitLBSPR"),
-                                 plotlyOutput(outputId = "plotOpLBSPR",
-                                              width = "100%",
-                                              height = "400px")
+                                 fluidRow(
+                                   column(width = 6,
+                                          tags$h3("Population length composition"),
+                                          plotOutput(outputId = "plotPopLBSPR"),
+                                          tags$hr(),
+                                          tags$h3("Catch length composition"),
+                                          plotOutput(outputId = "plotCatchLBSPR")
+                                   ),
+                                   column(width = 6, 
+                                          verbatimTextOutput(outputId = "textFitLBSPR")),
+                                   #plotlyOutput(outputId = "plotOpLBSPR",
+                                   #              width = "100%",
+                                   #             height = "400px")
+                                 )
                         )),
              icon = icon("list-ui")
     ),
-    tabPanel("LBB"), 
+    tabPanel("LBB")#, 
     #inline = FALSE))
-    tabPanel("Stock assessment\n - diagnostics", 
-             fluidRow(width = 12,
-                      collapsible = TRUE, collapsed = TRUE,
-                      h4("Bivariate scatterplots of estimated regression parameters"), # from residual bootstrap sampling
-                      plotOutput(outputId = "pairPlotLVBParameters")),
-             fluidRow(width = 12, 
-                      collapsible = TRUE, collapsed = TRUE,
-                      h4("Histograms - marginal parameter distributions"),
-                      plotlyOutput(outputId = "histLVBParameters")),
-             icon = icon("tasks")
-    )
+    #tabPanel("Stock assessment\n - diagnostics", 
+    #         fluidRow(width = 12,
+    #                  collapsible = TRUE, collapsed = TRUE,
+    #                  h4("Bivariate scatterplots of estimated regression parameters"), # from residual bootstrap sampling
+    #                  plotOutput(outputId = "pairPlotLVBParameters")),
+    #         fluidRow(width = 12, 
+    #                  collapsible = TRUE, collapsed = TRUE,
+    #                  h4("Histograms - marginal parameter distributions"),
+    #                  plotlyOutput(outputId = "histLVBParameters")),
+    #         icon = icon("tasks")
+    #)
   )
   #  )
 )
