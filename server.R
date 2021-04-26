@@ -19,14 +19,12 @@ server <- function(input, output, session){
                {updateVarSelectInput(session = getDefaultReactiveDomain(),
                                      "lengthColSelect",
                                      data = catchdata_read(),
-                                     selected = ifelse(any(grepl("[length]", colnames(catchdata_read()), ignore.case = TRUE)),
-                                                       grep("[length]", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE),
+                                     selected = ifelse(any(grepl("length", colnames(catchdata_read()), ignore.case = TRUE)),
+                                                       grep("length", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE),
                                                        NULL))})
   
   observeEvent(input$lengthColSelect,
                {
-                 print(any(grepl("[length]", colnames(catchdata_read()), ignore.case = TRUE)))
-                 print(grep("[length]", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE))
                  print(paste0("str(input$lengthColSelect) = ", str(input$lengthColSelect)))
                  print(.data[[input$lengthColSelect]])
                  updateCheckboxGroupInput(session = getDefaultReactiveDomain(),
@@ -157,6 +155,8 @@ server <- function(input, output, session){
       whichSexCol <- sapply(input$checkboxCatchData, grepl, "[sex]", ignore.case = TRUE)
       whichGearCol <- sapply(input$checkboxCatchData, grepl, "[gear]", ignore.case = TRUE)
       whichYearCol <- sapply(input$checkboxCatchData, grepl, "[year]", ignore.case = TRUE)
+      whichSpeciesCol <- sapply(input$checkboxCatchData, grepl, "[species]", ignore.case = TRUE)
+      
       pg <- ggplot(catchdata_table())
       # if(any(whichSexCol) & !any(whichGearCol) & !any(whichYearCol)){ # sex
       #   
@@ -175,31 +175,63 @@ server <- function(input, output, session){
       # } else {
       #   
       # }
+      speciesCol <- input$checkboxCatchData[whichSpeciesCol]
       gearCol <- input$checkboxCatchData[whichGearCol]
       yearCol <- input$checkboxCatchData[whichYearCol]
-      if(any(whichSexCol)){  
-        sexCol <- input$checkboxCatchData[whichSexCol]
-        if(!any(whichGearCol) & !any(whichYearCol)){
-          pg <- pg +
-            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
-                           closed = "left", boundary = 0, bins = 40)
-        } else if(any(whichGearCol) & !any(whichYearCol)) {
-          pg <- pg +
-            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
-                           closed = "left", boundary = 0, bins = 40) +
-            facet_grid(rows = ensym(gearCol), scales = "free")
-        } else if(!any(whichGearCol) & any(whichYearCol)) {
-          pg <- pg +
-            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
-                           closed = "left", boundary = 0, bins = 40) +
-            facet_grid(rows = ensym(yearCol),  scales = "free")
-        } else {
-          pg <- pg +
-            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
-                           closed = "left", boundary = 0, bins = 40) +
-            facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
+      sexCol <- input$checkboxCatchData[whichSexCol]
+      # facet by species (rows) if multispecies
+      if(any(whichSpeciesCol)){
+        # years as col, sex as colours
+        if(any(whichYearCol)) {
+            if(any(whichSexCol)){
+              pg <- pg + 
+                geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                         closed = "left", boundary = 0, bins = 40)
+            } else if (any(whichGearCol)){
+              pg <- pg + 
+                geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(gearCol)),
+                               closed = "left", boundary = 0, bins = 40)
+            } else {
+              pg <- pg + 
+                geom_histogram(aes_(x = input$lengthColSelect),
+                               closed = "left", boundary = 0, bins = 40)
+            }
+          pg <- pg + facet_grid(rows = as.formula(paste0(speciesCol, " ~ ", yearCol)), scales = "free")
+        } else if(any(whichGearCol)){
+          if(any(whichSexCol)){
+            pg <- pg + 
+              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                             closed = "left", boundary = 0, bins = 40)
+          } else {
+            pg <- pg + 
+              geom_histogram(aes_(x = input$lengthColSelect),
+                             closed = "left", boundary = 0, bins = 40)
+          }
+          pg <- pg + facet_grid(rows = as.formula(paste0(speciesCol, " ~ ", gearCol)), scales = "free")
         }
       } else {
+        if(any(whichSexCol)){ 
+          if(!any(whichGearCol) & !any(whichYearCol)){
+            pg <- pg +
+              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                             closed = "left", boundary = 0, bins = 40)
+          } else if(any(whichGearCol) & !any(whichYearCol)) {
+            pg <- pg +
+              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                             closed = "left", boundary = 0, bins = 40) +
+              facet_grid(rows = ensym(gearCol), scales = "free")
+          } else if(!any(whichGearCol) & any(whichYearCol)) {
+            pg <- pg +
+              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                             closed = "left", boundary = 0, bins = 40) +
+              facet_grid(rows = ensym(yearCol),  scales = "free")
+          } else {
+            pg <- pg +
+              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                             closed = "left", boundary = 0, bins = 40) +
+              facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
+          }
+        } else {
           if(!any(whichGearCol) & !any(whichYearCol)){
             pg <- pg +
               geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
@@ -220,16 +252,20 @@ server <- function(input, output, session){
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
           }
+        }
+      
       }
     pg + theme_bw()
     })
   
   # print head of raw catch data
   output$headRawCatchData <- renderPrint({
-    expr = print(head(catchdata_read(), n = 20))
+    expr = print(head(catchdata_read(), n = 10))
   })
   
-  
+  output$strRawCatchData <- renderPrint({
+    expr = str(catchdata_read())  
+  })
   
   # Filtering data ====  
 
@@ -328,7 +364,8 @@ server <- function(input, output, session){
       lengthScale <- lengthRecordsScale()
       #length_records <- catchdata_table() %>% select(input$lengthColSelect) %>% 
       #  mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
-      length_records <- catchdata_table()[input$catchDataTable_rows_all,] %>% select(input$lengthColSelect) %>% 
+      length_records <- catchdata_table()[input$catchDataTable_rows_all,] %>% 
+        select(input$lengthColSelect) %>% 
         mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
     }
   )
@@ -440,6 +477,7 @@ server <- function(input, output, session){
                                   age_0 = 0, age_max = input$sliderAgeMax),
                 aes(x = age_0, y = length_inf), label = "Linf", colour = "red",
                 nudge_x = 1, nudge_y = -5) + 
+      geom_rug(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol())) + 
       theme_bw()
   })
   

@@ -8,7 +8,7 @@ if(!require(DT)){install.packages("DT", dependencies = TRUE); require(DT)}
 if(!require(devtools)){install.packages("devtools", dependencies = TRUE); require(devtools)}
 
 #library(htmltools)
-options(shiny.maxRequestSize = 30*1024^2)
+options(shiny.maxRequestSize = 5*1024^2)
 #setwd("C:/Users/cfitzgerald/workspace/length_based_assessment/")
 source("C:/Users/cfitzgerald/Documents/R/GTG_LBSPR/GTG_LBSPR_CF.R")
 #source_url("https://github.com/AdrianHordyk/GTG_LBSPR/blob/master/GTG_LBSPR.r")

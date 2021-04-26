@@ -78,6 +78,7 @@ body <-   mainPanel(
              fluidPage(
                column(width = 4,
                       h5("Raw data"),
+                      verbatimTextOutput(outputId = "strRawCatchData"),
                       verbatimTextOutput(outputId = "headRawCatchData")
                ),
                column(width = 8,
