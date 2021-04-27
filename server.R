@@ -402,6 +402,17 @@ server <- function(input, output, session){
                  value = input$sliderK)
   })
   
+  output$Lm50 <- renderUI({
+    numericInput("Lm50", label = NULL, #"Linf", 
+                 value = input$Linf*0.66)
+  })
+  
+  output$Lm95 <- renderUI({
+    numericInput("Lm95", label = NULL, #"Linf", 
+                 value = input$Linf*0.75,
+                 min = input$Lm50)
+  })
+  
     
   # tabulate data ====
   # present "raw" data in tabular form, once we submit dataTypes
@@ -496,24 +507,33 @@ server <- function(input, output, session){
                              CVLinf = input$CVLinf,
                              NGTG = input$NGTG, 
                              MaxSD = input$MaxSD,
-                             L50 = input$L50, # length at first maturity
-                             L95 = input$L95)
+                             L50 = input$Lm50, # length at first maturity
+                             L95 = input$Lm95)
                 })
-  
   
   
   # selectivity curve
   observeEvent(input$btnSelectivity,
-               {
+               { print(input$specifySelectivity)
                  if(input$specifySelectivity == "Specify"){
-#                   insertUI
-                   output$selectivityNote <- renderText("User specifies selectivity parameters")
-                 } else{
+                   # insertUI
+                   #output$selectivityNote <- renderText("User specifies selectivity parameters")
+                   output$specifySelectivityPars <- renderUI(tagList(
+                     numericInput(inputId = "SL50", label = "Length at 50% selectivity",
+                                  value = input$Linf*0.70),
+                     numericInput(inputId = "SL95", label = "Length at 95% selectivity",
+                                  value = input$Linf*0.80),
+                     actionButton(inputId = "btnFixedFleetPars", "Enter selectivity parameters",
+                                  class = "btn-success")
+                   ))
+                 } else {
                    output$selectivityNote <- renderText("Estimate selectivity parameters in model fitting process")
                  }
                })
   
-  
+  reactiveFixedFleetPars <- eventReactive(input$btnFixedFleetPars,
+                                          {list(SL50 = input$SL50, SL95 = input$SL95)
+                                          })
   
   
   # eventReactive??
@@ -584,7 +604,12 @@ server <- function(input, output, session){
       StockPars <- reactiveStockPars()
       StockPars$MK <- StockPars$M/StockPars$K
       
-      
+      fixedFleetPars <- NULL
+      titleFitPlot <- "Model-estimated selectivity parameters"
+      if(input$specifySelectivity == "Specify"){
+        fixedFleetPars <- reactiveFixedFleetPars()
+        titleFitPlot <- "User-specified selectivity parameters"
+      }
       #SizeBins <- list(Linc = input$Linc, ToSize = NULL)
       #SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
       # 
@@ -606,13 +631,19 @@ server <- function(input, output, session){
       
       
       # GTG-LBSPR optimisation
-      optGTG <- DoOpt(StockPars, LenDat, SizeBins, "GTG")
+      optGTG <- DoOpt(StockPars,  fixedFleetPars, LenDat, SizeBins, "GTG")
       # optGTG$Ests
       # optGTG$PredLen
       
-      optFleetPars <- list(SL50 = optGTG$Ests["SL50"], 
-                           SL95 = optGTG$Ests["SL95"],
-                           FM = optGTG$Ests["FM"])
+      if(input$specifySelectivity == "Specify"){
+        optFleetPars <- list(FM = optGTG$Ests["FM"],
+                             SL50 = fixedFleetPars$SL50, 
+                             SL95 = fixedFleetPars$SL95)
+      } else if(input$specifySelectivity == "Estimate") {
+        optFleetPars <- list(FM = optGTG$Ests["FM"],
+                             SL50 = optGTG$Ests["SL50"], 
+                             SL95 = optGTG$Ests["SL95"])
+      }
       # per recruit theory
       prGTG <- GTGLBSPRSim(StockPars, optFleetPars, SizeBins)
       
@@ -627,20 +658,27 @@ server <- function(input, output, session){
                                popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
                                popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished)) #standardised??
       
-      estModelFit <- data.frame(Parameter = c("FM", "SL50", "SL95"),
-                                Description = c("F/M: fishing-natural mortality ratio",
+
+      estModelFit <- data.frame(Parameter = c("FM", "SL50", "SL95", "SPR"),
+                                Description = c("F/M: relative fishing mortality",
                                                 "Length at 50% selectivity",
-                                                "Length at 95% selectivity"),
+                                                "Length at 95% selectivity",
+                                                "Spawning Potential Ratio"),
                                 Estimate = c(unname(optFleetPars$FM), 
                                              unname(optFleetPars$SL50), 
-                                             unname(optFleetPars$SL95)))
-      opModelOut <- data.frame(Parameter = c("SPR", "YPR"),
-                               Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
-                               Estimate = c(prGTG$SPR, prGTG$YPR))
+                                             unname(optFleetPars$SL95),
+                                             prGTG$SPR))
+      #        opModelOut <- data.frame(Parameter = c("SPR", "YPR"),
+      #                                 Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
+      #                                 Estimate = c(prGTG$SPR, prGTG$YPR))      
+      if(input$specifySelectivity == "Specify"){
+        estModelFit$Source <- c("Model fit", "User-specified", "User-specified", "Model")
+      }
       
       list(NatL_LBSPR = NatL_LBSPR,
-           estModelFit = estModelFit,
-           opModelOut = opModelOut)
+           estModelFit = estModelFit#,
+           #opModelOut = opModelOut
+           )
     }
   )
   
@@ -649,10 +687,10 @@ server <- function(input, output, session){
     expr = print(fitGTGLBSPR()$estModelFit)
   })
   
-  # print text on LBSPR operating model output
-  output$textLBSPROpOut <- renderPrint({
-    expr = print(fitGTGLBSPR()$opModelOut)
-  })
+  # # print text on LBSPR operating model output
+  # output$textLBSPROpOut <- renderPrint({
+  #   expr = print(fitGTGLBSPR()$opModelOut)
+  # })
   
   output$visFitLBSPR <- renderPlotly({
     # length data
@@ -672,6 +710,13 @@ server <- function(input, output, session){
                    names_pattern = "(.*)_at_length",
                    values_to = "numbers-per-recruit")
     
+    
+    if(input$specifySelectivity == "Specify"){
+      titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (specified)"
+    } else if (input$specifySelectivity == "Estimate") {
+      titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (estimated)"
+    }
+    
     # create ggplot with data...
     pg <- ggplot(length_records) + 
       geom_histogram(mapping = aes_string(x = length_col), breaks = LenBins, 
@@ -684,7 +729,9 @@ server <- function(input, output, session){
                 fill = "salmon", alpha = 0.5) +
       geom_line(data = NatL_LBSPR,
                 mapping = aes(x = length_mid, y = max(LenDat)*selectivityF_at_length), 
-                colour = "red", lwd = 1) #+ 
+                colour = "red", lwd = 1) + 
+      labs(title = titleFitPlot,
+           caption = paste("Data from", input$uploadFile, sep = " "))#+ 
       #scale_y_continuous(sec.axis = sec_axis(~  . /maxLenDat, name = "selectivity",
                                              #breaks = c(0, 1),
                                              #labels = c("0", "1")

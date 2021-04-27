@@ -166,11 +166,9 @@ body <-   mainPanel(
                                                       tags$td(numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
                                                                            min = 0.001, max = 1, step = 0.001))),
                                               tags$tr(tags$td("Lm50"), 
-                                                      tags$td(numericInput(inputId = "L50", label = NULL, value = 45.31, 
-                                                                           min = 5, max = 100, step = 0.5))), 
+                                                      tags$td(uiOutput(outputId = "Lm50"))), 
                                               tags$tr(tags$td("Lm95"), 
-                                                      tags$td(numericInput(inputId = "L95", label = NULL, value = 45.31 + 15,
-                                                                           min = 5, max = 120, step = 0.5))),
+                                                      tags$td(uiOutput(outputId = "Lm95"))),
                                               tags$tr(tags$td("Walpha"), 
                                                       tags$td(numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
                                               tags$tr(tags$td("Wbeta"), 
@@ -259,7 +257,8 @@ body <-   mainPanel(
                                           ),
                                  column(width = 8,
                                         div(id = "specifySelectivity", h4("Selectivity parameters")),
-                                        textOutput(outputId = "selectivityNote")
+                                        textOutput(outputId = "selectivityNote"),
+                                        uiOutput(outputId = "specifySelectivityPars")
                                         # specify parameters dependent on input
                                         )
                                  )
@@ -284,8 +283,9 @@ body <-   mainPanel(
                                               class = "btn-success"),
                                  fluidPage(
                                    column(width = 4,
-                                          verbatimTextOutput(outputId = "textLBSPREstFit"),
-                                          verbatimTextOutput(outputId = "textLBSPROpOut")
+                                          div(id = 'resultsDiv', class = 'simpleDiv'),
+                                          verbatimTextOutput(outputId = "textLBSPREstFit")
+                                          #verbatimTextOutput(outputId = "textLBSPROpOut")
                                           #DTOutput(outputId = "gtgLBSPREstModel"),
                                           #DTOutput(outputId = "gtgLBSPROpModel"),
                                    ),
