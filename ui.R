@@ -261,7 +261,11 @@ body <-   mainPanel(
                                         uiOutput(outputId = "specifySelectivityPars")
                                         # specify parameters dependent on input
                                         )
-                                 )
+                                 ),
+                                 fluidRow(width = 6,
+                                          div(id = "plotSelectivitySection", hr()),
+                                          plotlyOutput(outputId = "plotSelectivityPattern")
+                                          ) 
                         ),
                         tabPanel("Length composition",
                                  fluidRow(

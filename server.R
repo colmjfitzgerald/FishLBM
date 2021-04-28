@@ -538,7 +538,7 @@ server <- function(input, output, session){
                                   value = input$Linf*0.70),
                      numericInput(inputId = "SL95", label = "Length at 95% selectivity",
                                   value = input$Linf*0.80),
-                     actionButton(inputId = "btnFixedFleetPars", "Enter selectivity parameters",
+                     actionButton(inputId = "btnFixedFleetPars", "Input selectivity parameters",
                                   class = "btn-success")
                    ))
                  } else {
@@ -550,7 +550,20 @@ server <- function(input, output, session){
                                           {list(SL50 = input$SL50, SL95 = input$SL95)
                                           })
   
-  
+  # plot selectivity pattern provided input$specifySelectivityPars == "Specify"
+  observeEvent(
+    input$btnFixedFleetPars,
+    {length_vals <- seq(0, input$Linf, length.out = 51)
+     ggdata <- data.frame(length = length_vals, 
+                selectivity = 1.0/(1+exp(-log(19)*(length_vals-input$SL50)/(input$SL95-input$SL50))))
+     output$plotSelectivityPattern <- renderPlotly({
+       expr = ggplotly(ggplot(ggdata) + 
+                         geom_line(aes( x = length, y = selectivity), colour = "red", lwd = 1) +
+                         labs(title = "User-specified selectivity") +
+                         theme_bw())
+     })
+     print(ggdata)
+    })
   # eventReactive??
   # slideLenBins <- reactive(
   #   {# eventually have a reactive StockPars object
@@ -595,7 +608,7 @@ server <- function(input, output, session){
                  print(binLengthData())})
   
   
-  # change with slider input
+  # plot length composition of filtered data - change with slider input
   output$plotResponsiveLengthComposition <- 
     renderPlotly({
       expr = ggplotly(
@@ -608,12 +621,7 @@ server <- function(input, output, session){
   
   # observeEvent or eventReactive
   observeEvent(input$analyseByYear,
-                {print(str(lengthRecordsConvert()))
-                  yearCol <- grep("year", colnames(lengthRecordsConvert()), ignore.case = TRUE,
-                                 value = TRUE)
-                  print(ensym(yearCol))
-                  print(sym(yearCol))
-                  output$plotResponsiveLengthComposition <-
+                {output$plotResponsiveLengthComposition <-
                   renderPlotly({
                     expr = ggplotly(
                       ggplot(lengthRecordsConvert()) +
@@ -816,7 +824,9 @@ server <- function(input, output, session){
     plot(LenMids, LPopFished, col = "grey25", pch = 1, lwd = 1.5,
          xlab = newLengthCol(), ylab = "numbers per recruit",
          main = "entire length range", font.main = 1)
-    points(LenMids, LPopUnfished, col = "grey75", pch = 16)
+    lines(LenMids, LPopFished, col = "grey25", lty = 1, lwd = 1.5)
+    points(LenMids, LPopUnfished, col = "grey75", pch = 16, lwd = 1.5)
+    lines(LenMids, LPopUnfished, col = "grey75", lty = 1, lwd = 1.5)
     legend("topright", c("fished", "unfished"), 
            col = c("grey25", "grey75"), 
            pch = c(1, 16))
@@ -826,7 +836,9 @@ server <- function(input, output, session){
          xlim = c(SL50-(SL95-SL50), max(LenMids)),
          ylim = c(0, 1.25*LPopUnfished[which(LenMids-SLmin == min(abs((LenMids-SLmin)))) ]),
          main = "vulnerable length range", font.main = 1)
-    points(LenMids, LPopUnfished, col = "grey75", pch = 16)
+    lines(LenMids, LPopFished, col = "grey25", lty = 1, lwd = 1.5)
+    points(LenMids, LPopUnfished, col = "grey75", pch = 16, lwd = 1.5)
+    lines(LenMids, LPopUnfished, col = "grey75", lty = 1, lwd = 1.5)
     legend("topright", c("fished", "unfished"), 
            col = c("grey25", "grey75"), 
            pch = c(1, 16))
@@ -840,10 +852,12 @@ server <- function(input, output, session){
     LenMids <- NatL_LBSPR$length_mid
     
     par(mfrow = c(1,1), mgp = c(2,1,0), mar = c(4,3,3,1), cex = 1.15)
-    plot(LenMids, LCatchFished, col = "grey25", pch = 1,
+    plot(LenMids, LCatchFished, col = "grey25", pch = 1, lwd = 1.5,
          xlab = newLengthCol(), ylab = "numbers per recruit",
          main = "catch-at-length", font.main = 1)
-    points(LenMids, LCatchUnfished, col = "grey75", pch = 16)
+    lines(LenMids, LCatchFished, col = "grey25", lty = 1, lwd = 1.5)
+    points(LenMids, LCatchUnfished, col = "grey75", pch = 16, lwd = 1.5)
+    lines(LenMids, LCatchUnfished, col = "grey75", lty = 1, lwd = 1.5)
     legend("topright", c("equilibrium fished", "no previous fishing"), 
            col = c("grey25", "grey75"), 
            pch = c(1, 16))
