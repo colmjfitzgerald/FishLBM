@@ -60,7 +60,7 @@ sidebar <- sidebarPanel(
   #   column(width = 6,
   #          uiOutput(outputId = "yearSelect", width = "100%"))
   # ),
-  uiOutput(outputId = "submitColsBtn", width = "100%"),
+  uiOutput(outputId = "btnSelectCols", width = "100%"),
   
   div(id = "lbAssessment", hr("Choose assessment")), # decide on length-based assessment
   uiOutput(outputId = "cbLBA", width = "100%"),
@@ -166,9 +166,9 @@ body <-   mainPanel(
                                                       tags$td(numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
                                                                            min = 0.001, max = 1, step = 0.001))),
                                               tags$tr(tags$td("Lm50"), 
-                                                      tags$td(uiOutput(outputId = "Lm50"))), 
+                                                      tags$td(uiOutput(outputId = "numLm50"))), 
                                               tags$tr(tags$td("Lm95"), 
-                                                      tags$td(uiOutput(outputId = "Lm95"))),
+                                                      tags$td(uiOutput(outputId = "numLm95"))),
                                               tags$tr(tags$td("Walpha"), 
                                                       tags$td(numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
                                               tags$tr(tags$td("Wbeta"), 
@@ -271,6 +271,10 @@ body <-   mainPanel(
                                                       min = 0, max = 5, value = 1,
                                                       step = 0.5, ticks = TRUE)
                                    ),
+                                   column(width = 6,
+                                          actionButton(inputId = "analyseByYear",
+                                                       label = "Analyse by year",
+                                                       class = "btn-success"))
                                  ),
                                  fluidRow(
                                    plotlyOutput(outputId = "plotResponsiveLengthComposition",
@@ -283,7 +287,7 @@ body <-   mainPanel(
                                               class = "btn-success"),
                                  fluidPage(
                                    column(width = 4,
-                                          div(id = 'resultsDiv', class = 'simpleDiv'),
+                                          div(id = 'resultsDiv', hr(), class = 'simpleDiv'),
                                           verbatimTextOutput(outputId = "textLBSPREstFit")
                                           #verbatimTextOutput(outputId = "textLBSPROpOut")
                                           #DTOutput(outputId = "gtgLBSPREstModel"),

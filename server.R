@@ -25,17 +25,22 @@ server <- function(input, output, session){
   
   observeEvent(input$lengthColSelect,
                {
-                 print(paste0("str(input$lengthColSelect) = ", str(input$lengthColSelect)))
-                 print(.data[[input$lengthColSelect]])
                  updateCheckboxGroupInput(session = getDefaultReactiveDomain(),
                                           inputId = "checkboxCatchData",
                                           choices = setdiff(colnames(catchdata_read()),
                                                             paste0(input$lengthColSelect)))
                                           #choices = colnames(catchdata_read()))
                                           # paste0() converts input$lengthColSelect to string
-                                          
+                 # from help file
+                 # input updater functions send a message to the client, telling to to change
+                 # settings of an input object. The messages are collected and sent after all
+                 # the observers (including outputs) have finished running
                })
   
+  observeEvent(input$selectCols,
+               { print(paste0("input select data"))
+                 print(input$lengthColSelect)
+               })
   
   # dynamic UI elements (renderUI, insertUI etc.) ----
   
@@ -96,13 +101,13 @@ server <- function(input, output, session){
   # Tabulate data action button and reaction ====
   
   # length data category column selection ####
-  output$submitColsBtn <- renderUI({
-    actionButton("submitCols", "Input select data", icon = icon("table"))
+  output$btnSelectCols <- renderUI({
+    actionButton("selectCols", "Input select data", icon = icon("table"))
   })
   
   
   # catchDataCategorise <- eventReactive(
-  #   input$submitCols, {
+  #   input$selectCols, {
   #     catchdata <- catchdata_read()
   #     if(!is.null(input$sexCol)){
   #       if(!is.null(input$gearCol)) {
@@ -144,13 +149,13 @@ server <- function(input, output, session){
   
   # catchdata element for plotting and LBSPR
   catchdata_table <- eventReactive(
-    input$submitCols,
+    input$selectCols,
     {catchdata_read()[, c(input$checkboxCatchData, paste0(input$lengthColSelect))]}
   )
   
   # catchdata_plot
   catchdata_plot <- eventReactive(
-    input$submitCols,
+    input$selectCols,
     { 
       whichSexCol <- sapply(input$checkboxCatchData, grepl, "[sex]", ignore.case = TRUE)
       whichGearCol <- sapply(input$checkboxCatchData, grepl, "[gear]", ignore.case = TRUE)
@@ -364,8 +369,7 @@ server <- function(input, output, session){
       lengthScale <- lengthRecordsScale()
       #length_records <- catchdata_table() %>% select(input$lengthColSelect) %>% 
       #  mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
-      length_records <- catchdata_table()[input$catchDataTable_rows_all,] %>% 
-        select(input$lengthColSelect) %>% 
+      length_records <- catchdata_table()[input$catchDataTable_rows_all,] %>% #select(input$lengthColSelect) %>% 
         mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
     }
   )
@@ -374,7 +378,7 @@ server <- function(input, output, session){
   # choose length-based assessment ====
   # currently not functional
   observeEvent(
-    input$submitCols,
+    input$selectCols,
     {
       output$cbLBA <- renderUI({
         # choice <- # dependent on data
@@ -390,30 +394,6 @@ server <- function(input, output, session){
   
   # ui elements table and plot objects ----
 
-  # numeric inputs for LBSPR
-  # default to sliderInput values
-  output$numLinf <- renderUI({
-    numericInput("Linf", label = NULL, #"Linf", 
-                 value = input$sliderLinf)
-  })
-  
-  output$numKlvb <- renderUI({
-    numericInput("kLvb", label = NULL, #"K growth", 
-                 value = input$sliderK)
-  })
-  
-  output$Lm50 <- renderUI({
-    numericInput("Lm50", label = NULL, #"Linf", 
-                 value = input$Linf*0.66)
-  })
-  
-  output$Lm95 <- renderUI({
-    numericInput("Lm95", label = NULL, #"Linf", 
-                 value = input$Linf*0.75,
-                 min = input$Lm50)
-  })
-  
-    
   # tabulate data ====
   # present "raw" data in tabular form, once we submit dataTypes
   # https://rstudio.github.io/DT/shiny.html
@@ -461,37 +441,71 @@ server <- function(input, output, session){
   #       expr
   #     }
   #   )
-  output$growthParRBtn <- 
-    renderUI({
-      radioButtons(inputId = "growthParOption", 
-                   label = "LVB growth",
-                   choices = list("User-specified (point) estimate"))
-    })
-  
-  observeEvent(input$submitDataTypes,
-               {print(input$checkboxUserData)
-                 print(input$growthParOption)}
-  )
+  # output$growthParRBtn <- 
+  #   renderUI({
+  #     radioButtons(inputId = "growthParOption", 
+  #                  label = "LVB growth",
+  #                  choices = list("User-specified (point) estimate"))
+  #   })
+  # 
+  # observeEvent(input$submitDataTypes,
+  #              {print(input$checkboxUserData)
+  #                print(input$growthParOption)}
+  # )
   
   output$lvbGrowthCurve <- renderPlotly({
     # slider curve
     growthcurve <- data.frame(age = seq(0, input$sliderAgeMax, by = 0.1))
     growthcurve$length_cm <- input$sliderLinf*(1- exp(-input$sliderK*(growthcurve$age-input$slidert0)))
+    
+    gtgLinf <- data.frame(length_0 = 0, length_inf = input$sliderLinf, 
+                          age_0 = 0, age_max = input$sliderAgeMax)
+    gtgLCILinf <- data.frame(length_0 = 0, length_inf = input$sliderLinf*(1-input$CVLinf*input$MaxSD), 
+                             age_0 = 0, age_max = input$sliderAgeMax)
+    gtgUCILinf <- data.frame(length_0 = 0, length_inf = input$sliderLinf*(1+input$CVLinf*input$MaxSD), 
+                             age_0 = 0, age_max = input$sliderAgeMax)
     p <- ggplot() + 
       geom_line(data = growthcurve,
                 aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5) +
-      geom_segment(data = data.frame(length_0 = 0, length_inf = input$sliderLinf, 
-                              age_0 = 0, age_max = input$sliderAgeMax),
+      geom_segment(data = gtgLinf,
                    aes(x = age_0, y = length_inf, xend = age_max, yend = length_inf),
-                   colour = "red", linetype = 2) + 
-      geom_text(data = data.frame(length_0 = 0, length_inf = input$sliderLinf, 
-                                  age_0 = 0, age_max = input$sliderAgeMax),
+                   colour = "red", linetype = 2, size = 0.75) + 
+      geom_text(data = gtgLinf,
                 aes(x = age_0, y = length_inf), label = "Linf", colour = "red",
-                nudge_x = 1, nudge_y = -5) + 
+                nudge_x = 1, nudge_y = -gtgLinf$length_inf/15) + 
+      geom_segment(data = gtgLCILinf,
+                   aes(x = age_0, y = length_inf, xend = age_max, yend = length_inf),
+                   colour = "red", linetype = 2, size = 0.25) +
+      geom_segment(data = gtgUCILinf,
+                   aes(x = age_0, y = length_inf, xend = age_max, yend = length_inf),
+                   colour = "red", linetype = 2, size = 0.25) +
       geom_rug(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol())) + 
       theme_bw()
   })
   
+  # numeric inputs for LBSPR
+  # default to sliderInput values
+  output$numLinf <- renderUI({
+    numericInput("Linf", label = NULL, #"Linf", 
+                 value = input$sliderLinf)
+  })
+  
+  output$numKlvb <- renderUI({
+    numericInput("kLvb", label = NULL, #"K growth", 
+                 value = input$sliderK)
+  })
+  
+  output$numLm50 <- renderUI({
+    numericInput("Lm50", label = NULL, #"Linf", 
+                 value = input$sliderLinf*0.66)
+  })
+  
+  output$numLm95 <- renderUI({
+    numericInput("Lm95", label = NULL, #"Linf", 
+                 value = input$sliderLinf*0.75,
+                 min = input$sliderLinf*0.25)
+  })
+
   
   
   # reactive list for biological inputs
@@ -514,7 +528,8 @@ server <- function(input, output, session){
   
   # selectivity curve
   observeEvent(input$btnSelectivity,
-               { print(input$specifySelectivity)
+               { print("Selectivity curve observeEvent")
+                 print(input$specifySelectivity)
                  if(input$specifySelectivity == "Specify"){
                    # insertUI
                    #output$selectivityNote <- renderText("User specifies selectivity parameters")
@@ -576,7 +591,8 @@ server <- function(input, output, session){
   )
   
   observeEvent(input$btnStockPars,
-               {print(binLengthData())})
+               {print("debug observeEvent")
+                 print(binLengthData())})
   
   
   # change with slider input
@@ -590,7 +606,25 @@ server <- function(input, output, session){
           theme_bw())
       })
   
-
+  # observeEvent or eventReactive
+  observeEvent(input$analyseByYear,
+                {print(str(lengthRecordsConvert()))
+                  yearCol <- grep("year", colnames(lengthRecordsConvert()), ignore.case = TRUE,
+                                 value = TRUE)
+                  print(ensym(yearCol))
+                  print(sym(yearCol))
+                  output$plotResponsiveLengthComposition <-
+                  renderPlotly({
+                    expr = ggplotly(
+                      ggplot(lengthRecordsConvert()) +
+                        geom_histogram(mapping = aes_string(x = newLengthCol()),
+                                       breaks = binLengthData()$LenBins, # slideLenBins(),
+                                       closed = "left", colour = "black", fill = "grey75") +
+                        facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsConvert()), ignore.case = TRUE,
+                                               value = TRUE)," ~ ."))) +
+                        theme_bw())})
+                }
+  )
     
   # Fit LBSPR ####
   fitGTGLBSPR <- eventReactive(
