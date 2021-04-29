@@ -62,9 +62,9 @@ sidebar <- sidebarPanel(
   # ),
   uiOutput(outputId = "btnSelectCols", width = "100%"),
   
-  div(id = "lbAssessment", hr("Choose assessment")), # decide on length-based assessment
-  uiOutput(outputId = "cbLBA", width = "100%"),
-  div(id = "lengthBinWidth") # decide on length bin width
+#  div(id = "lbAssessment", hr("Choose assessment")), # decide on length-based assessment
+#  uiOutput(outputId = "cbLBA", width = "100%"),
+
 )
 
 

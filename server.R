@@ -150,7 +150,11 @@ server <- function(input, output, session){
   # catchdata element for plotting and LBSPR
   catchdata_table <- eventReactive(
     input$selectCols,
-    {catchdata_read()[, c(input$checkboxCatchData, paste0(input$lengthColSelect))]}
+    { catchdata <- catchdata_read()[, c(input$checkboxCatchData, paste0(input$lengthColSelect))]
+      charCols <- which(sapply(catchdata, is.character))
+      catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
+      catchdata
+    }
   )
   
   # catchdata_plot
@@ -376,19 +380,19 @@ server <- function(input, output, session){
   
   
   # choose length-based assessment ====
-  # currently not functional
-  observeEvent(
-    input$selectCols,
-    {
-      output$cbLBA <- renderUI({
-        # choice <- # dependent on data
-        # tagList - see renderUI help
-        expr = list(
-          checkboxGroupInput("cbLBA", "Select assessment", choices = c("LB-SPR", "LBB", selected = NULL)),
-          actionButton("submitLBA", "Submit assessment", icon = icon("chart-line"))
-        )
-      })
-    })
+  # # currently not functional
+  # observeEvent(
+  #   input$selectCols,
+  #   {
+  #     output$cbLBA <- renderUI({
+  #       # choice <- # dependent on data
+  #       # tagList - see renderUI help
+  #       expr = list(
+  #         checkboxGroupInput("cbLBA", "Select assessment", choices = c("LB-SPR", "LBB", selected = NULL)),
+  #         actionButton("submitLBA", "Submit assessment", icon = icon("chart-line"))
+  #       )
+  #     })
+  #   })
   
 
   
@@ -464,6 +468,7 @@ server <- function(input, output, session){
                              age_0 = 0, age_max = input$sliderAgeMax)
     gtgUCILinf <- data.frame(length_0 = 0, length_inf = input$sliderLinf*(1+input$CVLinf*input$MaxSD), 
                              age_0 = 0, age_max = input$sliderAgeMax)
+    
     p <- ggplot() + 
       geom_line(data = growthcurve,
                 aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5) +
