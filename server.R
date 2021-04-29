@@ -468,7 +468,8 @@ server <- function(input, output, session){
                              age_0 = 0, age_max = input$sliderAgeMax)
     gtgUCILinf <- data.frame(length_0 = 0, length_inf = input$sliderLinf*(1+input$CVLinf*input$MaxSD), 
                              age_0 = 0, age_max = input$sliderAgeMax)
-    
+    quartileLength <- data.frame(length_q = quantile(lengthRecordsConvert()[, newLengthCol()], probs = seq(0,1, 0.25)),
+                                 quantile = seq(0, 1, 0.25))
     p <- ggplot() + 
       geom_line(data = growthcurve,
                 aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5) +
@@ -484,7 +485,8 @@ server <- function(input, output, session){
       geom_segment(data = gtgUCILinf,
                    aes(x = age_0, y = length_inf, xend = age_max, yend = length_inf),
                    colour = "red", linetype = 2, size = 0.25) +
-      geom_rug(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol())) + 
+      geom_rug(data = quartileLength, mapping = aes(y = length_q )) +
+     # geom_violin(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol()), trim = TRUE, orientation = "y") + 
       theme_bw()
   })
   
@@ -558,16 +560,21 @@ server <- function(input, output, session){
   # plot selectivity pattern provided input$specifySelectivityPars == "Specify"
   observeEvent(
     input$btnFixedFleetPars,
-    {length_vals <- seq(0, input$Linf, length.out = 51)
-     ggdata <- data.frame(length = length_vals, 
-                selectivity = 1.0/(1+exp(-log(19)*(length_vals-input$SL50)/(input$SL95-input$SL50))))
+    {length_vals <- seq(min(lengthRecordsConvert()[,newLengthCol()]), input$Linf, length.out = 51)
+     ggdata <- rbind(data.frame(length = length_vals, 
+                          proportion = 1.0/(1+exp(-log(19)*(length_vals-input$SL50)/(input$SL95-input$SL50))),
+                          quantity = "selectivity"),
+                     data.frame(length = length_vals, 
+                                proportion = 1.0/(1+exp(-log(19)*(length_vals-input$Lm50)/(input$Lm95-input$Lm50))),
+                                quantity = "maturity")
+                     )
      output$plotSelectivityPattern <- renderPlotly({
        expr = ggplotly(ggplot(ggdata) + 
-                         geom_line(aes( x = length, y = selectivity), colour = "red", lwd = 1) +
-                         labs(title = "User-specified selectivity") +
+                         geom_line(aes( x = length, y =proportion, colour = quantity), lwd = 1) +
+                         scale_colour_manual(values = c("red", "black")) +
+                         labs(title = "User-specified selectivity and maturity") +
                          theme_bw())
      })
-     print(ggdata)
     })
   # eventReactive??
   # slideLenBins <- reactive(
