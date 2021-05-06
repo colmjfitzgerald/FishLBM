@@ -1,4 +1,7 @@
 if(!require(shiny)){install.packages("shiny", dependencies = TRUE); require(shiny)}
+if(!require(shinyBS)){install.packages("shinyBS", dependencies = TRUE); require(shinyBS)}
+if(!require(shinyWidgets)){install.packages("shinyWidgets", dependencies = TRUE); require(shinyWidgets)}
+if(!require(shinydashboard)){install.packages("shinydashboard", dependencies = TRUE); require(shinydashboard)}
 if(!require(openxlsx)){install.packages("openxlsx", dependencies = TRUE); require(openxlsx)}
 if(!require(ggplot2)){install.packages("ggplot2", dependencies = TRUE); require(ggplot2)}
 if(!require(plotly)){install.packages("plotly", dependencies = TRUE); require(plotly)}

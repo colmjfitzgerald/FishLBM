@@ -17,7 +17,6 @@
 #),
 #id = "sbMenu")
 
-
 sidebar <- sidebarPanel(
   width = 3,
   fileInput(inputId = "uploadFile", 
@@ -62,9 +61,9 @@ sidebar <- sidebarPanel(
   # ),
   uiOutput(outputId = "btnSelectCols", width = "100%"),
   
-  div(id = "lbAssessment", hr("Choose assessment")), # decide on length-based assessment
-  uiOutput(outputId = "cbLBA", width = "100%"),
-  div(id = "lengthBinWidth") # decide on length bin width
+#  div(id = "lbAssessment", hr("Choose assessment")), # decide on length-based assessment
+#  uiOutput(outputId = "cbLBA", width = "100%"),
+
 )
 
 
@@ -153,22 +152,36 @@ body <-   mainPanel(
                                             # actionButton
                                      ),
                                      column(width = 7,
-                                            tags$table(
+#                                          box(status = "primary", width = NULL,
+                                              tags$table(id = "tableLBSPR",
                                               tags$thead(h3("LB-SPR stock parameters")),
-                                              tags$tr(tags$th("Parameter"), tags$th("Value")),
-                                              tags$tr(tags$td("M"), 
-                                                      tags$td(numericInput(inputId = "M", label = NULL, value = 0.3))),
-                                              tags$tr(tags$td("K (LVB)"), 
-                                                      tags$td(uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
-                                              tags$tr(tags$td("Linf"), 
-                                                      tags$td(uiOutput(outputId = "numLinf"))), #numericInput(inputId = "Linf", label = "Linf", value = input$sliderLinf),
-                                              tags$tr(tags$td("CV for Linf"), 
-                                                      tags$td(numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
+                                              tags$tr(tags$th(class = "parTable", "Parameter"), tags$th(class = "parTable", "Value")),
+                                              tags$tr(tags$td(strong("M"), id = "M_label"), 
+                                                      tags$td(class = "inline", 
+                                                              numericInput(inputId = "M", label = NULL, value = 0.3))),
+                                              tags$tr(tags$td(strong("K (LVB)"), id = "K_label"), 
+                                                      tags$td(class = "inline", 
+                                                              uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
+                                              tags$tr(tags$td(strong("Linf (LVB)"), id = "Linf_label"), 
+                                                      tags$td(class = "inline",
+                                                              uiOutput(outputId = "numLinf"))), #numericInput(inputId = "Linf", label = "Linf", value = input$sliderLinf),
+                                              tags$tr(tags$td(strong("CV for Linf"), id = "CVLinf_label"), 
+                                                      tags$td(class = "inline",
+                                                              numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
                                                                            min = 0.001, max = 1, step = 0.001))),
-                                              tags$tr(tags$td("Lm50"), 
-                                                      tags$td(uiOutput(outputId = "numLm50"))), 
-                                              tags$tr(tags$td("Lm95"), 
-                                                      tags$td(uiOutput(outputId = "numLm95"))),
+                                              tags$tr(tags$td(strong("Lm50"), id = "Lm50_label"), 
+                                                      tags$td(class = "inline",
+                                                              uiOutput(outputId = "numLm50"))), 
+                                              tags$tr(tags$td(strong("Lm95"), id = "Lm95_label"), 
+                                                      tags$td(class = "inline",
+                                                              uiOutput(outputId = "numLm95"))),
+                                              tags$tfoot()
+                                              ),
+#                                          ),
+                                          box(status = "info", width = NULL,
+                                              collapsible = TRUE, collapsed = TRUE,
+                                              title = "Other parameters",
+                                              tags$table(
                                               tags$tr(tags$td("Walpha"), 
                                                       tags$td(numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
                                               tags$tr(tags$td("Wbeta"), 
@@ -189,7 +202,27 @@ body <-   mainPanel(
                                                       tags$td(numericInput(inputId = "MaxSD", label = NULL, 
                                                                            value = 2, min = 0, max = 4))),
                                               tags$tfoot()
+                                              )
                                             ),
+                                            # tooltips
+                                            bsTooltip(id = "M_label", 
+                                                      title = "Natural mortality rate: in per-recruit theory M/K determines the natural rate of decrease of numbers-at-length in the absence of fishing mortality", 
+                                                      placement = "left", trigger = "hover",  options = list(container = "body")),
+                                            bsTooltip(id = "K_label",#"numKlvb", 
+                                                      title = "Growth constant (Brody growth parameter): populations with greater values of K approach asymptotic length Linf at earlier ages.", 
+                                                      placement = "left", trigger = "hover",  options = list(container = "body")),
+                                            bsTooltip(id = "Linf_label",#"numLinf", 
+                                                      title = "Length-at-infinity - mean aysmptotic length that fish in a population can reach.",  
+                                                      placement = "left", trigger = "hover",  options = list(container = "body")),
+                                            bsTooltip(id = "CVLinf_label", # "CVLinf", 
+                                                      title = "Coefficient of variation around Linf: larger values imply greater scatter of individual fish lengths around the expected population growth trajectory", 
+                                                      placement = "left", trigger = "hover",  options = list(container = "body")),
+                                            bsTooltip(id = "Lm50_label", #"numLm50", 
+                                                      title = "Length at 50% maturity: length at which 50% of a population have reached reproductive maturity. Influences spawning-stock or egg production biomass per precruit and spawning potential ratio (SPR) calculations.", 
+                                                      placement = "left", trigger = "hover",  options = list(container = "body")),
+                                            bsTooltip(id = "Lm95_label", #"numLm95", 
+                                                      title = "Length at 95% maturity: length at which 95% of a population have reached reproductive maturity. Influences spawning-stock or egg production biomass per precruit and spawning potential ratio (SPR) calculations.", 
+                                                      placement = "left", trigger = "hover",  options = list(container = "body")),
                                             # enter pars button
                                             actionButton(inputId = "btnStockPars",
                                                          label = "Enter Stock Pars",
@@ -244,8 +277,7 @@ body <-   mainPanel(
                                    column(width = 4,
                                           radioButtons(inputId = "chooseSelectivityPattern",
                                                        label = "Selectivity curve",
-                                                       choices = c("Knife-edge",
-                                                                   "Asymptotic",
+                                                       choices = c("Asymptotic",
                                                                    "Dome-shaped")),
                                           radioButtons(inputId = "specifySelectivity",
                                                        label = "Selectivity parameters",
@@ -277,8 +309,8 @@ body <-   mainPanel(
                                    ),
                                    column(width = 6,
                                           actionButton(inputId = "analyseByYear",
-                                                       label = "Analyse by year",
-                                                       class = "btn-success"))
+                                                       label = "Visualise by year", # class = "btn-success"
+                                                       ))
                                  ),
                                  fluidRow(
                                    plotlyOutput(outputId = "plotResponsiveLengthComposition",
@@ -343,7 +375,12 @@ body <-   mainPanel(
 
 
 ui <- fluidPage(
+#  tags$head(
+#    tags$link(rel = "stylesheet", type="text/css", href = "table_style.css")
+#  ),
+  includeCSS("www/table_style.css"),
   titlePanel("Length-based catch data analysis"),
+  useShinydashboard(),
   sidebarLayout(
     sidebarPanel = sidebar,
     mainPanel = body,

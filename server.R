@@ -102,7 +102,7 @@ server <- function(input, output, session){
   
   # length data category column selection ####
   output$btnSelectCols <- renderUI({
-    actionButton("selectCols", "Input select data", icon = icon("table"))
+    actionButton("selectCols", "Input and plot data", icon = icon("table"))
   })
   
   
@@ -150,17 +150,32 @@ server <- function(input, output, session){
   # catchdata element for plotting and LBSPR
   catchdata_table <- eventReactive(
     input$selectCols,
-    {catchdata_read()[, c(input$checkboxCatchData, paste0(input$lengthColSelect))]}
+    { catchdata <- catchdata_read()[, c(input$checkboxCatchData, paste0(input$lengthColSelect))]
+      charCols <- which(sapply(catchdata, is.character))
+      catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
+      catchdata
+    }
   )
+  
+  observeEvent(input$selectCols,
+               {print(input$checkboxCatchData)
+                print(grepl("species", input$checkboxCatchData, ignore.case = TRUE))
+                }
+               )
   
   # catchdata_plot
   catchdata_plot <- eventReactive(
     input$selectCols,
     { 
-      whichSexCol <- sapply(input$checkboxCatchData, grepl, "[sex]", ignore.case = TRUE)
-      whichGearCol <- sapply(input$checkboxCatchData, grepl, "[gear]", ignore.case = TRUE)
-      whichYearCol <- sapply(input$checkboxCatchData, grepl, "[year]", ignore.case = TRUE)
-      whichSpeciesCol <- sapply(input$checkboxCatchData, grepl, "[species]", ignore.case = TRUE)
+      # identify columns for grid plotting
+      whichSexCol <- grepl("sex", input$checkboxCatchData, ignore.case = TRUE)
+      whichGearCol <- grepl("gear|method", input$checkboxCatchData, ignore.case = TRUE)
+      whichYearCol <- grepl("year", input$checkboxCatchData, ignore.case = TRUE)
+      whichSpeciesCol <- grepl("species", input$checkboxCatchData, ignore.case = TRUE)
+      #whichSexCol <- sapply(input$checkboxCatchData, grepl, "[sex]", ignore.case = TRUE)
+      #whichGearCol <- sapply(input$checkboxCatchData, grepl, "[gear]", ignore.case = TRUE)
+      #whichYearCol <- sapply(input$checkboxCatchData, grepl, "[year]", ignore.case = TRUE)
+      #whichSpeciesCol <- sapply(input$checkboxCatchData, grepl, "[species]", ignore.case = TRUE)
       
       pg <- ggplot(catchdata_table())
       # if(any(whichSexCol) & !any(whichGearCol) & !any(whichYearCol)){ # sex
@@ -188,20 +203,20 @@ server <- function(input, output, session){
       if(any(whichSpeciesCol)){
         # years as col, sex as colours
         if(any(whichYearCol)) {
-            if(any(whichSexCol)){
-              pg <- pg + 
-                geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
-                         closed = "left", boundary = 0, bins = 40)
-            } else if (any(whichGearCol)){
-              pg <- pg + 
-                geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(gearCol)),
-                               closed = "left", boundary = 0, bins = 40)
-            } else {
-              pg <- pg + 
-                geom_histogram(aes_(x = input$lengthColSelect),
-                               closed = "left", boundary = 0, bins = 40)
-            }
-          pg <- pg + facet_grid(rows = as.formula(paste0(speciesCol, " ~ ", yearCol)), scales = "free")
+          if(any(whichSexCol)){
+            pg <- pg + 
+              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+                             closed = "left", boundary = 0, bins = 40)
+          } else if (any(whichGearCol)){
+            pg <- pg + 
+              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(gearCol)),
+                             closed = "left", boundary = 0, bins = 40)
+          } else {
+            pg <- pg + 
+              geom_histogram(aes_(x = input$lengthColSelect),
+                             closed = "left", boundary = 0, bins = 40)
+          }
+          pg <- pg + facet_grid(rows = as.formula(paste0(yearCol, " ~ ", speciesCol)), scales = "free")
         } else if(any(whichGearCol)){
           if(any(whichSexCol)){
             pg <- pg + 
@@ -213,8 +228,14 @@ server <- function(input, output, session){
                              closed = "left", boundary = 0, bins = 40)
           }
           pg <- pg + facet_grid(rows = as.formula(paste0(speciesCol, " ~ ", gearCol)), scales = "free")
+        } else {
+          # species only
+          pg <- pg + 
+            geom_histogram(aes_(x = input$lengthColSelect), closed = "left", boundary = 0, bins = 40) + 
+            facet_grid(rows = ensym(speciesCol), scales = "free")
         }
       } else {
+        # no species
         if(any(whichSexCol)){ 
           if(!any(whichGearCol) & !any(whichYearCol)){
             pg <- pg +
@@ -237,6 +258,7 @@ server <- function(input, output, session){
               facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
           }
         } else {
+          # no species or sex
           if(!any(whichGearCol) & !any(whichYearCol)){
             pg <- pg +
               geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
@@ -255,12 +277,12 @@ server <- function(input, output, session){
             pg <- pg +
               geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40) +
-              facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
+              facet_grid(rows = as.formula(paste0(yearCol, " ~ ", gearCol)), scales = "free")
           }
         }
-      
+        
       }
-    pg + theme_bw()
+      pg + theme_bw()
     })
   
   # print head of raw catch data
@@ -376,19 +398,19 @@ server <- function(input, output, session){
   
   
   # choose length-based assessment ====
-  # currently not functional
-  observeEvent(
-    input$selectCols,
-    {
-      output$cbLBA <- renderUI({
-        # choice <- # dependent on data
-        # tagList - see renderUI help
-        expr = list(
-          checkboxGroupInput("cbLBA", "Select assessment", choices = c("LB-SPR", "LBB", selected = NULL)),
-          actionButton("submitLBA", "Submit assessment", icon = icon("chart-line"))
-        )
-      })
-    })
+  # # currently not functional
+  # observeEvent(
+  #   input$selectCols,
+  #   {
+  #     output$cbLBA <- renderUI({
+  #       # choice <- # dependent on data
+  #       # tagList - see renderUI help
+  #       expr = list(
+  #         checkboxGroupInput("cbLBA", "Select assessment", choices = c("LB-SPR", "LBB", selected = NULL)),
+  #         actionButton("submitLBA", "Submit assessment", icon = icon("chart-line"))
+  #       )
+  #     })
+  #   })
   
 
   
@@ -464,6 +486,8 @@ server <- function(input, output, session){
                              age_0 = 0, age_max = input$sliderAgeMax)
     gtgUCILinf <- data.frame(length_0 = 0, length_inf = input$sliderLinf*(1+input$CVLinf*input$MaxSD), 
                              age_0 = 0, age_max = input$sliderAgeMax)
+    quartileLength <- data.frame(length_q = quantile(lengthRecordsConvert()[, newLengthCol()], probs = seq(0,1, 0.25)),
+                                 quantile = seq(0, 1, 0.25))
     p <- ggplot() + 
       geom_line(data = growthcurve,
                 aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5) +
@@ -479,7 +503,8 @@ server <- function(input, output, session){
       geom_segment(data = gtgUCILinf,
                    aes(x = age_0, y = length_inf, xend = age_max, yend = length_inf),
                    colour = "red", linetype = 2, size = 0.25) +
-      geom_rug(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol())) + 
+      geom_rug(data = quartileLength, mapping = aes(y = length_q )) +
+     # geom_violin(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol()), trim = TRUE, orientation = "y") + 
       theme_bw()
   })
   
@@ -553,16 +578,21 @@ server <- function(input, output, session){
   # plot selectivity pattern provided input$specifySelectivityPars == "Specify"
   observeEvent(
     input$btnFixedFleetPars,
-    {length_vals <- seq(0, input$Linf, length.out = 51)
-     ggdata <- data.frame(length = length_vals, 
-                selectivity = 1.0/(1+exp(-log(19)*(length_vals-input$SL50)/(input$SL95-input$SL50))))
+    {length_vals <- seq(min(lengthRecordsConvert()[,newLengthCol()]), input$Linf, length.out = 51)
+     ggdata <- rbind(data.frame(length = length_vals, 
+                          proportion = 1.0/(1+exp(-log(19)*(length_vals-input$SL50)/(input$SL95-input$SL50))),
+                          quantity = "selectivity"),
+                     data.frame(length = length_vals, 
+                                proportion = 1.0/(1+exp(-log(19)*(length_vals-input$Lm50)/(input$Lm95-input$Lm50))),
+                                quantity = "maturity")
+                     )
      output$plotSelectivityPattern <- renderPlotly({
        expr = ggplotly(ggplot(ggdata) + 
-                         geom_line(aes( x = length, y = selectivity), colour = "red", lwd = 1) +
-                         labs(title = "User-specified selectivity") +
+                         geom_line(aes( x = length, y =proportion, colour = quantity), lwd = 1) +
+                         scale_colour_manual(values = c("red", "black")) +
+                         labs(title = "User-specified selectivity and maturity") +
                          theme_bw())
      })
-     print(ggdata)
     })
   # eventReactive??
   # slideLenBins <- reactive(
