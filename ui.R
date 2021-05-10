@@ -115,43 +115,46 @@ body <-   mainPanel(
              )
              #icon = icon("table")
     ),
+    tabPanel("Growth",
+             fluidRow(
+               column(width = 8,
+                      plotlyOutput(outputId = "lvbGrowthCurve"),
+                      uiOutput(outputId = "growthFitBtn") # actionButton
+               ),
+               column(width = 4, 
+                      h3("von Bertalanffy Growth"),
+                      sliderInput(inputId = "sliderLinf", 
+                                  label = "LVB Linf",
+                                  min = 0, max = 150, value = 40,
+                                  step = 1, ticks = TRUE),
+                      sliderInput(inputId = "sliderK", 
+                                  label = "LVB k",
+                                  min = 0.05, max = 1, value = 0.25,
+                                  step = 0.01, ticks = TRUE, round = FALSE),
+                      sliderInput(inputId = "slidert0", 
+                                  label = "LVB t0",
+                                  min = -1.5, max = 1.5, value = 0.0,
+                                  step = 0.05, ticks = TRUE, round = FALSE),
+                      sliderInput(inputId = "sliderAgeMax", 
+                                  label = "Max age",
+                                  min = 6, max = 16, value = 11,
+                                  step = 1, ticks = TRUE, round = FALSE)
+               )
+             ),
+             fluidRow(                      
+               h3("Stock assessment parameters"),
+               uiOutput(outputId = "growthParRadioBtn")
+             )
+    ),
     tabPanel("LB-SPR", 
              #         plotlyOutput(outputId = "lengthAge",
              #                      width = "90%"),
              navbarPage(title = "GTG LB-SPR",
                         id = "parLBSPR",
                         tabPanel("Stock biological parameters",
-                                 # fluidRow(
-                                 #   column(width = 6, 
-                                 #          h3("Parameter specification"),
-                                 #          uiOutput(outputId = "growthParRBtn")
-                                 #          #  actionButton(inputId = "fitGrowth", label = "Fit LVB growth curve")
-                                 #   )
-                                 # ),
                                  fluidPage(
                                    fluidRow(
-                                     column(width = 5, 
-                                            h3("von Bertalanffy Growth"),
-                                            sliderInput(inputId = "sliderLinf", 
-                                                        label = "LVB Linf",
-                                                        min = 0, max = 150, value = 40,
-                                                        step = 1, ticks = TRUE),
-                                            sliderInput(inputId = "sliderK", 
-                                                        label = "LVB k",
-                                                        min = 0.05, max = 1, value = 0.25,
-                                                        step = 0.01, ticks = TRUE, round = FALSE),
-                                            sliderInput(inputId = "slidert0", 
-                                                        label = "LVB t0",
-                                                        min = -1.5, max = 1.5, value = 0.0,
-                                                        step = 0.05, ticks = TRUE, round = FALSE),
-                                            sliderInput(inputId = "sliderAgeMax", 
-                                                        label = "Max age",
-                                                        min = 6, max = 16, value = 11,
-                                                        step = 1, ticks = TRUE, round = FALSE),
-                                            plotlyOutput(outputId = "lvbGrowthCurve")
-                                            # actionButton
-                                     ),
-                                     column(width = 7,
+                                     column(width = 12,
 #                                          box(status = "primary", width = NULL,
                                               tags$table(id = "tableLBSPR",
                                               tags$thead(h3("LB-SPR stock parameters")),

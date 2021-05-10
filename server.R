@@ -23,6 +23,7 @@ server <- function(input, output, session){
                                                        grep("length", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE),
                                                        NULL))})
   
+  # updates checkboxCatchData
   observeEvent(input$lengthColSelect,
                {
                  updateCheckboxGroupInput(session = getDefaultReactiveDomain(),
@@ -438,75 +439,99 @@ server <- function(input, output, session){
   })
   
   
-  # LB-SPR assessment ====
-  # LVB growth ####
-  # output$growthParRBtn <- 
-  #   eventReactive(
-  #     input$submitDataTypes,
-  #     {if("age" %in% input$checkboxUserData){
-  #       expr = renderUI({
-  #         radioButtons(inputId = "growthParOption", 
-  #                      label = "LVB growth",
-  #                      choices = list("User-specified (point) estimate", 
-  #                                     "Frequentist inference", 
-  #                                     "Bayesian inference"))
-  #       })
-  #     } else {
-  #       print("here")
-  #       expr = renderUI({
-  #         radioButtons(inputId = "growthParOption", 
-  #                      label = "LVB growth",
-  #                      choices = list("User-specified (point) estimate"))
-  #         })
-  #     }
-  #       print(expr)
-  #       expr
-  #     }
-  #   )
-  # output$growthParRBtn <- 
-  #   renderUI({
-  #     radioButtons(inputId = "growthParOption", 
-  #                  label = "LVB growth",
-  #                  choices = list("User-specified (point) estimate"))
-  #   })
-  # 
-  # observeEvent(input$submitDataTypes,
-  #              {print(input$checkboxUserData)
-  #                print(input$growthParOption)}
-  # )
+
+  # LVB growth ====
   
-  output$lvbGrowthCurve <- renderPlotly({
+  # choices for growth parameters
+  growthParChoices <- reactive({
+    if("age" %in% input$checkboxCatchData) {
+      expr = c("User-specified", "Data fit (frequentist)")
+    } else {
+      expr = c("User-specified")
+    }
+      
+  })
+  
+  output$growthParRadioBtn <- renderUI({
+                      radioButtons(inputId = "growthParOption",
+                                   label = "LVB growth",
+                                   choices = growthParChoices())
+                    })
+
+  output$growthFitBtn <-
+    renderUI({
+      actionButton(inputId = "fitGrowth", label = "Fit LVB curve")
+    })
+    
+  
+  observeEvent(input$growthFitBtn,
+               {print(input$checkboxCatchData)
+                 print(growthParChoices())}
+  )
+  
+  
+  # growth (age-length) data 
+  createPlotSliderCurveData <- reactive({
     # slider curve
     growthcurve <- data.frame(age = seq(0, input$sliderAgeMax, by = 0.1))
     growthcurve$length_cm <- input$sliderLinf*(1- exp(-input$sliderK*(growthcurve$age-input$slidert0)))
-    
-    gtgLinf <- data.frame(length_0 = 0, length_inf = input$sliderLinf, 
-                          age_0 = 0, age_max = input$sliderAgeMax)
-    gtgLCILinf <- data.frame(length_0 = 0, length_inf = input$sliderLinf*(1-input$CVLinf*input$MaxSD), 
-                             age_0 = 0, age_max = input$sliderAgeMax)
-    gtgUCILinf <- data.frame(length_0 = 0, length_inf = input$sliderLinf*(1+input$CVLinf*input$MaxSD), 
-                             age_0 = 0, age_max = input$sliderAgeMax)
-    quartileLength <- data.frame(length_q = quantile(lengthRecordsConvert()[, newLengthCol()], probs = seq(0,1, 0.25)),
-                                 quantile = seq(0, 1, 0.25))
-    p <- ggplot() + 
-      geom_line(data = growthcurve,
-                aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5) +
-      geom_segment(data = gtgLinf,
-                   aes(x = age_0, y = length_inf, xend = age_max, yend = length_inf),
-                   colour = "red", linetype = 2, size = 0.75) + 
-      geom_text(data = gtgLinf,
-                aes(x = age_0, y = length_inf), label = "Linf", colour = "red",
-                nudge_x = 1, nudge_y = -gtgLinf$length_inf/15) + 
-      geom_segment(data = gtgLCILinf,
-                   aes(x = age_0, y = length_inf, xend = age_max, yend = length_inf),
-                   colour = "red", linetype = 2, size = 0.25) +
-      geom_segment(data = gtgUCILinf,
-                   aes(x = age_0, y = length_inf, xend = age_max, yend = length_inf),
-                   colour = "red", linetype = 2, size = 0.25) +
-      geom_rug(data = quartileLength, mapping = aes(y = length_q )) +
-     # geom_violin(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol()), trim = TRUE, orientation = "y") + 
-      theme_bw()
+    growthcurve
   })
+  
+  # create Linf dataframe
+  createLinfLineData <- reactive({
+    # question - better way to do this?
+    gtgLinf <- expand.grid(age = c(0, input$sliderAgeMax), 
+                           length = c(input$sliderLinf), 
+                           ci = c("mean", "mean+2SD", "mean-2SD"), stringsAsFactors = FALSE)
+    gtgLinf$linetype <- ifelse(gtgLinf$ci == "mean", "1", "2")
+    gtgLinf
+  })
+  
+  gatherFishAgeLengthData <- reactive({
+    if(any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))){
+      whichAgeCol <- grep("age", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
+      lengthAge <- lengthRecordsConvert()[, c(whichAgeCol, newLengthCol())]
+      lengthAge[!is.na(lengthAge[, whichAgeCol]),]
+    } else {
+      # lengthRecordsConvert() dependence ***
+      quartileLength <- data.frame(
+        length_q = quantile(lengthRecordsConvert()[, newLengthCol()], probs = seq(0,1, 0.25), na.rm = TRUE), 
+        quantile = seq(0, 1, 0.25))
+    }
+  })
+  
+ # reactive plot  
+ output$lvbGrowthCurve <- renderPlotly({
+   growthcurve <- createPlotSliderCurveData()
+   fishAgeLengthData <- gatherFishAgeLengthData()
+   gtgLinfLines <- createLinfLineData()
+  
+   #  maximum extent of plot
+   p <- ggplot() + 
+     geom_line(data = gtgLinfLines[gtgLinfLines$ci == "mean",], aes(x = age, y = length),
+               colour = "red", size = 0.75, linetype = 2) +
+     geom_text(data = gtgLinfLines[gtgLinfLines$ci == "mean" & gtgLinfLines$age == 0, ],
+               aes(x = age, y = length ), label = "Linf", colour = "red",
+               nudge_x = 1, nudge_y = -5) + 
+     scale_y_continuous(limits = c(0, input$sliderLinf)*1.05)
+   
+   p <- p +
+     geom_line(data = growthcurve,
+               aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5)
+   # age-length or just length data
+   if("age" %in% colnames(fishAgeLengthData)){
+     p <- p + 
+       geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(newLengthCol())),
+                  colour = "black", alpha = 0.5)
+   } else {
+     p <- p + 
+       geom_rug(data = fishAgeLengthData, mapping = aes(y = length_q )) # geom_violin(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol()), trim = TRUE, orientation = "y") +
+   }
+   p + theme_bw()
+ })
+ 
+  
   
   # numeric inputs for LBSPR
   # default to sliderInput values
@@ -532,7 +557,7 @@ server <- function(input, output, session){
   })
 
   
-  
+  # LB-SPR assessment ====
   # reactive list for biological inputs
   reactiveStockPars <- eventReactive(input$btnStockPars,
                 {expr = list(Linf = input$Linf,
