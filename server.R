@@ -458,19 +458,8 @@ server <- function(input, output, session){
                                    choices = growthParChoices())
                     })
 
-  output$growthFitBtn <-
-    renderUI({
-      actionButton(inputId = "fitGrowth", label = "Fit LVB curve")
-    })
-    
-  
-  observeEvent(input$growthFitBtn,
-               {print(input$checkboxCatchData)
-                 print(growthParChoices())}
-  )
-  
-  
-  # growth (age-length) data 
+  # reactive dataframes ####
+  # create growth (age-length) dataframe 
   createPlotSliderCurveData <- reactive({
     # slider curve
     growthcurve <- data.frame(age = seq(0, input$sliderAgeMax, by = 0.1))
@@ -479,8 +468,7 @@ server <- function(input, output, session){
   })
   
   # create Linf dataframe
-  createLinfLineData <- reactive({
-    # question - better way to do this?
+  createLinfLineData <- reactive({ # question - better way to do this?
     gtgLinf <- expand.grid(age = c(0, input$sliderAgeMax), 
                            length = c(input$sliderLinf), 
                            ci = c("mean", "mean+2SD", "mean-2SD"), stringsAsFactors = FALSE)
@@ -489,60 +477,191 @@ server <- function(input, output, session){
   })
   
   gatherFishAgeLengthData <- reactive({
+    # lengthRecordsConvert() dependence ***
+    lengthCol <- newLengthCol()
+    sexCol <- grep("sex", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
     if(any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))){
-      whichAgeCol <- grep("age", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
-      lengthAge <- lengthRecordsConvert()[, c(whichAgeCol, newLengthCol())]
-      lengthAge[!is.na(lengthAge[, whichAgeCol]),]
+      ageCol <- grep("age", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
+      lengthAge <- data.frame(lengthRecordsConvert()[, c(newLengthCol())], 
+                              lengthRecordsConvert()[, ageCol],
+                              lengthRecordsConvert()[, sexCol])
+      colnames(lengthAge) <- c(newLengthCol(), ageCol, sexCol)
+      lengthAgeData <- lengthAge[!is.na(lengthAge[, ageCol]) & !is.na(lengthAge[, newLengthCol()]),]
     } else {
-      # lengthRecordsConvert() dependence ***
-      quartileLength <- data.frame(
-        length_q = quantile(lengthRecordsConvert()[, newLengthCol()], probs = seq(0,1, 0.25), na.rm = TRUE), 
-        quantile = seq(0, 1, 0.25))
+      lengthAgeData <- data.frame(lengthRecordsConvert()[, c(newLengthCol())], 
+                                  age = NA,
+                                  sex = lengthRecordsConvert()[, sexCol])
+      colnames(lengthAgeData) <- c(newLengthCol(), "age", sexCol)
+      lengthAgeData <- lengthAgeData[!is.na(lengthAgeData[, newLengthCol()]),]
+    }
+    lengthAgeData
+  })
+  
+  
+  # reactive (or eventReactive) model fitting objects ####
+  # fit frequentist model to age-at-length data use slider settings as initial guess
+  # if no age data, compute quantiles
+  growthFrequentistFit <- eventReactive(input$fitGrowth, { 
+    growthData <- gatherFishAgeLengthData()
+    if(all(is.na(growthData$age))){
+      nls.m <- growthData
+      # summary(data.frame()) gives min, 1st quartile, median, mean 3rd quartile, max
+    } else {
+      nls.m <- nls(length_cm ~ Linf*(1-exp(-kappa*(age-t0))), 
+                   data = growthData, 
+                   start = list(Linf=input$sliderLinf, kappa = input$sliderK, t0=input$slidert0))
+      print(class(nls.m))
+    }
+    x <- list(model = nls.m, data = growthData)
+  })
+  
+  # bootstrapped growth parameters confidence intervals using nlsBoot
+  growthFrequentistFitBoot <- reactive({ #
+    GFF <- growthFrequentistFit()
+    growthData <- GFF$data 
+    gm <- GFF$model
+    
+    if(all(is.na(growthData[, "age"]))){
+      # NULL return value
+      return()
+    } else {
+      mean_fit <- fitted(gm)
+      
+      # bootstrap confidence intervals and growth parameter
+      nBoot <- 1000
+      coef_boot <- data.frame(Linf = rep(NA, nBoot),
+                              kappa = rep(NA, nBoot),
+                              t0 = rep(NA, nBoot))
+      pred_data <- data.frame(age = seq(0, max(growthData[, "age"]), by = 0.1))
+      pred_boot <- array(data = NA, dim = c(dim(pred_data)[1], nBoot))
+      # can the following be vectorised?
+      for (i in 1:nBoot){
+        resid_boot <- sample(resid(gm), size = length(resid(gm)), replace = TRUE)
+        gm_self_boot <- nls(length_cm ~ Linf*(1-exp(-kappa*(age-t0))),
+                            data = data.frame(age = growthData$age,
+                                              length_cm = resid_boot + mean_fit),
+                            start = list(Linf=40.,kappa=0.2,t0=0.0))
+        coef_boot[i,] <- gm_self_boot$m$getPars()
+        # predict length based on bootstrap regression estimators
+        pred_boot[,i] <- predict(gm_self_boot, pred_data)
+        # predict appears faster than vectorised  Linf*(1-exp(-kappa*(t-t0)))?
+      }
+      
+      # confidence intervals
+      length_ci_boot <- apply(pred_boot, MARGIN = 1, FUN = quantile, probs = c(0.50, 0.025, 0.975))
+      row.names(length_ci_boot) <-  c("length_p_500", "length_p_025", "length_p_975")
+      length_ci_boot <- as.data.frame(cbind(pred_data, t(length_ci_boot)))
+      
+      x <- list(predictions = length_ci_boot,
+                parameters = coef_boot)
     }
   })
   
- # reactive plot  
- output$lvbGrowthCurve <- renderPlotly({
-   growthcurve <- createPlotSliderCurveData()
-   fishAgeLengthData <- gatherFishAgeLengthData()
-   gtgLinfLines <- createLinfLineData()
   
-   #  maximum extent of plot
-   p <- ggplot() + 
-     geom_line(data = gtgLinfLines[gtgLinfLines$ci == "mean",], aes(x = age, y = length),
-               colour = "red", size = 0.75, linetype = 2) +
-     geom_text(data = gtgLinfLines[gtgLinfLines$ci == "mean" & gtgLinfLines$age == 0, ],
-               aes(x = age, y = length ), label = "Linf", colour = "red",
-               nudge_x = 1, nudge_y = -5) + 
-     scale_y_continuous(limits = c(0, input$sliderLinf)*1.05)
-   
-   p <- p +
-     geom_line(data = growthcurve,
-               aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5)
-   # age-length or just length data
-   if("age" %in% colnames(fishAgeLengthData)){
-     p <- p + 
-       geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(newLengthCol())),
-                  colour = "black", alpha = 0.5)
-   } else {
-     p <- p + 
-       geom_rug(data = fishAgeLengthData, mapping = aes(y = length_q )) # geom_violin(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol()), trim = TRUE, orientation = "y") +
-   }
-   p + theme_bw()
- })
- 
+  # reactive ggplot elements/geoms #### 
+  ggGrowth_CurveALData <- reactive({
+    growthcurve <- createPlotSliderCurveData()
+    fishAgeLengthData <- gatherFishAgeLengthData()
+    gtgLinfLines <- createLinfLineData()
+    
+    #  maximum extent of plot
+    p <- ggplot() + 
+      geom_line(data = gtgLinfLines[gtgLinfLines$ci == "mean",], aes(x = age, y = length),
+                colour = "red", size = 0.75, linetype = 2) +
+      geom_text(data = gtgLinfLines[gtgLinfLines$ci == "mean" & gtgLinfLines$age == 0, ],
+                aes(x = age, y = length ), label = "Linf", colour = "red",
+                nudge_x = 1, nudge_y = -5) + 
+      scale_y_continuous(limits = c(0, input$sliderLinf)*1.05)
+    
+    p <- p +
+      geom_line(data = growthcurve,
+                aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5)
+    # age-length or just length data
+    if(all(is.na(fishAgeLengthData[, "age"]))){
+      p <- p + 
+        geom_rug(data = fishAgeLengthData, mapping = aes(y = length_cm)) # geom_violin(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol()), trim = TRUE, orientation = "y") +
+    } else {
+      if("sex" %in% colnames(fishAgeLengthData)){
+        p <- p + 
+          geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(newLengthCol()), 
+                                                             colour = sex), alpha = 0.5)
+      } else {
+        p <- p + 
+          geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(newLengthCol())), 
+                     alpha = 0.5)
+      }
+    }
+    p + theme_bw()
+  })
   
+  # length-at-age confidence interval ribbon
+  ggGrowthFitCI <- reactive({
+    GP <- growthFrequentistFitBoot()[["predictions"]]
+    if(is.null(GP)){
+      x <- geom_blank()
+    } else {
+      x <- geom_ribbon(data = GP, 
+                  mapping = aes(x = age, ymin = length_p_025, ymax = length_p_975), 
+                  fill = "red", alpha = 0.25)
+    }
+    x
+  })
+  
+  # fitted mean length-at-age line
+  ggGrowthFitMean <- reactive({
+    GP <- growthFrequentistFitBoot()[["predictions"]]
+    if(is.null(GP)){
+      x <- geom_blank()
+    } else {
+      x <- geom_line(data = GP, mapping = aes(x = age, y = length_p_500), colour = "red")
+    }
+    x
+  })
+  
+  # debug observe events
+  observeEvent(input$fitGrowth,
+               {print(input$checkboxCatchData)
+                 print(growthParChoices())
+                 print("debug observe event")
+                 print(growthFrequentistFit())
+                 print(growthFrequentistFitBoot())
+                 print("are ggplots?")
+                 print(is.ggplot(ggGrowthFitMean()))
+                 print(is.ggplot(ggGrowth_CurveALData()))
+  })
+  
+  
+  # growth outputs ####
+  output$lvbGrowthCurve <- renderPlotly({#expr =
+    print(input$fitGrowth)
+    if(input$fitGrowth > 0) {
+      ggplotly(ggGrowth_CurveALData() + ggGrowthFitMean() + ggGrowthFitCI())    
+    } else {
+      ggplotly(ggGrowth_CurveALData())
+    }
+  })
+  
+  output$growthFitSummary <- renderPrint({
+    expr = print(summary(growthFrequentistFit()$model, correlation = TRUE))
+  })
+  
+  
+  # LB-SPR assessment ====
   
   # numeric inputs for LBSPR
   # default to sliderInput values
   output$numLinf <- renderUI({
     numericInput("Linf", label = NULL, #"Linf", 
-                 value = input$sliderLinf)
+                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                                coef(growthFrequentistFit()$model)["Linf"],
+                                input$sliderLinf))
   })
   
   output$numKlvb <- renderUI({
     numericInput("kLvb", label = NULL, #"K growth", 
-                 value = input$sliderK)
+                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                                coef(growthFrequentistFit()$model)["kappa"],
+                                input$sliderK))
   })
   
   output$numLm50 <- renderUI({
@@ -555,9 +674,7 @@ server <- function(input, output, session){
                  value = input$sliderLinf*0.75,
                  min = input$sliderLinf*0.25)
   })
-
   
-  # LB-SPR assessment ====
   # reactive list for biological inputs
   reactiveStockPars <- eventReactive(input$btnStockPars,
                 {expr = list(Linf = input$Linf,
@@ -576,11 +693,9 @@ server <- function(input, output, session){
                 })
   
   
-  # selectivity curve
+  # selectivity curve ####
   observeEvent(input$btnSelectivity,
-               { print("Selectivity curve observeEvent")
-                 print(input$specifySelectivity)
-                 if(input$specifySelectivity == "Specify"){
+               { if(input$specifySelectivity == "Specify"){
                    # insertUI
                    #output$selectivityNote <- renderText("User specifies selectivity parameters")
                    output$specifySelectivityPars <- renderUI(tagList(
@@ -602,18 +717,20 @@ server <- function(input, output, session){
   
   # plot selectivity pattern provided input$specifySelectivityPars == "Specify"
   observeEvent(
-    input$btnFixedFleetPars,
-    {length_vals <- seq(min(lengthRecordsConvert()[,newLengthCol()]), input$Linf, length.out = 51)
-     ggdata <- rbind(data.frame(length = length_vals, 
+    input$btnFixedFleetPars, {
+      length_vals <- seq(min(lengthRecordsConvert()[,newLengthCol()], na.rm = TRUE), 
+                       input$Linf, length.out = 51)
+
+      ggdata <- rbind(data.frame(length = length_vals, 
                           proportion = 1.0/(1+exp(-log(19)*(length_vals-input$SL50)/(input$SL95-input$SL50))),
                           quantity = "selectivity"),
                      data.frame(length = length_vals, 
                                 proportion = 1.0/(1+exp(-log(19)*(length_vals-input$Lm50)/(input$Lm95-input$Lm50))),
                                 quantity = "maturity")
                      )
-     output$plotSelectivityPattern <- renderPlotly({
+      output$plotSelectivityPattern <- renderPlotly({
        expr = ggplotly(ggplot(ggdata) + 
-                         geom_line(aes( x = length, y =proportion, colour = quantity), lwd = 1) +
+                         geom_line(aes( x = length, y = proportion, colour = quantity), lwd = 1) +
                          scale_colour_manual(values = c("red", "black")) +
                          labs(title = "User-specified selectivity and maturity") +
                          theme_bw())
