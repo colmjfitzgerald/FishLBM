@@ -576,6 +576,7 @@ server <- function(input, output, session){
     p <- p +
       geom_line(data = growthcurve,
                 aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5)
+    
     # age-length or just length data
     if(all(is.na(fishAgeLengthData[, "age"]))){
       p <- p + 
