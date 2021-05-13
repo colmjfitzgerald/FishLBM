@@ -467,15 +467,7 @@ server <- function(input, output, session){
     growthcurve
   })
   
-  # create Linf dataframe
-  createLinfLineData <- reactive({ # question - better way to do this?
-    gtgLinf <- expand.grid(age = c(0, input$sliderAgeMax), 
-                           length = c(input$sliderLinf), 
-                           ci = c("mean", "mean+2SD", "mean-2SD"), stringsAsFactors = FALSE)
-    gtgLinf$linetype <- ifelse(gtgLinf$ci == "mean", "1", "2")
-    gtgLinf
-  })
-  
+
   gatherFishAgeLengthData <- reactive({
     # lengthRecordsConvert() dependence ***
     lengthCol <- newLengthCol()
@@ -507,9 +499,9 @@ server <- function(input, output, session){
       nls.m <- growthData
       # summary(data.frame()) gives min, 1st quartile, median, mean 3rd quartile, max
     } else {
-      nls.m <- nls(length_cm ~ Linf*(1-exp(-kappa*(age-t0))), 
+      nls.m <- nls(length_cm ~ Linf*(1-exp(-K*(age-t0))), 
                    data = growthData, 
-                   start = list(Linf=input$sliderLinf, kappa = input$sliderK, t0=input$slidert0))
+                   start = list(Linf=input$sliderLinf, K = input$sliderK, t0=input$slidert0))
       print(class(nls.m))
     }
     x <- list(model = nls.m, data = growthData)
@@ -531,21 +523,21 @@ server <- function(input, output, session){
       # bootstrap confidence intervals and growth parameter
       nBoot <- 1000
       coef_boot <- data.frame(Linf = rep(NA, nBoot),
-                              kappa = rep(NA, nBoot),
+                              K = rep(NA, nBoot),
                               t0 = rep(NA, nBoot))
       pred_data <- data.frame(age = seq(0, max(growthFitData[, "age"]), by = 0.1))
       pred_boot <- array(data = NA, dim = c(dim(pred_data)[1], nBoot))
       # can the following be vectorised?
       for (i in 1:nBoot){
         resid_boot <- sample(resid(gm), size = length(resid(gm)), replace = TRUE)
-        gm_self_boot <- nls(length_cm ~ Linf*(1-exp(-kappa*(age-t0))),
+        gm_self_boot <- nls(length_cm ~ Linf*(1-exp(-K*(age-t0))),
                             data = data.frame(age = growthFitData$age,
                                               length_cm = resid_boot + mean_fit),
-                            start = list(Linf=40.,kappa=0.2,t0=0.0))
+                            start = list(Linf=40.,K=0.2,t0=0.0))
         coef_boot[i,] <- gm_self_boot$m$getPars()
         # predict length based on bootstrap regression estimators
         pred_boot[,i] <- predict(gm_self_boot, pred_data)
-        # predict appears faster than vectorised  Linf*(1-exp(-kappa*(t-t0)))?
+        # predict appears faster than vectorised  Linf*(1-exp(-K*(t-t0)))?
       }
       
       # confidence intervals
@@ -558,22 +550,28 @@ server <- function(input, output, session){
     }
   })
   
+  # create Linf dataframe from growth fit
+  createLinfLineData <- reactive({ # question - better way to do this?
+    GFF <- growthFrequentistFit()
+    fitLinf <- coef(GFF$model)["Linf"]
+    if(is.null(fitLinf)){
+      gtgLinf <- NULL
+    } else {
+      gtgLinf <- expand.grid(age = c(0, input$sliderAgeMax), 
+                           length = c(fitLinf), 
+                           ci = c("mean", "mean+2SD", "mean-2SD"), stringsAsFactors = FALSE)
+      gtgLinf$linetype <- ifelse(gtgLinf$ci == "mean", "1", "2")
+    }
+    gtgLinf
+  })
+  
   
   # reactive ggplot elements/geoms #### 
   ggGrowth_CurveALData <- reactive({
     growthcurve <- createPlotSliderCurveData()
     fishAgeLengthData <- gatherFishAgeLengthData()
-    gtgLinfLines <- createLinfLineData()
     
-    #  maximum extent of plot
-    p <- ggplot() + 
-      geom_line(data = gtgLinfLines[gtgLinfLines$ci == "mean",], aes(x = age, y = length),
-                colour = "grey75", size = 0.75, linetype = 2) +
-      geom_text(data = gtgLinfLines[gtgLinfLines$ci == "mean" & gtgLinfLines$age == 0, ],
-                aes(x = age, y = length ), label = "Linf", colour = "grey50",
-                nudge_x = 1, nudge_y = -5) + 
-      scale_y_continuous(limits = c(0, input$sliderLinf)*1.05)
-    
+    p <- ggplot()
     p <- p +
       geom_line(data = growthcurve,
                 aes(x = age, y = length_cm), colour = "grey75", alpha = 0.5, size = 1.5)
@@ -620,6 +618,36 @@ server <- function(input, output, session){
     x
   })
   
+  ggLinf <- reactive({
+    GFF <- growthFrequentistFit()
+    fitGrowthData <- GFF$data
+    
+    fitLinf <- coef(GFF$model)["Linf"]
+    if(is.null(fitLinf)){
+      gtgLinf <- NULL
+    } else {
+      gtgLinf <- expand.grid(age = c(0, input$sliderAgeMax), 
+                             length = c(fitLinf), 
+                             ci = c("mean", "mean+2SD", "mean-2SD"), stringsAsFactors = FALSE)
+      gtgLinf$linetype <- ifelse(gtgLinf$ci == "mean", "1", "2")
+    }
+    
+    currentGrowthData <- gatherFishAgeLengthData()
+    
+    #  maximum extent of plot
+    if(!is.null(gtgLinf) & identical(fitGrowthData, currentGrowthData)){
+      x <- list(geom_line(data = gtgLinf[gtgLinf$ci == "mean",], aes(x = age, y = length),
+                          colour = "red", size = 0.75, linetype = 2),
+                geom_text(data = gtgLinf[gtgLinf$ci == "mean" & gtgLinf$age == 0, ],
+                          aes(x = age, y = length), label = "Linf", colour = "red",
+                          nudge_x = 1, nudge_y = -5),
+                ylim(c(0, fitLinf*1.05)))
+    } else {
+      x <- geom_blank()
+    }
+    x
+  })
+  
   # debug observe events
   observeEvent(input$fitGrowth,
                {print(input$checkboxCatchData)
@@ -640,7 +668,7 @@ server <- function(input, output, session){
   output$lvbGrowthCurve <- renderPlotly({#expr =
     print(input$fitGrowth)
     if(input$fitGrowth > 0) {
-      ggplotly(ggGrowth_CurveALData() + ggGrowthFitMean() + ggGrowthFitCI())    
+      ggplotly(ggGrowth_CurveALData() + ggGrowthFitMean() + ggGrowthFitCI() + ggLinf())    
     } else {
       ggplotly(ggGrowth_CurveALData())
     }
@@ -665,7 +693,7 @@ server <- function(input, output, session){
   output$numKlvb <- renderUI({
     numericInput("kLvb", label = NULL, #"K growth", 
                  value = ifelse(input$growthParOption == growthParChoices()[2], 
-                                coef(growthFrequentistFit()$model)["kappa"],
+                                coef(growthFrequentistFit()$model)["K"],
                                 input$sliderK))
   })
   
