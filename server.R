@@ -518,10 +518,11 @@ server <- function(input, output, session){
   # bootstrapped growth parameters confidence intervals using nlsBoot
   growthFrequentistFitBoot <- reactive({ #
     GFF <- growthFrequentistFit()
-    growthData <- GFF$data 
+    growthFitData <- GFF$data
+    ageLengthData <- gatherFishAgeLengthData()
     gm <- GFF$model
     
-    if(all(is.na(growthData[, "age"]))){
+    if(all(is.na(growthFitData[, "age"])) || !identical(growthFitData, ageLengthData)){
       # NULL return value
       return()
     } else {
@@ -532,13 +533,13 @@ server <- function(input, output, session){
       coef_boot <- data.frame(Linf = rep(NA, nBoot),
                               kappa = rep(NA, nBoot),
                               t0 = rep(NA, nBoot))
-      pred_data <- data.frame(age = seq(0, max(growthData[, "age"]), by = 0.1))
+      pred_data <- data.frame(age = seq(0, max(growthFitData[, "age"]), by = 0.1))
       pred_boot <- array(data = NA, dim = c(dim(pred_data)[1], nBoot))
       # can the following be vectorised?
       for (i in 1:nBoot){
         resid_boot <- sample(resid(gm), size = length(resid(gm)), replace = TRUE)
         gm_self_boot <- nls(length_cm ~ Linf*(1-exp(-kappa*(age-t0))),
-                            data = data.frame(age = growthData$age,
+                            data = data.frame(age = growthFitData$age,
                                               length_cm = resid_boot + mean_fit),
                             start = list(Linf=40.,kappa=0.2,t0=0.0))
         coef_boot[i,] <- gm_self_boot$m$getPars()
@@ -567,15 +568,15 @@ server <- function(input, output, session){
     #  maximum extent of plot
     p <- ggplot() + 
       geom_line(data = gtgLinfLines[gtgLinfLines$ci == "mean",], aes(x = age, y = length),
-                colour = "red", size = 0.75, linetype = 2) +
+                colour = "grey75", size = 0.75, linetype = 2) +
       geom_text(data = gtgLinfLines[gtgLinfLines$ci == "mean" & gtgLinfLines$age == 0, ],
-                aes(x = age, y = length ), label = "Linf", colour = "red",
+                aes(x = age, y = length ), label = "Linf", colour = "grey50",
                 nudge_x = 1, nudge_y = -5) + 
       scale_y_continuous(limits = c(0, input$sliderLinf)*1.05)
     
     p <- p +
       geom_line(data = growthcurve,
-                aes(x = age, y = length_cm), colour = "black", alpha = 0.5, size = 1.5)
+                aes(x = age, y = length_cm), colour = "grey75", alpha = 0.5, size = 1.5)
     
     # age-length or just length data
     if(all(is.na(fishAgeLengthData[, "age"]))){
@@ -629,6 +630,9 @@ server <- function(input, output, session){
                  print("are ggplots?")
                  print(is.ggplot(ggGrowthFitMean()))
                  print(is.ggplot(ggGrowth_CurveALData()))
+                 #insertUI(selector = "#sectionGrowthFitSummary",
+                #          where = "beforeBegin",
+                #          ui = actionButton(inputId = "removeFit", label = "Remove fit"))
   })
   
   
