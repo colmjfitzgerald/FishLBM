@@ -98,9 +98,9 @@ body <-   mainPanel(
                fluidRow(
                  div(id = "unitConversion", hr()),
                  column(width = 4,
-                        h3("Optional length unit conversion"),
+                        h3("Length unit conversion"),
                         radioButtons(inputId = "unitConvertRadioBtn",
-                                     label = "Length units",
+                                     label = "",
                                      choices = c("Keep units unchanged",
                                                  "Convert units")
                                      )
@@ -122,14 +122,6 @@ body <-   mainPanel(
                )
              ),
              icon = icon("table")
-    ),
-    tabPanel("Filter (deprecated)",
-             fluidRow(
-               h4("Filter length records"),
-               uiOutput(outputId = "checkboxFilterData"),
-               uiOutput(outputId = "filterBtn")
-             )
-             #icon = icon("table")
     ),
     tabPanel("Growth",
              fluidRow(
@@ -217,10 +209,10 @@ body <-   mainPanel(
                                                title = "Coefficient of variation around Linf: larger values imply greater scatter of individual fish lengths around the expected population growth trajectory", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
                                      bsTooltip(id = "Lm50_label", #"numLm50", 
-                                               title = "Length at 50% maturity: length at which 50% of a population have reached reproductive maturity. Influences spawning-stock or egg production biomass per precruit and spawning potential ratio (SPR) calculations.", 
+                                               title = "Length at 50% maturity<br> <em>Length at which 50% of a population have reached reproductive maturity.</em> Replace default <b>Lm50 = 0.66 Linf</b> value (based on Beverton-Holt life history invariants) where empirical data or expert knowledge is available. Influences SPR calculation.", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
                                      bsTooltip(id = "Lm95_label", #"numLm95", 
-                                               title = "Length at 95% maturity: length at which 95% of a population have reached reproductive maturity. Influences spawning-stock or egg production biomass per precruit and spawning potential ratio (SPR) calculations.", 
+                                               title = "Length at 95% maturity<br> <em>Length at which 95% of a population have reached reproductive maturity.</em> Replace default <b>Lm95 = 0.75 Linf</b> value (assumed to be biologically reasonable) where empirical data or expert knowledge is available. Influences SPR calculation.", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
                                      column(width = 4,
                                             h3("Growth parameters"),
@@ -309,22 +301,23 @@ body <-   mainPanel(
                         tabPanel("Selectivity",
                                  fluidRow(
                                    column(width = 4,
+                                          div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
                                           radioButtons(inputId = "chooseSelectivityPattern",
-                                                       label = "Selectivity curve",
-                                                       choices = c("Asymptotic",
-                                                                   "Dome-shaped")),
+                                                       label = "Fishery selectivity curve",
+                                                       choices = c("Asymptotic")#, "Dome-shaped")
+                                                       ),
                                           radioButtons(inputId = "specifySelectivity",
-                                                       label = "Selectivity parameters",
+                                                       label = "Fishery selectivity parameters",
                                                        choices = c("Estimate",
-                                                                   "Specify")),
-                                          actionButton(inputId = "btnSelectivity",
-                                                       label = "Input selectivity choices",
-                                                       class = "btn-success")
+                                                                   "Specify"))#,
+                                          # actionButton(inputId = "btnSelectivity",
+                                          #              label = "Input selectivity choices",
+                                          #              class = "btn-success")
                                           ),
                                  column(width = 8,
-                                        div(id = "specifySelectivity", h4("Selectivity parameters")),
-                                        textOutput(outputId = "selectivityNote"),
-                                        uiOutput(outputId = "specifySelectivityPars")
+                                        div(id = "specifySelectivity", h4("Fishery selectivity parameters")),
+                                        #textOutput(outputId = "selectivityNote"),
+                                        uiOutput(outputId = "selectivityParameters")
                                         # specify parameters dependent on input
                                         )
                                  ),

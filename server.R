@@ -42,62 +42,9 @@ server <- function(input, output, session){
                { print(paste0("input select data"))
                  print(input$lengthColSelect)
                })
-  
+
+    
   # dynamic UI elements (renderUI, insertUI etc.) ----
-  
-  # # length data is the minimum required
-  # output$lengthSelect <- renderUI({
-  #   catchdata <- catchdata_read()
-  #   choice <-  colnames(catchdata)
-  #   selectInput("lengthCol", "Select length column", choices = choice, multiple = FALSE)
-  # })
-  
-  # output$checkboxData <- renderUI({
-  #   catchdata <- catchdata_read()
-  #   choice <-  c("sex", "age", "year", "maturity", "gear")
-  #   expr = list(
-  #     checkboxGroupInput("checkboxUserData", "Select data categories", choices = choice, selected = NULL),
-  #     actionButton("submitDataTypes", "Submit categories", icon = icon("table"))
-  #   )
-  # })
-  
-  #submittedCBData <- 
-  #  eventReactive(input$submitDataTypes,
-  #              {input$checkboxUserData}#, ignoreInit = TRUE
-  #  )
-  
-  # observeEvent(
-  #   input$submitDataTypes,
-  #   {
-  #     catchdata <- catchdata_read()
-  #     choice <-  colnames(catchdata)
-  #     if("sex" %in% submittedCBData()){
-  #       insertUI(
-  #         selector = "#columnSelect",
-  #         where = "beforeEnd",
-  #         ui = selectInput("sexCol", "Select sex column", choices = choice, multiple = FALSE)
-  #       )
-  #     }
-  #     if("gear" %in% submittedCBData()){
-  #       insertUI(
-  #         selector = "#columnSelect",
-  #         where = "beforeEnd",
-  #         ui = selectInput("gearCol", "Select gear column", choices = choice, multiple = FALSE)
-  #       )
-  #     }
-  #     print(paste("all user categories", input$checkboxUserData, sep = " = "))
-  #     print(paste("submittedCheckBoxData", submittedCBData(), sep = "="))
-  #     print(paste0("is.vector submittedCBData? ", is.vector(submittedCBData)))
-  #     print(paste0("gear col query:", input$gearCol))
-  #   }
-  #   # how to use ignoreInit effectively?
-  # )
-  
-  
-
-
-  
-  
   
   # Tabulate data action button and reaction ====
   
@@ -106,46 +53,6 @@ server <- function(input, output, session){
     actionButton("selectCols", "Input and plot data", icon = icon("table"))
   })
   
-  
-  # catchDataCategorise <- eventReactive(
-  #   input$selectCols, {
-  #     catchdata <- catchdata_read()
-  #     if(!is.null(input$sexCol)){
-  #       if(!is.null(input$gearCol)) {
-  #         catchdata <- catchdata %>%
-  #           select(input$sexCol, input$gearCol, input$lengthCol)
-  #         pg <- ggplot(catchdata) +
-  #           geom_histogram(aes_(x = as.name(input$lengthCol),
-  #                               fill = as.name(input$sexCol)),
-  #                          closed = "left", boundary = 0, binwidth = 20) +
-  #           facet_grid(rows = sym(input$gearCol), scales = "free")
-  #       } else {
-  #         catchdata <- catchdata %>%
-  #           select(input$sexCol, input$lengthCol)
-  #         pg <- ggplot(catchdata) +
-  #           geom_histogram(aes_(x = as.name(input$lengthCol),
-  #                               fill = as.name(input$sexCol)),
-  #                          closed = "left", boundary = 0, binwidth = 20)
-  #       }
-  #     }  else{
-  #       if(!is.null(input$gearCol)) {
-  #         catchdata <- catchdata %>%
-  #           select(input$gearCol, input$lengthCol)
-  #         pg <- ggplot(catchdata) +
-  #           geom_histogram(aes_(x = as.name(input$lengthCol)),
-  #                          closed = "left", boundary = 0, binwidth = 20) +
-  #           facet_grid(rows = sym(input$gearCol))
-  #       } else {
-  #         catchdata <- catchdata %>%
-  #           select(input$lengthCol)
-  #         pg <- ggplot(catchdata) +
-  #           geom_histogram(aes_(x = as.name(input$lengthCol)))
-  #       }
-  #     }
-  #     list(catchdata, pg)
-  #   }#,
-  #   #ignoreInit = TRUE
-  # )
   
   
   # catchdata element for plotting and LBSPR
@@ -302,67 +209,7 @@ server <- function(input, output, session){
     expr = str(catchdata_read(), vec.len = 1)  
   })
   
-  # Filtering data ====  
 
-  output$checkboxFilterData <- renderUI({
-    # does filterCols need to be an object to allow filtering??
-    dfCL <- catchdata_table()
-    filterCols <- setdiff(colnames(dfCL), paste0(input$lengthColSelect))
-    checkboxList <- NULL
-    for (fcol in filterCols){
-      choiceCat <- unique(dfCL[,fcol])
-      checkboxList <- append(checkboxList, 
-                             list(checkboxGroupInput(inputId = paste0("checkbox",fcol),
-                                                label = paste("Select", fcol, "levels", sep = " "), 
-                                                choices = choiceCat, selected = choiceCat))
-      )
-    }
-    #tagList(
-    checkboxGroupInput(inputId = paste0("checkbox", fcol),
-                       label = paste("Select", fcol, "levels", sep = " "), 
-                       choices = choiceCat, selected = choiceCat)
-    # checkboxGroupInput(inputId = paste0("checkbox",fcol),
-    #                    label = paste("Select", fcol, "levels", sep = " "), 
-    #                    choices = choiceCat, selected = choiceCat)
-    #)
-    #print(str(checkboxList))
-    tagList(checkboxList)
-  })
-  
-  output$filterBtn <- renderUI({
-    actionButton(inputId = "actionFilterData", label = "Filter length records",
-                 icon = icon("table"))
-  })
-  
-  # for debugging purposes
-  observeEvent(input$actionFilterData,
-               {
-                 dfCL <- catchdata_table()
-                 filterCols <- setdiff(colnames(dfCL), paste0(input$lengthColSelect))
-                 fcol <- filterCols[length(filterCols)]
-                 print(input[[paste0("checkbox", fcol)]])
-                 print(input[[paste0("checkbox", filterCols[1])]])
-                 print(input)
-                 print(head(catchDataFilter()))
-                 #print(get(paste0("input$checkbox", fcol)))
-               })
-  
-  catchDataFilter <- eventReactive(
-    input$actionFilterData, {
-      catchData <- catchdata_table()
-      filterCols <- setdiff(colnames(catchData), paste0(input$lengthColSelect))
-      print(filterCols)
-      for (fcol in filterCols) {
-        print(input[[paste0("checkbox", fcol)]])
-        catchData <- catchData %>% 
-          filter(!!sym(fcol) %in% input[[paste0("checkbox", fcol)]])
-      }
-      catchData
-    }
-  )
-  
-  
-  
   # Length data conversion and column selection ====
   newLengthCol <- eventReactive(
     input$convertLengthUnits,
@@ -735,28 +582,35 @@ server <- function(input, output, session){
   
   
   # selectivity curve ####
-  observeEvent(input$btnSelectivity,
-               { if(input$specifySelectivity == "Specify"){
-                   # insertUI
-                   #output$selectivityNote <- renderText("User specifies selectivity parameters")
-                   output$specifySelectivityPars <- renderUI(tagList(
-                     numericInput(inputId = "SL50", label = "Length at 50% selectivity",
-                                  value = input$Linf*0.70),
-                     numericInput(inputId = "SL95", label = "Length at 95% selectivity",
-                                  value = input$Linf*0.80),
-                     actionButton(inputId = "btnFixedFleetPars", "Input selectivity parameters",
-                                  class = "btn-success")
-                   ))
-                 } else {
-                   output$selectivityNote <- renderText("Estimate selectivity parameters in model fitting process")
-                 }
-               })
+  # insertUI
+  # output$selectivityNote <- renderText("User specifies selectivity parameters")
+  output$selectivityParameters <- renderUI(
+    { 
+      if(input$specifySelectivity == "Specify"){
+        tagList(
+          numericInput(inputId = "SL50", label = "Length at 50% selectivity",
+                       value = input$Linf*0.70),
+          numericInput(inputId = "SL95", label = "Length at 95% selectivity",
+                       value = input$Linf*0.80),
+          actionButton(inputId = "btnFixedFleetPars", "Input selectivity parameters",
+                       class = "btn-success"),
+          bsTooltip(id = "SL50", 
+                    title = "Length at 50% selectivity<br> <em>Length at which 50% of a stock is caught by fishery gear.</em> Replace default <b>SL50 = 0.7 Linf</b> with empirical data or expert knowledge. Influences F/M statistical inference.", 
+                    placement = "left", trigger = "hover",  options = list(container = "body")),
+          bsTooltip(id = "SL95", 
+                    title = "Length at 95% selectivity<br> <em>Length at which 95% of a stock is caught by fishery gear.</em> Replace default <db>SL50 = 0.8 Linf</b> with empirical data or expert knowledge. Influences F/M statistical inference.", 
+                    placement = "left", trigger = "hover",  options = list(container = "body"))
+        )
+      } else {
+        tagList(renderText("Estimate selectivity parameters in model fitting process"))
+      }
+    })
   
   reactiveFixedFleetPars <- eventReactive(input$btnFixedFleetPars,
                                           {list(SL50 = input$SL50, SL95 = input$SL95)
                                           })
   
-  # plot selectivity pattern provided input$specifySelectivityPars == "Specify"
+  # plot selectivity pattern provided input$specifySelectivity == "Specify"
   observeEvent(
     input$btnFixedFleetPars, {
       length_vals <- seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), 
@@ -764,15 +618,18 @@ server <- function(input, output, session){
 
       ggdata <- rbind(data.frame(length = length_vals, 
                           proportion = 1.0/(1+exp(-log(19)*(length_vals-input$SL50)/(input$SL95-input$SL50))),
+                          size = 1,
                           quantity = "selectivity"),
                      data.frame(length = length_vals, 
                                 proportion = 1.0/(1+exp(-log(19)*(length_vals-input$Lm50)/(input$Lm95-input$Lm50))),
+                                size = 2,
                                 quantity = "maturity")
                      )
       output$plotSelectivityPattern <- renderPlotly({
        expr = ggplotly(ggplot(ggdata) + 
-                         geom_line(aes( x = length, y = proportion, colour = quantity), lwd = 1) +
+                         geom_line(aes( x = length, y = proportion, colour = quantity, size = size), ) +
                          scale_colour_manual(values = c("red", "black")) +
+                         scale_size_identity() + 
                          labs(title = "User-specified selectivity and maturity") +
                          theme_bw())
      })
