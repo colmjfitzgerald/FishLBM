@@ -173,10 +173,6 @@ server <- function(input, output, session){
       whichGearCol <- grepl("gear|method", input$checkboxCatchData, ignore.case = TRUE)
       whichYearCol <- grepl("year", input$checkboxCatchData, ignore.case = TRUE)
       whichSpeciesCol <- grepl("species", input$checkboxCatchData, ignore.case = TRUE)
-      #whichSexCol <- sapply(input$checkboxCatchData, grepl, "[sex]", ignore.case = TRUE)
-      #whichGearCol <- sapply(input$checkboxCatchData, grepl, "[gear]", ignore.case = TRUE)
-      #whichYearCol <- sapply(input$checkboxCatchData, grepl, "[year]", ignore.case = TRUE)
-      #whichSpeciesCol <- sapply(input$checkboxCatchData, grepl, "[species]", ignore.case = TRUE)
       
       pg <- ggplot(catchdata_table())
       # if(any(whichSexCol) & !any(whichGearCol) & !any(whichYearCol)){ # sex
@@ -204,6 +200,7 @@ server <- function(input, output, session){
       if(any(whichSpeciesCol)){
         # years as col, sex as colours
         if(any(whichYearCol)) {
+          # if gear and sex, use sex as colour category
           if(any(whichSexCol)){
             pg <- pg + 
               geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
@@ -217,7 +214,16 @@ server <- function(input, output, session){
               geom_histogram(aes_(x = input$lengthColSelect),
                              closed = "left", boundary = 0, bins = 40)
           }
-          pg <- pg + facet_grid(rows = as.formula(paste0(yearCol, " ~ ", speciesCol)), scales = "free")
+          if(length(unique(catchdata_table()[, speciesCol])) <= 
+             length(unique(catchdata_table()[, yearCol]))) {
+            pg <- pg + 
+              facet_grid(rows = as.formula(paste0(yearCol, " ~ ", speciesCol)), scales = "free",
+                         labeller = label_wrap_gen(10)) #switch = "y", 
+          } else {
+            pg <- pg + 
+              facet_grid(rows = as.formula(paste0(speciesCol, " ~ ", yearCol)), scales = "free",
+                                  labeller = label_wrap_gen(10)) #switch = "y",
+          }
         } else if(any(whichGearCol)){
           if(any(whichSexCol)){
             pg <- pg + 
@@ -283,16 +289,17 @@ server <- function(input, output, session){
         }
         
       }
-      pg + theme_bw()
+      pg + theme_bw() + theme(strip.text.x = element_text(margin = margin(0.125,0.25,0.25,0.25, "cm")))
     })
   
   # print head of raw catch data
-  output$headRawCatchData <- renderPrint({
-    expr = print(head(catchdata_read(), n = 10))
-  })
+#  output$headRawCatchData <- renderPrint({
+#    expr = print(describe(catchdata_read())) # head(, n = 10)
+#  })
+# if(!require(Hmisc)){install.packages("Hmisc", dependencies = TRUE); require(Hmisc)}
   
   output$strRawCatchData <- renderPrint({
-    expr = str(catchdata_read())  
+    expr = str(catchdata_read(), vec.len = 1)  
   })
   
   # Filtering data ====  
@@ -365,7 +372,8 @@ server <- function(input, output, session){
   lengthRecordsScale <- eventReactive(
     input$convertLengthUnits,
     {
-      if(input$dataLengthUnits == input$newLengthUnits){
+      if((input$dataLengthUnits == input$newLengthUnits) || 
+         input$unitConvertRadioBtn == "Keep units unchanged"){
         lengthScale <- 1
       } else {
         lengthScale <- 
@@ -386,7 +394,7 @@ server <- function(input, output, session){
     }
   )
   
-  lengthRecordsConvert <- reactive(
+  lengthRecordsFilter <- reactive(
     #   eventReactive(input$convertLengthUnits,
     { 
       lengthScale <- lengthRecordsScale()
@@ -469,20 +477,20 @@ server <- function(input, output, session){
   
 
   gatherFishAgeLengthData <- reactive({
-    # lengthRecordsConvert() dependence ***
+    # lengthRecordsFilter() dependence ***
     lengthCol <- newLengthCol()
     sexCol <- grep("sex", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
     if(any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))){
       ageCol <- grep("age", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
-      lengthAge <- data.frame(lengthRecordsConvert()[, c(newLengthCol())], 
-                              lengthRecordsConvert()[, ageCol],
-                              lengthRecordsConvert()[, sexCol])
+      lengthAge <- data.frame(lengthRecordsFilter()[, c(newLengthCol())], 
+                              lengthRecordsFilter()[, ageCol],
+                              lengthRecordsFilter()[, sexCol])
       colnames(lengthAge) <- c(newLengthCol(), ageCol, sexCol)
       lengthAgeData <- lengthAge[!is.na(lengthAge[, ageCol]) & !is.na(lengthAge[, newLengthCol()]),]
     } else {
-      lengthAgeData <- data.frame(lengthRecordsConvert()[, c(newLengthCol())], 
+      lengthAgeData <- data.frame(lengthRecordsFilter()[, c(newLengthCol())], 
                                   age = NA,
-                                  sex = lengthRecordsConvert()[, sexCol])
+                                  sex = lengthRecordsFilter()[, sexCol])
       colnames(lengthAgeData) <- c(newLengthCol(), "age", sexCol)
       lengthAgeData <- lengthAgeData[!is.na(lengthAgeData[, newLengthCol()]),]
     }
@@ -579,7 +587,7 @@ server <- function(input, output, session){
     # age-length or just length data
     if(all(is.na(fishAgeLengthData[, "age"]))){
       p <- p + 
-        geom_rug(data = fishAgeLengthData, mapping = aes(y = length_cm)) # geom_violin(data = lengthRecordsConvert(), mapping = aes_string(y = newLengthCol()), trim = TRUE, orientation = "y") +
+        geom_rug(data = fishAgeLengthData, mapping = aes(y = length_cm)) # geom_violin(data = lengthRecordsFilter(), mapping = aes_string(y = newLengthCol()), trim = TRUE, orientation = "y") +
     } else {
       if("sex" %in% colnames(fishAgeLengthData)){
         p <- p + 
@@ -751,7 +759,7 @@ server <- function(input, output, session){
   # plot selectivity pattern provided input$specifySelectivityPars == "Specify"
   observeEvent(
     input$btnFixedFleetPars, {
-      length_vals <- seq(min(lengthRecordsConvert()[,newLengthCol()], na.rm = TRUE), 
+      length_vals <- seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), 
                        input$Linf, length.out = 51)
 
       ggdata <- rbind(data.frame(length = length_vals, 
@@ -795,7 +803,7 @@ server <- function(input, output, session){
                    by=SizeBins$Linc, length.out=(length(LenBins)-1))
     
     # input reactive expressions
-    length_records <- lengthRecordsConvert()
+    length_records <- lengthRecordsFilter()
     length_col <- newLengthCol()
     
     histogram_length <- hist(length_records[, length_col], plot = FALSE,  
@@ -817,7 +825,7 @@ server <- function(input, output, session){
   output$plotResponsiveLengthComposition <- 
     renderPlotly({
       expr = ggplotly(
-        ggplot(lengthRecordsConvert()) + 
+        ggplot(lengthRecordsFilter()) + 
           geom_histogram(mapping = aes_string(x = newLengthCol()), 
                          breaks = binLengthData()$LenBins, # slideLenBins(), 
                          closed = "left", colour = "black", fill = "grey75") + 
@@ -829,11 +837,11 @@ server <- function(input, output, session){
                 {output$plotResponsiveLengthComposition <-
                   renderPlotly({
                     expr = ggplotly(
-                      ggplot(lengthRecordsConvert()) +
+                      ggplot(lengthRecordsFilter()) +
                         geom_histogram(mapping = aes_string(x = newLengthCol()),
                                        breaks = binLengthData()$LenBins, # slideLenBins(),
                                        closed = "left", colour = "black", fill = "grey75") +
-                        facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsConvert()), ignore.case = TRUE,
+                        facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
                                                value = TRUE)," ~ ."))) +
                         theme_bw())})
                 }
@@ -844,7 +852,7 @@ server <- function(input, output, session){
     input$fitLBSPR,
     {
       # as.name
-      length_records <- lengthRecordsConvert()
+      length_records <- lengthRecordsFilter()
       length_col <- newLengthCol()
 #      print(head(length_records[, length_col]))
       
@@ -941,7 +949,7 @@ server <- function(input, output, session){
   
   output$visFitLBSPR <- renderPlotly({
     # length data
-    length_records <- lengthRecordsConvert()
+    length_records <- lengthRecordsFilter()
     length_col <- newLengthCol()
     
     LenBins <- binLengthData()$LenBins

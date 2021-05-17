@@ -75,12 +75,12 @@ body <-   mainPanel(
     type = "tabs",
     tabPanel("Data Overview", 
              fluidPage(
-               column(width = 4,
+               column(width = 3,
                       h5("Raw data"),
-                      verbatimTextOutput(outputId = "strRawCatchData"),
-                      verbatimTextOutput(outputId = "headRawCatchData")
+                      verbatimTextOutput(outputId = "strRawCatchData")#,
+                      #                      verbatimTextOutput(outputId = "headRawCatchData")
                ),
-               column(width = 8,
+               column(width = 9,
                       h5("Length composition by attribute"),
                       plotlyOutput(outputId = "lengthComposition",
                                    width = "100%",
@@ -89,25 +89,41 @@ body <-   mainPanel(
              ),
              icon = icon("chart-bar")
     ),
-    tabPanel("Configure", 
+    tabPanel("Filter data", 
              fluidPage(
-               column(width = 8,
+               fluidRow(
+                      h3("Catch data by attribute"),
                       DTOutput(outputId = "catchDataTable", height = "auto")
                ),
-               column(width = 4,
-                      h4("Convert length units"),
-                      selectInput(inputId = "dataLengthUnits", label = "Current length units", 
-                                  choices = c("mm", "cm", "m", "in"), selected = "cm"),
-                      selectInput(inputId = "newLengthUnits", label = "New length units", 
-                                  choices = c("mm", "cm", "m", "in"), selected = "cm"),
-                      actionButton(inputId = "convertLengthUnits", label = "Convert units",
-                                   class = "btn-success"),
-                      #textInput(inputId = "inputLengthColName", label = "Length column name")
+               fluidRow(
+                 div(id = "unitConversion", hr()),
+                 column(width = 4,
+                        h3("Optional length unit conversion"),
+                        radioButtons(inputId = "unitConvertRadioBtn",
+                                     label = "Length units",
+                                     choices = c("Keep units unchanged",
+                                                 "Convert units")
+                                     )
+                 ),
+                 column(width = 8,
+                        conditionalPanel(condition = "input.unitConvertRadioBtn == 'Convert units'",
+                          h4("Convert length units, input data"),
+                          selectInput(inputId = "dataLengthUnits", label = "Current length units", 
+                                      choices = c("mm", "cm", "m", "in"), selected = "cm"),
+                          selectInput(inputId = "newLengthUnits", label = "New length units", 
+                                      choices = c("mm", "cm", "m", "in"), selected = "cm")
+                          #textInput(inputId = "inputLengthColName", label = "Length column name")
+                        )
+                 ),
                ),
+               fluidRow(
+                 actionButton(inputId = "convertLengthUnits", label = "Input filtered data",
+                              class = "btn-success")
+               )
              ),
              icon = icon("table")
     ),
-    tabPanel("Filter (deprecated)", 
+    tabPanel("Filter (deprecated)",
              fluidRow(
                h4("Filter length records"),
                uiOutput(outputId = "checkboxFilterData"),
