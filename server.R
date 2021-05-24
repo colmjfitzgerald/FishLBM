@@ -659,51 +659,66 @@ server <- function(input, output, session){
     LenMids <- seq(from=0.5*SizeBins$Linc, 
                    by=SizeBins$Linc, length.out=(length(LenBins)-1))
     
-    # input reactive expressions
-    length_records <- lengthRecordsFilter()
+    # input length data, exclude NAs
     length_col <- newLengthCol()
+    length_records <- na.omit(lengthRecordsFilter()[, length_col])
     
-    histogram_length <- hist(length_records[, length_col], plot = FALSE,  
-                             breaks = LenBins, right = FALSE)
+    histogram_length <- hist(length_records, plot = FALSE, breaks = LenBins, right = FALSE)
+    
+    # vulnerable 
+    isLenBinFished <- (LenMids >= input$MLL)
+    
+    
     # bins and binned counts
     list(SizeBins = SizeBins,
          LenBins = LenBins,
          LenMids = LenMids,
-         LenDat = histogram_length$counts)
+         LenDat = histogram_length$counts,
+         LenDatVul = histogram_length$counts*isLenBinFished)
   }
   )
   
   observeEvent(input$btnStockPars,
                {print("debug observeEvent")
-                 print(binLengthData())})
+                 print(binLengthData())
+                 length_records <- lengthRecordsFilter()[, newLengthCol()]
+                 print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])})
   
   
   # plot length composition of filtered data - change with slider input
   output$plotResponsiveLengthComposition <- 
     renderPlotly({
-      expr = ggplotly(
-        ggplot(lengthRecordsFilter()) + 
-          geom_histogram(mapping = aes_string(x = newLengthCol()), 
-                         breaks = binLengthData()$LenBins, # slideLenBins(), 
-                         closed = "left", colour = "black", fill = "grey75") + 
-          theme_bw())
-      })
+      lengthData <- lengthRecordsFilter()
+      lengthData$isVulnerable <- lengthData[, newLengthCol()] >= input$MLL
+      lengthData <- lengthData[, c(newLengthCol(), "isVulnerable")]
+      print(names(lengthData))
+      print(lengthData)
+      if(all(lengthData$isVulnerable, na.rm = TRUE)) {
+        ggLengthComp <- ggplot(lengthData %>% na.omit()) +  
+          geom_histogram(mapping = aes_string(x = newLengthCol()), fill = "grey80",
+                         breaks = binLengthData()$LenBins, # slideLenBins(),
+                         closed = "left", colour = "black") +
+          geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
+          theme_bw()
+      } else {
+        ggLengthComp <- ggplot(lengthData %>% na.omit()) + 
+          geom_histogram(mapping = aes_string(x = newLengthCol(), fill = "isVulnerable"),
+                         breaks = binLengthData()$LenBins, # slideLenBins(),
+                         closed = "left", colour = "black") +
+          scale_fill_manual(name = "fishery \n vulnerable", breaks = waiver(), values = c("grey20", "grey80")) + 
+          geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
+          theme_bw() + 
+          theme(legend.position = "bottom")
+      }
+      if(input$visualiseLengthComposition == "by year"){ # was observeEvent or eventReactive 
+        ggLengthComp <- ggLengthComp + 
+          facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
+                                            value = TRUE)," ~ ."))) 
+      }
+      expr = ggplotly(ggLengthComp)
+    })
   
-  # observeEvent or eventReactive
-  observeEvent(input$analyseByYear,
-                {output$plotResponsiveLengthComposition <-
-                  renderPlotly({
-                    expr = ggplotly(
-                      ggplot(lengthRecordsFilter()) +
-                        geom_histogram(mapping = aes_string(x = newLengthCol()),
-                                       breaks = binLengthData()$LenBins, # slideLenBins(),
-                                       closed = "left", colour = "black", fill = "grey75") +
-                        facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
-                                               value = TRUE)," ~ ."))) +
-                        theme_bw())})
-                }
-  )
-    
+
   # Fit LBSPR ####
   fitGTGLBSPR <- eventReactive(
     input$fitLBSPR,
@@ -739,11 +754,12 @@ server <- function(input, output, session){
       LenBins <- binLengthData()$LenBins
       LenMids <- binLengthData()$LenMids
       LenDat <- binLengthData()$LenDat
+      LenDatVul <- binLengthData()$LenDatVul
       
       
       
       # GTG-LBSPR optimisation
-      optGTG <- DoOpt(StockPars,  fixedFleetPars, LenDat, SizeBins, "GTG")
+      optGTG <- DoOpt(StockPars,  fixedFleetPars, LenDatVul, SizeBins, "GTG")
       # optGTG$Ests
       # optGTG$PredLen
       
@@ -808,9 +824,10 @@ server <- function(input, output, session){
     # length data
     length_records <- lengthRecordsFilter()
     length_col <- newLengthCol()
+    length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
     
     LenBins <- binLengthData()$LenBins
-    LenDat <- binLengthData()$LenDat
+    LenDat <- binLengthData()$LenDatVul # vulnerable to fishery only
     maxLenDat <- max(LenDat)
     
     NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
@@ -830,7 +847,7 @@ server <- function(input, output, session){
     }
     
     # create ggplot with data...
-    pg <- ggplot(length_records) + 
+    pg <- ggplot(length_records %>% filter(isVulnerable) ) + 
       geom_histogram(mapping = aes_string(x = length_col), breaks = LenBins, 
                      closed = "left", colour = "black", fill = "grey75")
     

@@ -327,22 +327,31 @@ body <-   mainPanel(
                                           ) 
                         ),
                         tabPanel("Length composition",
-                                 fluidRow(
-                                   column(width = 6,
+                                 fluidPage(
+                                   fluidRow(
+                                     column(width = 3,
                                           sliderInput(inputId = "Linc", 
                                                       label = paste0("Length increment"),
                                                       min = 0, max = 5, value = 1,
-                                                      step = 0.5, ticks = TRUE)
-                                   ),
-                                   column(width = 6,
-                                          actionButton(inputId = "analyseByYear",
-                                                       label = "Visualise by year", # class = "btn-success"
-                                                       ))
-                                 ),
-                                 fluidRow(
-                                   plotlyOutput(outputId = "plotResponsiveLengthComposition",
-                                                width = "100%",
-                                                height = "400px")
+                                                      step = 0.5, ticks = TRUE),
+                                          div(id = "above MVL",hr()),
+                                          numericInput(inputId = "MLL",
+                                                       label = "Minimum length limit (fishery)",
+                                                       value = 0.0,
+                                                       min = 0.0),
+                                          div(id = "aboveVisualiseRadioButtons", hr()),
+                                          radioButtons(inputId = "visualiseLengthComposition",
+                                                       label = "Visualise...",
+                                                       choices = c("in aggregate", "by year"),
+                                                       selected = "in aggregate"
+                                                       )
+                                     ),
+                                     column(width = 9,
+                                            plotlyOutput(outputId = "plotResponsiveLengthComposition",
+                                                         width = "100%",
+                                                         height = "400px")
+                                            )
+                                     ),
                                  )
                         ),
                         tabPanel("Model fit",
