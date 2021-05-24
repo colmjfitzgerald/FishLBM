@@ -327,5 +327,6 @@ DoOpt <- function(StockPars, fixedFleetPars = NULL, LenDat, SizeBins=NULL, mod=c
     Out$Ests <- c(FM=newFleet$FM, SPR = runMod$SPR)
   }
   Out$PredLen <- runMod$LCatchFished * sum(LenDat)
+  Out$nlminbOut <- opt
   return(Out)
 }
