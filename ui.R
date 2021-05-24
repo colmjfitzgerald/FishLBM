@@ -378,14 +378,14 @@ body <-   mainPanel(
                         ),
                         tabPanel("Diagnostics",
                                  fluidRow(
-                                   column(width = 6,
-                                          tags$h3("Population length composition"),
-                                          plotOutput(outputId = "plotPopLBSPR"),
-                                          tags$hr(),
-                                          tags$h3("Catch length composition"),
-                                          plotOutput(outputId = "plotCatchLBSPR")
+                                   column(width = 9,
+                                          #tags$h3("Population length composition"),
+                                          #plotOutput(outputId = "plotPopLBSPR"),
+                                          #tags$hr(),
+                                          tags$h3("Expected catch-at-length - per recruit theory"),
+                                          plotlyOutput(outputId = "plotCatchLBSPR")
                                    ),
-                                   column(width = 6, 
+                                   column(width = 3, 
                                           verbatimTextOutput(outputId = "textFitLBSPR")),
                                    #plotlyOutput(outputId = "plotOpLBSPR",
                                    #              width = "100%",

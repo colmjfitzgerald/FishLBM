@@ -766,6 +766,7 @@ server <- function(input, output, session){
       optGTG <- DoOpt(StockPars,  fixedFleetPars, LenDatVul, SizeBins, "GTG")
       # optGTG$Ests
       # optGTG$PredLen
+      # optGTG$nlminbOut
       
       if(input$specifySelectivity == "Specify"){
         optFleetPars <- list(FM = optGTG$Ests["FM"],
@@ -808,7 +809,8 @@ server <- function(input, output, session){
       }
       
       list(NatL_LBSPR = NatL_LBSPR,
-           estModelFit = estModelFit#,
+           estModelFit = estModelFit,
+           nlminbOut = optGTG$nlminbOut
            #opModelOut = opModelOut
            )
     }
@@ -832,7 +834,7 @@ server <- function(input, output, session){
     
     LenBins <- binLengthData()$LenBins
     LenDat <- binLengthData()$LenDatVul # vulnerable to fishery only
-    maxLenDat <- max(LenDat)
+    # maxLenDat <- max(LenDat)
     
     NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
     
@@ -899,6 +901,37 @@ server <- function(input, output, session){
   #   expr = ggplotly(p = pg + theme_bw(),
   #                   height = 400, width = 600)
   # })
+  output$plotCatchLBSPR <- renderPlotly({
+    # data
+    length_records <- lengthRecordsFilter()
+    length_col <- newLengthCol()
+    length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
+    
+    # theory
+    NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+    
+    
+    # plotly
+    pl_y <- plot_ly(data = NatL_LBSPR, 
+                    x = ~ length_mid, y = ~ catchUnfished_at_length, name = "unfished", 
+                    type = "scatter", mode = "lines+markers", frame = TRUE) %>% 
+      add_trace(y = ~ catchFished_at_length, name = "fished", mode = "lines+markers")
+    # adding histogram/bar data difficult in plot_ly
+    #lengthData <- binLengthData()
+      # %>% add_bars(data = lengthData,
+      #           x = ~ LenMids, y = LenDatVul, name = "catch data") %>% 
+      # layout(barmode = "stack", bargap = 0.1)
+    pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
+                            yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
+                            #title = "Per recruit theory - catch")
+    expr <- pl_y
+  })
+  
+  output$textFitLBSPR <- renderPrint({
+    expr <- print(fitGTGLBSPR()$nlminbOut)
+    
+  })
+  
   output$plotPopLBSPR <- renderPlot({
     NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
     LPopUnfished <- NatL_LBSPR$popUnfished_at_length
@@ -936,21 +969,4 @@ server <- function(input, output, session){
     
   })
   
-  output$plotCatchLBSPR <- renderPlot({
-    NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
-    LCatchUnfished <- NatL_LBSPR$catchUnfished_at_length
-    LCatchFished <- NatL_LBSPR$catchFished_at_length
-    LenMids <- NatL_LBSPR$length_mid
-    
-    par(mfrow = c(1,1), mgp = c(2,1,0), mar = c(4,3,3,1), cex = 1.15)
-    plot(LenMids, LCatchFished, col = "grey25", pch = 1, lwd = 1.5,
-         xlab = newLengthCol(), ylab = "numbers per recruit",
-         main = "catch-at-length", font.main = 1)
-    lines(LenMids, LCatchFished, col = "grey25", lty = 1, lwd = 1.5)
-    points(LenMids, LCatchUnfished, col = "grey75", pch = 16, lwd = 1.5)
-    lines(LenMids, LCatchUnfished, col = "grey75", lty = 1, lwd = 1.5)
-    legend("topright", c("equilibrium fished", "no previous fishing"), 
-           col = c("grey25", "grey75"), 
-           pch = c(1, 16))
-  })
 }
