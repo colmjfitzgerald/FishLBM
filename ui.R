@@ -330,10 +330,13 @@ body <-   mainPanel(
                                  fluidPage(
                                    fluidRow(
                                      column(width = 3,
-                                          sliderInput(inputId = "Linc", 
-                                                      label = paste0("Length increment"),
-                                                      min = 0, max = 5, value = 1,
-                                                      step = 0.5, ticks = TRUE),
+                                          sliderTextInput(inputId = "Linc", 
+                                                      label = "Length bin width", #paste0("Length increment"),
+                                                      selected = 1,
+                                                      choices = c(0.25, 0.5, 1, 2, 4, 5),
+                                                      grid = TRUE),
+                                                      #min = 0.25, max = 5, value = 1, step = 0.25, 
+                                                      #ticks = TRUE),
                                           div(id = "above MVL",hr()),
                                           numericInput(inputId = "MLL",
                                                        label = "Minimum length limit (fishery)",

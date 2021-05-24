@@ -541,25 +541,29 @@ server <- function(input, output, session){
   output$numLinf <- renderUI({
     numericInput("Linf", label = NULL, #"Linf", 
                  value = ifelse(input$growthParOption == growthParChoices()[2], 
-                                coef(growthFrequentistFit()$model)["Linf"],
-                                input$sliderLinf))
+                                round(coef(growthFrequentistFit()$model)["Linf"], digits = 2),
+                                round(input$sliderLinf, digits = 2)))
   })
   
   output$numKlvb <- renderUI({
     numericInput("kLvb", label = NULL, #"K growth", 
                  value = ifelse(input$growthParOption == growthParChoices()[2], 
-                                coef(growthFrequentistFit()$model)["K"],
-                                input$sliderK))
+                                round(coef(growthFrequentistFit()$model)["K"], digits = 2),
+                                round(input$sliderK, digits = 2)))
   })
   
   output$numLm50 <- renderUI({
     numericInput("Lm50", label = NULL, #"Linf", 
-                 value = input$sliderLinf*0.66)
+                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                                round(coef(growthFrequentistFit()$model)["Linf"]*0.66, digits = 2),
+                                round(input$sliderLinf*0.66, digits = 2)))
   })
   
   output$numLm95 <- renderUI({
     numericInput("Lm95", label = NULL, #"Linf", 
-                 value = input$sliderLinf*0.75,
+                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                                round(coef(growthFrequentistFit()$model)["Linf"]*0.75, digits = 2),
+                                round(input$sliderLinf*0.75, digits = 2)),
                  min = input$sliderLinf*0.25)
   })
   
@@ -589,9 +593,9 @@ server <- function(input, output, session){
       if(input$specifySelectivity == "Specify"){
         tagList(
           numericInput(inputId = "SL50", label = "Length at 50% selectivity",
-                       value = input$Linf*0.70),
+                       value = round(input$Linf*0.70, digits = 2)),
           numericInput(inputId = "SL95", label = "Length at 95% selectivity",
-                       value = input$Linf*0.80),
+                       value = round(input$Linf*0.80, digits = 2)),
           actionButton(inputId = "btnFixedFleetPars", "Input selectivity parameters",
                        class = "btn-success"),
           bsTooltip(id = "SL50", 
