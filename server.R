@@ -688,6 +688,7 @@ server <- function(input, output, session){
                  length_records <- lengthRecordsFilter()[, newLengthCol()]
                  print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])})
   
+  
   # visualise length composition by year - optional selection radio button
   observeEvent(input$selectCols,
                { rbChoices <- c("in aggregate")
@@ -829,6 +830,12 @@ server <- function(input, output, session){
            )
     }
   )
+  
+  
+  # move panel within navBarPage after fit
+  observeEvent(input$fitLBSPR,
+               {updateTabsetPanel(session, inputId = "parLBSPR", selected = "modelFit")})
+  
   
   # print text on LBSPR estimating model fit 
   output$textLBSPREstFit <- renderPrint({

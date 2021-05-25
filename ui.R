@@ -355,14 +355,16 @@ body <-   mainPanel(
                                                          height = "400px")
                                             )
                                      ),
+                                 ),
+                                 div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
+                                 fluidRow(
+                                   actionButton("fitLBSPR", "Apply GTG-LBSPR", icon = icon("chart-line"),
+                                                class = "btn-success"),
                                  )
                         ),
-                        tabPanel("Model fit",
-                                 actionButton("fitLBSPR", "Apply GTG-LBSPR", icon = icon("chart-line"),
-                                              class = "btn-success"),
+                        tabPanel("Model fit", value = "modelFit",
                                  fluidPage(
                                    column(width = 4,
-                                          div(id = 'resultsDiv', hr(), class = 'simpleDiv'),
                                           verbatimTextOutput(outputId = "textLBSPREstFit")
                                           #verbatimTextOutput(outputId = "textLBSPROpOut")
                                           #DTOutput(outputId = "gtgLBSPREstModel"),
