@@ -688,24 +688,36 @@ server <- function(input, output, session){
                  length_records <- lengthRecordsFilter()[, newLengthCol()]
                  print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])})
   
+  # visualise length composition by year - optional selection radio button
+  observeEvent(input$selectCols,
+               { rbChoices <- c("in aggregate")
+                 if(any(grepl("year", input$checkboxCatchData, ignore.case = TRUE))){
+                   rbChoices <- c(rbChoices, 
+                                  paste0("by ", 
+                                         grep("year", input$checkboxCatchData, ignore.case = TRUE, value = TRUE))
+                                  )
+                 }
+                 updateRadioButtons(inputId = "visualiseLengthComposition",
+                                    label = "Visualise...",
+                                    choices = rbChoices,
+                                    selected = "in aggregate")
+               })
+  
   
   # plot length composition of filtered data - change with slider input
   output$plotResponsiveLengthComposition <- 
     renderPlotly({
       lengthData <- lengthRecordsFilter()
       lengthData$isVulnerable <- lengthData[, newLengthCol()] >= input$MLL
-      lengthData <- lengthData[, c(newLengthCol(), "isVulnerable")]
-      print(names(lengthData))
-      print(lengthData)
       if(all(lengthData$isVulnerable, na.rm = TRUE)) {
-        ggLengthComp <- ggplot(lengthData %>% na.omit()) +  
+        ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) +  
           geom_histogram(mapping = aes_string(x = newLengthCol()), fill = "grey80",
                          breaks = binLengthData()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
           geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
           theme_bw()
       } else {
-        ggLengthComp <- ggplot(lengthData %>% na.omit()) + 
+        ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) + 
           geom_histogram(mapping = aes_string(x = newLengthCol(), fill = "isVulnerable"),
                          breaks = binLengthData()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
@@ -715,6 +727,8 @@ server <- function(input, output, session){
           theme(legend.position = "bottom")
       }
       if(input$visualiseLengthComposition == "by year"){ # was observeEvent or eventReactive 
+        print(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
+                          value = TRUE)," ~ ."))
         ggLengthComp <- ggLengthComp + 
           facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
                                             value = TRUE)," ~ ."))) 

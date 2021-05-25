@@ -345,7 +345,7 @@ body <-   mainPanel(
                                           div(id = "aboveVisualiseRadioButtons", hr()),
                                           radioButtons(inputId = "visualiseLengthComposition",
                                                        label = "Visualise...",
-                                                       choices = c("in aggregate", "by year"),
+                                                       choices = c("in aggregate"), #, "by year"),
                                                        selected = "in aggregate"
                                                        )
                                      ),
