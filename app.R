@@ -7,6 +7,8 @@ if(!require(ggplot2)){install.packages("ggplot2", dependencies = TRUE); require(
 if(!require(plotly)){install.packages("plotly", dependencies = TRUE); require(plotly)}
 if(!require(dplyr)){install.packages("dplyr", dependencies = TRUE); require(dplyr)}
 if(!require(tidyr)){install.packages("tidyr", dependencies = TRUE); require(tidyr)}
+if(!require(knitr)){install.packages("knitr", dependencies = TRUE); require(knitr)}
+if(!require(kableExtra)){install.packages("kableExtra", dependencies = TRUE); require(kableExtra)}
 if(!require(DT)){install.packages("DT", dependencies = TRUE); require(DT)}
 if(!require(devtools)){install.packages("devtools", dependencies = TRUE); require(devtools)}
 

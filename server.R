@@ -433,8 +433,17 @@ server <- function(input, output, session){
     
     # age-length or just length data
     if(all(is.na(fishAgeLengthData[, "age"]))){
+      if(nrow(fishAgeLengthData) > 400){
+        fishAgeLengthDataSubSample <- 
+          rbind(fishAgeLengthData[fishAgeLengthData[ ,newLengthCol()] == min(fishAgeLengthData[ , newLengthCol()]),],
+            fishAgeLengthData[fishAgeLengthData[ ,newLengthCol()] == max(fishAgeLengthData[ , newLengthCol()]),],
+            fishAgeLengthData[sampleLengthRecords(),])  
+      } else {
+        fishAgeLengthDataSubSample <- fishAgeLengthData
+      }
       p <- p + 
-        geom_rug(data = fishAgeLengthData, mapping = aes(y = length_cm)) # geom_violin(data = lengthRecordsFilter(), mapping = aes_string(y = newLengthCol()), trim = TRUE, orientation = "y") +
+        geom_rug(data = fishAgeLengthDataSubSample, mapping = aes(y = length_cm)) 
+      
     } else {
       if("sex" %in% colnames(fishAgeLengthData)){
         p <- p + 
@@ -448,6 +457,13 @@ server <- function(input, output, session){
     }
     p + theme_bw()
   })
+  
+  # sample from length data for geom_rug
+  sampleLengthRecords <- reactive({
+    fishAgeLengthData <- gatherFishAgeLengthData()
+    sample(1:nrow(fishAgeLengthData), 398, replace = FALSE,)
+  })
+  
   
   # length-at-age confidence interval ribbon
   ggGrowthFitCI <- reactive({
@@ -540,28 +556,28 @@ server <- function(input, output, session){
   # default to sliderInput values
   output$numLinf <- renderUI({
     numericInput("Linf", label = NULL, #"Linf", 
-                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                 value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$model)["Linf"], digits = 2),
                                 round(input$sliderLinf, digits = 2)))
   })
   
   output$numKlvb <- renderUI({
     numericInput("kLvb", label = NULL, #"K growth", 
-                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                 value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$model)["K"], digits = 2),
                                 round(input$sliderK, digits = 2)))
   })
   
   output$numLm50 <- renderUI({
     numericInput("Lm50", label = NULL, #"Linf", 
-                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                 value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$model)["Linf"]*0.66, digits = 2),
                                 round(input$sliderLinf*0.66, digits = 2)))
   })
   
   output$numLm95 <- renderUI({
     numericInput("Lm95", label = NULL, #"Linf", 
-                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                 value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$model)["Linf"]*0.75, digits = 2),
                                 round(input$sliderLinf*0.75, digits = 2)),
                  min = input$sliderLinf*0.25)
@@ -727,7 +743,9 @@ server <- function(input, output, session){
           theme_bw() + 
           theme(legend.position = "bottom")
       }
-      if(input$visualiseLengthComposition == "by year"){ # was observeEvent or eventReactive 
+      if(input$visualiseLengthComposition == 
+         paste0("by ", grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE, value = TRUE))
+         ){ # was observeEvent or eventReactive 
         print(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
                           value = TRUE)," ~ ."))
         ggLengthComp <- ggLengthComp + 
@@ -838,9 +856,16 @@ server <- function(input, output, session){
   
   
   # print text on LBSPR estimating model fit 
-  output$textLBSPREstFit <- renderPrint({
-    expr = print(fitGTGLBSPR()$estModelFit)
-  })
+  output$textLBSPREstFit <- function()
+    {
+    fitGTGLBSPR()$estModelFit %>%
+      knitr::kable("html", digits = 3) %>%
+      kable_styling("striped", full_width = F, position = "float_left")
+    }
+    
+  #renderPrint({
+  #  expr = print(fitGTGLBSPR()$estModelFit)
+  #})
   
   # # print text on LBSPR operating model output
   # output$textLBSPROpOut <- renderPrint({
@@ -948,11 +973,37 @@ server <- function(input, output, session){
     expr <- pl_y
   })
   
+  # nlminb (optimisation function for matching expected per-recruit length composition to
+  # multinomial log likelihood)
   output$textFitLBSPR <- renderPrint({
     expr <- print(fitGTGLBSPR()$nlminbOut)
     
   })
   
+  # stock paramater summary
+  output$stockPopParameters <- reactive({
+    lbsprFit <- fitGTGLBSPR()$estModelFit
+    lbsprInput <- reactiveStockPars()
+    FM <- lbsprFit[lbsprFit$Parameter == "FM",]$Estimate
+    M <- lbsprInput$M
+    tableData <- data.frame(Notation = c("M", "F", "Z", "Linf", "K", "Lm50", "Lm95", "SL50", "SL95", "SPR"),
+                            Description = c("Natural mortality", "Fishing mortality", "Total mortality",
+                               "Asymptotic length", "LVB growth constant", "Length-at-50%-maturity",
+                               "Length-at-95%-maturity", "Spawning potential ratio"),
+                            Estimate = c(M, M*FM, M*(1 + FM), lbsprInput$Linf, lbsprInput$K,
+                            lbsprInput$L50, lbsprInput$L95, 
+                            lbsprFit[lbsprFit$Parameter == "SPR",]$Estimate)
+    )
+    tableData %>%
+      kable("html", digits = 3) %>%
+      kable_styling("striped", full_width = F, position = "float_left") %>%
+      pack_rows("Mortality", 1, 3) %>%
+      pack_rows("Growth", 4, 5) %>%
+      pack_rows("Maturity", 6, 7) %>%
+      pack_rows("Status", 8, 8)
+  })
+  
+  # visual comparison of exploited and unexploited fish populations
   output$plotPopLBSPR <- renderPlot({
     NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
     LPopUnfished <- NatL_LBSPR$popUnfished_at_length
