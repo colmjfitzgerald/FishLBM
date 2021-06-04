@@ -180,7 +180,7 @@ body <-   mainPanel(
                                                                tags$td(class = "inline", 
                                                                        numericInput(inputId = "M", label = NULL, value = 0.3))),
                                                        tags$tr(tags$td(strong("K (LVB)"), id = "K_label"), 
-                                                               tags$td("Growth constant (LVB)"),
+                                                               tags$td("Growth (length-at-age) constant "),
                                                                tags$td(class = "inline", 
                                                                        uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
                                                        tags$tr(tags$td(strong("Linf (LVB)"), id = "Linf_label"), 
@@ -211,7 +211,7 @@ body <-   mainPanel(
                                                title = "Populations with greater values of K approach asymptotic length Linf at earlier ages.", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
                                      bsTooltip(id = "Linf_label",#"numLinf", 
-                                               title = "Length-at-infinity - mean aysmptotic length that fish in a population can reach. In LB-SPR, an overestimate of Linf may cause an overestimate of F/M and <em> vice versa </em>.",  
+                                               title = "Length-at-infinity - mean aysmptotic length that fish in a population can reach. In LB-SPR, an overestimate of Linf may cause an overestimate of F/M and similarly for an underestimate...",  
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
                                      bsTooltip(id = "CVLinf_label", # "CVLinf", 
                                                title = "Coefficient of variation around Linf: larger values imply greater scatter of individual fish lengths around the expected population growth trajectory", 
@@ -244,7 +244,7 @@ body <-   mainPanel(
                                                       tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))
                                               ),
                                               tags$tr(tags$td("Mpow"),
-                                                      tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.8))
+                                                      tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0))
                                               ),
                                               tags$tr(tags$td("NGTG"),
                                                       tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))
@@ -371,40 +371,51 @@ body <-   mainPanel(
                                  )
                         ),
                         tabPanel("Model fit", value = "modelFit",
-                                 fluidPage(
-                                   column(width = 4,
-                                          verbatimTextOutput(outputId = "textLBSPREstFit")
-                                          #verbatimTextOutput(outputId = "textLBSPROpOut")
-                                          #DTOutput(outputId = "gtgLBSPREstModel"),
-                                          #DTOutput(outputId = "gtgLBSPROpModel"),
-                                   ),
+                                 fluidRow(
                                    column(width = 8,
                                           plotlyOutput(outputId = "visFitLBSPR",
                                                        width = "100%",
-                                                       height = "400px")
+                                                       height = "500px")
+                                   ),
+                                   column(width = 4, #tags$h3("LB-SPR estimates"),
+                                          tableOutput(outputId = "textLBSPREstFit")
+                                          #verbatimTextOutput(outputId = "textLBSPREstFit")
+                                          #verbatimTextOutput(outputId = "textLBSPROpOut")
+                                          #DTOutput(outputId = "gtgLBSPREstModel"),
+                                          #DTOutput(outputId = "gtgLBSPROpModel"),
                                    )
                                  ),
                                  icon = icon("chart-line")
                         ),
-                        tabPanel("Diagnostics",
+                        tabPanel("Interpretation",
                                  fluidRow(
-                                   column(width = 9,
+                                   column(width = 8,
                                           #tags$h3("Population length composition"),
                                           #plotOutput(outputId = "plotPopLBSPR"),
                                           #tags$hr(),
                                           tags$h3("Expected catch-at-length - per recruit theory"),
                                           plotlyOutput(outputId = "plotCatchLBSPR")
-                                   ),
-                                   column(width = 3, 
-                                          verbatimTextOutput(outputId = "textFitLBSPR")),
+                                   ), 
+                                   column(width = 4,
+                                          tags$h3("Stock parameters and status"),
+                                          tableOutput(outputId = "stockPopParameters")
+                                   #        verbatimTextOutput(outputId = "textFitLBSPR")),
                                    #plotlyOutput(outputId = "plotOpLBSPR",
                                    #              width = "100%",
-                                   #             height = "400px")
+                                   #             height = "400px"
+                                   )
                                  )
                         )),
              icon = icon("list-ui")
     ),
-    tabPanel("LBB")#, 
+    tabPanel("Other length-based methods",
+             tags$div(
+               tags$ul(
+                 tags$li("Length-based Bayesian biomass estimator (LBB) - Froese et al., 2018"),
+                 tags$li("Length-based pseudo-cohort analysis (LBPA) - Canales, Punt, Mardones, 2020 "),
+                 tags$li("Size-based fishing status estimation for data-poor stocks - Kokkalis, .., Andersen, 2015")
+               )
+             ))#, 
     #inline = FALSE))
     #tabPanel("Stock assessment\n - diagnostics", 
     #         fluidRow(width = 12,
