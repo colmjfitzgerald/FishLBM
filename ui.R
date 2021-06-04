@@ -96,7 +96,7 @@ body <-   mainPanel(
                       DTOutput(outputId = "catchDataTable", height = "auto")
                ),
                fluidRow(
-                 div(id = "unitConversion", hr()),
+                 div(id = "unitConversionOption", hr()),
                  column(width = 4,
                         h3("Length unit conversion"),
                         radioButtons(inputId = "unitConvertRadioBtn",
@@ -107,7 +107,7 @@ body <-   mainPanel(
                  ),
                  column(width = 8,
                         conditionalPanel(condition = "input.unitConvertRadioBtn == 'Convert units'",
-                          h4("Convert length units, input data"),
+                          #h4("Convert length units, input data"),
                           selectInput(inputId = "dataLengthUnits", label = "Current length units", 
                                       choices = c("mm", "cm", "m", "in"), selected = "cm"),
                           selectInput(inputId = "newLengthUnits", label = "New length units", 
