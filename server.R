@@ -38,9 +38,14 @@ server <- function(input, output, session){
                  # the observers (including outputs) have finished running
                })
   
+  # debug
   observeEvent(input$selectCols,
-               { print(paste0("input select data"))
+               { print(paste0("choose length column"))
                  print(input$lengthColSelect)
+                 print(paste0("choose attributes"))
+                 print(input$checkboxCatchData)
+                 print(paste0("species column?"))
+                 print(grepl("species", input$checkboxCatchData, ignore.case = TRUE))
                })
 
     
@@ -64,12 +69,7 @@ server <- function(input, output, session){
       catchdata
     }
   )
-  
-  observeEvent(input$selectCols,
-               {print(input$checkboxCatchData)
-                print(grepl("species", input$checkboxCatchData, ignore.case = TRUE))
-                }
-               )
+
   
   # catchdata_plot
   catchdata_plot <- eventReactive(
@@ -142,7 +142,13 @@ server <- function(input, output, session){
                              closed = "left", boundary = 0, bins = 40)
           }
           pg <- pg + facet_grid(rows = as.formula(paste0(speciesCol, " ~ ", gearCol)), scales = "free")
-        } else {
+        } else if (any(whichSexCol)) {
+          # species and sex 
+          pg <- pg + 
+            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)), closed = "left", boundary = 0, bins = 40) + 
+            facet_grid(rows = ensym(speciesCol), scales = "free")
+          
+        } else{
           # species only
           pg <- pg + 
             geom_histogram(aes_(x = input$lengthColSelect), closed = "left", boundary = 0, bins = 40) + 
@@ -356,7 +362,9 @@ server <- function(input, output, session){
     } else {
       nls.m <- nls(length_cm ~ Linf*(1-exp(-K*(age-t0))), 
                    data = growthData, 
-                   start = list(Linf=input$sliderLinf, K = input$sliderK, t0=input$slidert0))
+                   start = list(Linf=input$sliderLinf, K = input$sliderK, t0=input$slidert0),
+                   nls.control(maxiter = 250, tol = 1e-05, minFactor = 1/4096, 
+                               printEval = TRUE, warnOnly = TRUE))
       print(class(nls.m))
     }
     x <- list(model = nls.m, data = growthData)
@@ -388,7 +396,9 @@ server <- function(input, output, session){
         gm_self_boot <- nls(length_cm ~ Linf*(1-exp(-K*(age-t0))),
                             data = data.frame(age = growthFitData$age,
                                               length_cm = resid_boot + mean_fit),
-                            start = list(Linf=40.,K=0.2,t0=0.0))
+                            start = list(Linf=40.,K=0.2,t0=0.0),
+                            nls.control(maxiter = 250, tol = 1e-05, minFactor = 1/4096, 
+                                        printEval = FALSE, warnOnly = TRUE))
         coef_boot[i,] <- gm_self_boot$m$getPars()
         # predict length based on bootstrap regression estimators
         pred_boot[,i] <- predict(gm_self_boot, pred_data)
@@ -523,7 +533,7 @@ server <- function(input, output, session){
   observeEvent(input$fitGrowth,
                {print(input$checkboxCatchData)
                  print(growthParChoices())
-                 print("debug observe event")
+                 print("debug observe event - print growthFrequentistFit(), growthFrequentistFitBoot()")
                  print(growthFrequentistFit())
                  print(growthFrequentistFitBoot())
                  print("are ggplots?")
