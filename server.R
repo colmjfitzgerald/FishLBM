@@ -552,7 +552,32 @@ server <- function(input, output, session){
   
   # LB-SPR assessment ====
   
-  # numeric inputs for LBSPR
+  
+  # natural mortality choices ####
+  
+  # choices for growth parameters
+  natMestChoices <- reactive({
+    growthChoices <- c("User-specified" = "user", 
+                       "PaulyNLS-T ($M = 4.118K^{0.73}L_{\\infty}^{-0.33}$)" = "pauly", 
+                       "Two-parameter K ($M = 0.098 + 1.55K$)" = "twoK")
+    if("age" %in% input$checkboxCatchData & 
+       any(!is.na(gatherFishAgeLengthData()[,grep("age", names(gatherFishAgeLengthData()), value = TRUE)]))) {
+      growthChoices = c(growthChoices, "HoenigNLS ($M = 4.899t_{max}^{-0.916}$)" = "hoenig")
+    }
+    expr = growthChoices
+  })
+  
+  output$natMortalityRadioBtn <- 
+    renderUI({
+      withMathJax(
+      radioButtons(inputId= "natMortality", label = "Empirical estimators",
+                   choices = natMestChoices(), selected = natMestChoices()[1])
+      )
+    }
+    )
+  
+  
+  # numeric inputs for LBSPR ####
   # default to sliderInput values
   output$numLinf <- renderUI({
     numericInput("Linf", label = NULL, #"Linf", 
@@ -566,6 +591,11 @@ server <- function(input, output, session){
                  value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$model)["K"], digits = 2),
                                 round(input$sliderK, digits = 2)))
+  })
+  
+  output$numM <- renderUI({
+    numericInput("M", label = NULL, #"M natural mortality", 
+                 value = 0.3)
   })
   
   output$numLm50 <- renderUI({
@@ -582,6 +612,22 @@ server <- function(input, output, session){
                                 round(input$sliderLinf*0.75, digits = 2)),
                  min = input$sliderLinf*0.25)
   })
+  
+  
+  observeEvent(input$natMortality, {
+    if(input$natMortality == "user"){
+      updateNumericInput(session, "M", value = 0.3)      
+    } else if(input$natMortality == "pauly") {
+      updateNumericInput(session, "M", value = round(4.118*input$kLvb^0.73*input$Linf^(-0.33), 3))
+    } else if(input$natMortality == "twoK"){
+      updateNumericInput(session, "M", value = round(0.098 + 1.55*input$kLvb, 3))
+    } else if(input$natMortality == "hoenig") {
+      updateNumericInput(session, "M", value = round(4.899*max(gatherFishAgeLengthData()$age, na.rm = FALSE)^-0.916, 3))
+    }
+      #if(is.na(max(gatherFishAgeLengthData()$age, na.rm = FALSE)))
+      #if(is.na(tmax)) { NA } else { round(4.899*tmax^-0.916, 3) }
+  })
+  
   
   # reactive list for biological inputs
   reactiveStockPars <- eventReactive(input$btnStockPars,

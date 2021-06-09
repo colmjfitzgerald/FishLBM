@@ -129,7 +129,7 @@ body <-   mainPanel(
                       plotlyOutput(outputId = "lvbGrowthCurve"),
                       actionButton(inputId = "fitGrowth", label = "Fit LVB curve"),
                       bsTooltip(id = "fitGrowth", 
-                                title = "Apply statistical fit if age data is available. Where age, length data is available then slider settings are used as initial estimates of the parameters Linf, K, t0 in nonlinear regression.", 
+                                title = "Apply statistical fit if age data is available. Where age, length data are available then slider settings are used as initial estimates of the parameters Linf, K, t0 in nonlinear regression.", 
                                 placement = "right", trigger = "hover",  options = list(container = "body"))
                ),
                column(width = 4, 
@@ -165,8 +165,15 @@ body <-   mainPanel(
              navbarPage(title = "GTG LB-SPR",
                         id = "parLBSPR",
                         tabPanel("Stock biological parameters",
+                                 withMathJax(),
                                  fluidPage(
                                    fluidRow(
+                                     column(width = 4,
+                                            h3("Growth parameters"),
+                                            uiOutput(outputId = "growthParRadioBtn"),
+                                            h3("Natural mortality"),
+                                            uiOutput(outputId= "natMortalityRadioBtn")
+                                     ),
                                      column(width = 8,
                                             #                                          box(status = "primary", width = NULL,
                                             #                                          ),
@@ -175,14 +182,6 @@ body <-   mainPanel(
                                                        tags$tr(tags$th(class = "parTable", "Parameter"), 
                                                                tags$th(class = "parTable", "Description"), 
                                                                tags$th(class = "parTable", "Value")),
-                                                       tags$tr(tags$td(strong("M"), id = "M_label"), 
-                                                               tags$td("Natural mortality rate"),
-                                                               tags$td(class = "inline", 
-                                                                       numericInput(inputId = "M", label = NULL, value = 0.3))),
-                                                       tags$tr(tags$td(strong("K (LVB)"), id = "K_label"), 
-                                                               tags$td("Growth (length-at-age) constant "),
-                                                               tags$td(class = "inline", 
-                                                                       uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
                                                        tags$tr(tags$td(strong("Linf (LVB)"), id = "Linf_label"), 
                                                                tags$td("Asymptotic length"),
                                                                tags$td(class = "inline",
@@ -192,6 +191,14 @@ body <-   mainPanel(
                                                                tags$td(class = "inline",
                                                                        numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
                                                                                     min = 0.001, max = 1, step = 0.001))),
+                                                       tags$tr(tags$td(strong("K (LVB)"), id = "K_label"), 
+                                                               tags$td("Growth (length-at-age) constant "),
+                                                               tags$td(class = "inline", 
+                                                                       uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
+                                                       tags$tr(tags$td(strong("M"), id = "M_label"), 
+                                                               tags$td("Natural mortality rate"),
+                                                               tags$td(class = "inline", 
+                                                                       uiOutput(outputId = "numM"))),
                                                        tags$tr(tags$td(strong("Lm50"), id = "Lm50_label"), 
                                                                tags$td("Length at 50% maturity"),
                                                                tags$td(class = "inline",
@@ -222,49 +229,48 @@ body <-   mainPanel(
                                      bsTooltip(id = "Lm95_label", #"numLm95", 
                                                title = "Default value <b>Lm95 = 0.75 Linf</b> (assumed to be biologically reasonable). <br> Replace default where empirical data or expert knowledge is available. <br> Influences SPR calculation.", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
-                                     column(width = 4,
-                                            h3("Growth parameters"),
-                                            uiOutput(outputId = "growthParRadioBtn")
-                                     )
+                                     bsTooltip(id = "natMortalityRadioBtn", 
+                                               title = "User default: M = 0.3 1/yr. <br> Empirical natural mortality estimators are from Then et al. (2015) doi:10.1093/icesjms/fsu136", 
+                                               placement = "bottom", trigger = "hover",  options = list(container = "body"))
                                    ), 
                                    fluidRow(
-                                      column(width = 8,
-                                          box(status = "info", width = NULL,
-                                              collapsible = TRUE, collapsed = TRUE,
-                                              title = "Other parameters",
-                                              tags$table(
-                                              tags$tr(tags$td("Walpha"), 
-                                                      tags$td(numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
-                                              tags$tr(tags$td("Wbeta"), 
-                                                      tags$td(numericInput(inputId = "Wbeta", label = NULL, value = 3))),
-                                              tags$tr(tags$td("FecB"), 
-                                                      tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))
-                                              ),
-                                              tags$tr(tags$td("Steepness"),
-                                                      tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))
-                                              ),
-                                              tags$tr(tags$td("Mpow"),
-                                                      tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0))
-                                              ),
-                                              tags$tr(tags$td("NGTG"),
-                                                      tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))
-                                              ),
-                                              tags$tr(tags$td("GTG Max SD about Linf"),
-                                                      tags$td(numericInput(inputId = "MaxSD", label = NULL, 
-                                                                           value = 2, min = 0, max = 4))),
-                                              tags$tfoot()
-                                              )
-                                            ),
-                                      ), 
-                                      column(width = 4,
+                                     column(width = 4,
                                             # enter pars button
                                             actionButton(inputId = "btnStockPars",
                                                          label = "Enter Stock Pars",
                                                          class = "btn-success")
                                      ),
+                                     column(width = 8,
+                                            box(status = "info", width = NULL,
+                                                collapsible = TRUE, collapsed = TRUE,
+                                                title = "Other parameters",
+                                                tags$table(
+                                                  tags$tr(tags$td("Walpha"), 
+                                                          tags$td(numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
+                                                  tags$tr(tags$td("Wbeta"), 
+                                                          tags$td(numericInput(inputId = "Wbeta", label = NULL, value = 3))),
+                                                  tags$tr(tags$td("FecB"), 
+                                                          tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))
+                                                  ),
+                                                  tags$tr(tags$td("Steepness"),
+                                                          tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))
+                                                  ),
+                                                  tags$tr(tags$td("Mpow"),
+                                                          tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0))
+                                                  ),
+                                                  tags$tr(tags$td("NGTG"),
+                                                          tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))
+                                                  ),
+                                                  tags$tr(tags$td("GTG Max SD about Linf"),
+                                                          tags$td(numericInput(inputId = "MaxSD", label = NULL, 
+                                                                               value = 2, min = 0, max = 4))),
+                                                  tags$tfoot()
+                                                )
+                                            ),
+                                     ), 
                                    )
-                                )
-                                   # tags$head(
+                                 )
+                                 # tags$head(
                                    #   tags$style(
                                    #     'thead {
                                    #        display: table-header-group;
