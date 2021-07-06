@@ -657,59 +657,256 @@ server <- function(input, output, session){
                 })
   
   
+  
   # selectivity curve ####
-  # insertUI
-  # output$selectivityNote <- renderText("User specifies selectivity parameters")
-  output$selectivityParameters <- renderUI(
-    { 
-      if(input$specifySelectivity == "Specify"){
+
+  observe({
+    print("update radio buttons")    
+    updateRadioButtons(session, inputId = "specifySelectivity",
+                       choices = selectParameterSpecification())
+    print("finished updating")
+  })
+  
+  # reactive radioButton options..."Asymptotic" default:
+  # must match radioButtons(inputId = "specifySelectivity",
+  selectParameterSpecification <- reactive({
+    #if(input$selectSelectivityCurve == "Logistic" && !is.null(input$selectSelectivityCurve)){ # or input$chooseSelectivityPattern
+    if(input$chooseSelectivityPattern == "Asymptotic" && !is.null(input$chooseSelectivityPattern)){
+      x <- c("Estimate (LBSPR)", "Specify (user)")
+    } else {
+      x <- c("Specify (user)")
+    }
+  })
+
+  output$chooseSelectivityCurve <- renderUI({
+    selectivityCurveChoices <- sizeSelectivityCurves() 
+    selectInput(inputId = "selectSelectivityCurve",
+                label = "Size-selectivity curve",
+                choices = selectivityCurveChoices,
+                selected = selectivityCurveChoices[1])
+    })
+  
+  # chooseSelectivityCurve - reactive options
+  sizeSelectivityCurves <- reactive({
+    if(input$chooseSelectivityPattern == "Asymptotic" && !is.null(input$chooseSelectivityPattern)){
+      x <- c("Logistic", "Knife-edged")  
+    } else if(input$chooseSelectivityPattern == "Dome-shaped" && !is.null(input$chooseSelectivityPattern)) {
+      x <- c("Normal.loc", "Normal.sca", "logNorm")
+    }
+  })
+
+  
+  output$gearMeshSizes <- renderUI(
+    numericInput(inputId = "selectGearMeshSizes",
+                 label = "Number of mesh sizes in gear",
+                 value = 1, min = 1, max = 1)
+  )
+
+  # reactiveValues - when you read a value from it, the calling reactive expression takes a 
+  # reactive dependency on that value, and when you write to it, it notifies any reactive functions 
+  # that depend on that value. Note that values taken from the reactiveValues object are reactive, 
+  # but the reactiveValues object itself is not.
+  #reactValues <- reactiveValues()
+  
+  #observe({
+    # use reactiveValues and change the value of a reactive value in an observer...
+    # use that value as a dependency in the render function
+  #})
+  
+  # reactive or reactiveValues?
+  gearSelectivityParameters <- reactive({
+    x <- list(SL1 = NULL, SL2 = NULL, SLKnife = NULL)
+  })
+  
+  observe({
+    print("*** observe ***")
+    print(input$chooseSelectivityPattern)
+    print(paste0("sizeSelectivityCurves() == ",  sizeSelectivityCurves()))
+    print(input$selectSelectivityCurve)
+    # print(paste0("selectSelectivityCurve is NULL: ", is.null(input$selectSelectivityCurve)))
+    # print(input$specifySelectivity)
+    # print(paste0("specify selectivity choices = ", selectParameterSpecification()))
+    # print(length(selectParameterSpecification()))
+    # print(paste0("specifySelectivity is NULL: ", is.null(input$specifySelectivity)))
+  })
+  
+  
+  # selectivity parameters
+  # numeric inputs
+  selectivityParsNumInp <- reactive({
+    if(input$specifySelectivity == "Specify (user)" & !is.null(input$specifySelectivity)){
+      if(input$selectSelectivityCurve == "Knife-edged" & !is.null(input$selectSelectivityCurve)){
         tagList(
-          numericInput(inputId = "SL50", label = "Length at 50% selectivity",
+          numericInput(inputId = "SLKnife", label = "MLL",
+                       value = round(input$Linf*0.50, digits = 2),
+                       min = 0.0, max = input$Linf),
+          actionButton(inputId = "btnFixedFleetPars", "Input selectivity parameters",
+                       class = "btn-success"),
+          bsTooltip(id = "SLKnife",
+                    title = "Minimum Length Limit. Fishery regulation whereby fish smaller than this limit must be returned to the water whereas larger fish may be retained.",
+                    placement = "left", trigger = "hover",  options = list(container = "body"))
+        )
+      } else if(input$selectSelectivityCurve == "Logistic" & !is.null(input$selectSelectivityCurve)) {
+        tagList(
+          numericInput(inputId = "SL1", label = "Length at 50% selectivity",
                        value = round(input$Linf*0.70, digits = 2)),
-          numericInput(inputId = "SL95", label = "Length at 95% selectivity",
+          numericInput(inputId = "SL2", label = "Length at 95% selectivity",
                        value = round(input$Linf*0.80, digits = 2)),
           actionButton(inputId = "btnFixedFleetPars", "Input selectivity parameters",
                        class = "btn-success"),
-          bsTooltip(id = "SL50", 
-                    title = "Length at 50% selectivity<br> <em>Length at which 50% of a stock is caught by fishery gear.</em> Replace default <b>SL50 = 0.7 Linf</b> with empirical data or expert knowledge. Influences F/M statistical inference.", 
+          bsTooltip(id = "SL1",
+                    title = "Length at 50% selectivity<br> <em>Length at which 50% of a stock is caught by fishery gear.</em> Replace default <b>SL50 = 0.7 Linf</b> with empirical data or expert knowledge. Influences F/M statistical inference.",
                     placement = "left", trigger = "hover",  options = list(container = "body")),
-          bsTooltip(id = "SL95", 
-                    title = "Length at 95% selectivity<br> <em>Length at which 95% of a stock is caught by fishery gear.</em> Replace default <db>SL50 = 0.8 Linf</b> with empirical data or expert knowledge. Influences F/M statistical inference.", 
+          bsTooltip(id = "SL2",
+                    title = "Length at 95% selectivity<br> <em>Length at which 95% of a stock is caught by fishery gear.</em> Replace default <db>SL50 = 0.8 Linf</b> with empirical data or expert knowledge. Influences F/M statistical inference.",
                     placement = "left", trigger = "hover",  options = list(container = "body"))
         )
-      } else {
-        tagList(renderText("Estimate selectivity parameters in model fitting process"))
+      } else if(input$selectSelectivityCurve %in% c("Normal.sca", "Normal.loc") &
+                !is.null(input$selectSelectivityCurve)) {
+        tagList(
+          numericInput(inputId = "SL1", label = "Length at maximum selectivity",
+                       value = round(input$Linf*0.70, digits = 2)),
+          numericInput(inputId = "SL2", label = "SD or spread of dome-shaped selectivity curve",
+                       value = round(input$Linf*0.10, digits = 2)),
+          numericInput(inputId = "SLKnife", label = "MLL",
+                       value = round(input$Linf*0.0, digits = 2),
+                       min = 0.0, max = input$Linf),
+          actionButton(inputId = "btnFixedFleetPars", "Input selectivity parameters",
+                       class = "btn-success")
+        )
+      } else if(input$selectSelectivityCurve %in% c("logNorm") & !is.null(input$selectSelectivityCurve)) {
+        tagList(
+          numericInput(inputId = "SL1", label = "Length at maximum selectivity",
+                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = 1),
+          numericInput(inputId = "SL2", label = "Log-normal SD/spread of dome-shaped selectivity curve",
+                      value = round(input$Linf*0.01, digits = 2), min = 1e-3, max = 2, step = 0.01),
+          numericInput(inputId = "SLKnife", label = "MLL",
+                      value = round(input$Linf*0.0, digits = 2),
+                      min = 0.0, max = input$Linf,  step = 1)
+        )
       }
+    } else if (input$specifySelectivity == "Estimate (LBSPR)" & !is.null(input$specifySelectivity)) {
+      tagList(tags$p("Estimate selectivity parameters in model fitting process"))
+    }
+  })
+  
+  # slider controls
+  selectivityParsSliderInp <- reactive({
+    if(input$specifySelectivity == "Specify (user)" & !is.null(input$specifySelectivity)){
+      
+      if(input$selectSelectivityCurve == "Knife-edged" & !is.null(input$selectSelectivityCurve)){
+        tagList(
+          sliderInput(inputId = "SLKnife", label = "MLL",
+                      value = round(input$Linf*0.50, digits = 2),
+                      min = 0.0, max = input$Linf, step = 1)
+        )
+      } else if(input$selectSelectivityCurve == "Logistic" & !is.null(input$selectSelectivityCurve)) {
+        tagList(
+          sliderInput(inputId = "SL1", label = "Length at 50% selectivity",
+                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2),
+          sliderInput(inputId = "SL2", label = "Length at 95% selectivity",
+                      value = round(input$Linf*0.80, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2)
+        )
+      } else if(input$selectSelectivityCurve %in% c("Normal.sca", "Normal.loc") &
+                !is.null(input$selectSelectivityCurve)) {
+        tagList(
+          sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
+                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = 1),
+          sliderInput(inputId = "SL2", label = "SD (spread) of dome-shaped selectivity curve",
+                      value = round(input$Linf*0.10, digits = 2), min = 0, max = input$Linf, step = 1),
+          sliderInput(inputId = "SLKnife", label = "MLL",
+                      value = round(input$Linf*0.0, digits = 2),
+                      min = 0.0, max = input$Linf,  step = 1)
+        )
+      } else if(input$selectSelectivityCurve %in% c("logNorm") & !is.null(input$selectSelectivityCurve)) {
+        tagList(
+          sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
+                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = 1),
+          sliderInput(inputId = "SL2", label = "Log-normal SD/spread of dome-shaped selectivity curve",
+                      value = round(0.50, digits = 2), min = 1e-3, max = 2, step = 0.01),
+          sliderInput(inputId = "SLKnife", label = "MLL",
+                      value = round(input$Linf*0.0, digits = 2),
+                      min = 0.0, max = input$Linf,  step = 1)
+        )
+      }
+      
+    } else if (input$specifySelectivity == "Estimate (LBSPR)" & !is.null(input$specifySelectivity)) {
+      tagList(tags$p("Estimate selectivity parameters in model fitting process"))
+    }
+  })
+  
+  
+  # render reactive expression with tagList
+  output$selectivityParameters <- renderUI({  
+     selectivityParsSliderInp()
+    #selectivityParsNumInp()
+    #  tags$p("Text here")
     })
   
+  # LBSPR fleet parameters
   reactiveFixedFleetPars <- eventReactive(input$btnFixedFleetPars,
                                           {list(SL50 = input$SL50, SL95 = input$SL95)
                                           })
   
-  # plot selectivity pattern provided input$specifySelectivity == "Specify"
-  observeEvent(
-    input$btnFixedFleetPars, {
-      length_vals <- seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), 
-                       input$Linf, length.out = 51)
+  # selectivity curve data frame - reactive or reactiveValues?
+  selectionCurves <- reactive({
+    # nb handle SLKnife, SLMLL dependent on selectivityCurve value (logistic, knife-edged etc.)?
+    if(input$specifySelectivity == "Specify (user)" & 
+       !(is.null(input$SL1) | is.null(input$SL2)) ){
+      isolate(dSC <- data.frame(
+        length = seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), input$Linf, length.out = 51),
+        size = 1, quantity = "selectivity"))
+      SLmesh <- 1
+      if(input$selectSelectivityCurve == "Logistic"){
+        dSC$proportion <- 1.0/(1+exp(-log(19)*(dSC$length-input$SL1)/(input$SL2-input$SL1)))
+      } else if(input$selectSelectivityCurve == "Normal.loc") {
+        dSC$proportion <- exp(-0.5*((dSC$length-((input$SL1)*SLmesh))/(input$SL2))^2)
+        dSC$proportion[dSC$length < input$SLKnife] <- 0
+      } else if(input$selectSelectivityCurve == "logNorm") {
+        dSC$proportion <- exp(-0.5*((log(dSC$length)-log((input$SL1)*SLmesh))/(input$SL2))^2)
+        dSC$proportion[dSC$length < input$SLKnife] <- 0
+      }
+    } else {
+      dSC <- NULL
+    }
+    dSC
+  })
+  
+  
+  # plot selectivity pattern provided input$specifySelectivity == "Specify (user)"
 
-      ggdata <- rbind(data.frame(length = length_vals, 
-                          proportion = 1.0/(1+exp(-log(19)*(length_vals-input$SL50)/(input$SL95-input$SL50))),
-                          size = 1,
-                          quantity = "selectivity"),
-                     data.frame(length = length_vals, 
-                                proportion = 1.0/(1+exp(-log(19)*(length_vals-input$Lm50)/(input$Lm95-input$Lm50))),
-                                size = 2,
-                                quantity = "maturity")
-                     )
+  #observeEvent(
+  #  input$btnFixedFleetPars, {
       output$plotSelectivityPattern <- renderPlotly({
-       expr = ggplotly(ggplot(ggdata) + 
-                         geom_line(aes( x = length, y = proportion, colour = quantity, size = size), ) +
-                         scale_colour_manual(values = c("red", "black")) +
-                         scale_size_identity() + 
-                         labs(title = "User-specified selectivity and maturity") +
-                         theme_bw())
-     })
-    })
+        isolate(length_vals <- seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), 
+                           input$Linf, length.out = 101))
+        
+        ggdata <- rbind(selectionCurves(),
+                        data.frame(length = length_vals, 
+                                   proportion = 1.0/(1+exp(-log(19)*(length_vals-input$Lm50)/(input$Lm95-input$Lm50))),
+                                   size = 2,
+                                   quantity = "maturity")
+        )
+        expr = ggplotly(ggplot(ggdata) + 
+                          geom_line(aes( x = length, y = proportion, colour = quantity, size = size), ) +
+                          scale_colour_manual(values = c("red", "black")) +
+                          scale_size_identity() + 
+                          labs(title = "User-specified maturity and selectivity") + # could have reactive
+                          theme_bw())
+      })
+      
+      # sliders for plot??
+      # You can use a simple observeEvent to detect when button pressed, 
+      # and then show the hidden sliderInput and plotOutput widgets
+      # output$selectivityControls <- renderUI({
+      #   
+      # })
+      
+#    })
+  
+
+  
+  
   # eventReactive??
   # slideLenBins <- reactive(
   #   {# eventually have a reactive StockPars object
