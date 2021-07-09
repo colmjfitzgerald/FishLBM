@@ -317,28 +317,40 @@ body <-   mainPanel(
                                    column(width = 4,
                                           div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
                                           radioButtons(inputId = "chooseSelectivityPattern",
-                                                       label = "Fishery selectivity curve",
-                                                       choices = c("Asymptotic")#, "Dome-shaped")
+                                                       label = "Size-selectivity pattern",
+                                                       choices = c("Asymptotic", "Dome-shaped"),
+                                                       selected = "Asymptotic"
                                                        ),
                                           radioButtons(inputId = "specifySelectivity",
                                                        label = "Fishery selectivity parameters",
-                                                       choices = c("Estimate",
-                                                                   "Specify"))#,
-                                          # actionButton(inputId = "btnSelectivity",
-                                          #              label = "Input selectivity choices",
+                                                       choices = c("Estimate (LBSPR)", "Specify (user)"),
+                                                       selected = c("Estimate (LBSPR)")),
+                                          uiOutput(outputId = "chooseSelectivityCurve"),
+                                          #tags$div(id = "meshSizes"),  # for insertUI, removeUI
+                                          conditionalPanel(
+                                            "input.specifySelectivity == 'Specify (user)' && !input.specifySelectivity && 
+                                              input.chooseSelectivityPattern == 'Dome-shaped && !input.chooseSelectivityPattern'",
+                                            uiOutput(outputId = "gearMeshSizes")),
+                                           #actionButton(inputId = "btnSelectivity",
+                                           #             label = "Input selectivity choices",
                                           #              class = "btn-success")
                                           ),
                                  column(width = 8,
-                                        div(id = "specifySelectivity", h4("Fishery selectivity parameters")),
+                                        div(id = "specifySelectivityParameters", 
+                                            h4("Fishery selectivity parameters")),
                                         #textOutput(outputId = "selectivityNote"),
                                         uiOutput(outputId = "selectivityParameters")
                                         # specify parameters dependent on input
                                         )
                                  ),
-                                 fluidRow(width = 6,
-                                          div(id = "plotSelectivitySection", hr()),
-                                          plotlyOutput(outputId = "plotSelectivityPattern")
-                                          ) 
+                                 div(id = "plotSelectivitySection", hr()),
+                                 fluidRow(
+#                                   column(width = 3,
+#                                          uiOutput(outputId = "selectivityControls")
+#                                   ),
+                                   column(width = 12, # 9
+                                          plotlyOutput(outputId = "plotSelectivityPattern"))
+                                   )
                         ),
                         tabPanel("Length composition",
                                  fluidPage(
@@ -404,8 +416,8 @@ body <-   mainPanel(
                                    ), 
                                    column(width = 4,
                                           tags$h3("Stock parameters and status"),
-                                          tableOutput(outputId = "stockPopParameters")
-                                   #        verbatimTextOutput(outputId = "textFitLBSPR")),
+                                          tableOutput(outputId = "stockPopParameters"),
+                                          verbatimTextOutput(outputId = "textFitLBSPR")#),
                                    #plotlyOutput(outputId = "plotOpLBSPR",
                                    #              width = "100%",
                                    #             height = "400px"
