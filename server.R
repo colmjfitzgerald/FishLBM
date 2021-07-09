@@ -65,7 +65,12 @@ server <- function(input, output, session){
     input$selectCols,
     { catchdata <- catchdata_read()[, c(input$checkboxCatchData, paste0(input$lengthColSelect))]
       charCols <- which(sapply(catchdata, is.character))
-      catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
+      if(!(length(charCols) == 0 & is.integer(charCols))) {
+        catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
+      } else {
+        catchdata <- data.frame(catchdata)
+        names(catchdata) <- paste0(input$lengthColSelect)
+      }
       catchdata
     }
   )
@@ -99,6 +104,8 @@ server <- function(input, output, session){
       # } else {
       #   
       # }
+      
+      if(!is.null(input$checkboxCatchData)){
       speciesCol <- input$checkboxCatchData[whichSpeciesCol]
       gearCol <- input$checkboxCatchData[whichGearCol]
       yearCol <- input$checkboxCatchData[whichYearCol]
@@ -202,6 +209,10 @@ server <- function(input, output, session){
         }
         
       }
+      } else {
+        pg <- pg + geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+                             closed = "left", boundary = 0, bins = 40)
+      }
       pg + theme_bw() + theme(strip.text.x = element_text(margin = margin(0.125,0.25,0.25,0.25, "cm")))
     })
   
@@ -286,7 +297,7 @@ server <- function(input, output, session){
   # useful when you want to manipulate the widget before rendering it in 
   # Shiny, e.g. you may apply a formatting function to a table widget"
   output$catchDataTable <- 
-    renderDataTable(
+    renderDT(
       expr = datatable(catchdata_table(), 
                        options = list(autowidth = TRUE, pageLength = 10, scrollX = TRUE, scrollY = FALSE,
                                       orderClasses = TRUE), # position of options? 
@@ -1290,11 +1301,13 @@ server <- function(input, output, session){
                             Estimate = c(M, M*FM, M*(1 + FM), 
                                          lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
                                          lbsprGearInput$selectivityCurve,
-                                         lbsprGearInput$SL1, lbsprGearInput$SL2, lbsprGearInput$SLMin, 
+                                         ifelse(is.null(lbsprGearInput$SL1), lbsprFit$Estimate[lbsprFit$Parameter=="SL50"], lbsprGearInput$SL1),
+                                         ifelse(is.null(lbsprGearInput$SL2), lbsprFit$Estimate[lbsprFit$Parameter=="SL95"], lbsprGearInput$SL2),
+                                         ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
                                          lbsprFit[lbsprFit$Parameter == "SPR",]$Estimate)
     )
     tableData %>%
-      kable("html", digits = 3) %>%
+      kable("html", digits = c(3,3,3,1,3,2,2,NA,3,3,3,3)) %>%
       kable_styling("striped", full_width = F, position = "float_left") %>%
       pack_rows("Mortality", 1, 3) %>%
       pack_rows("Growth", 4, 5) %>%

@@ -14,7 +14,6 @@ if(!require(devtools)){install.packages("devtools", dependencies = TRUE); requir
 
 #library(htmltools)
 options(shiny.maxRequestSize = 5*1024^2)
-#setwd("C:/Users/cfitzgerald/workspace/length_based_assessment/")
 source("../GTG-LBSPR_DomeShaped/GTGLBSPR_Dome.R")
 #source_url("https://github.com/AdrianHordyk/GTG_LBSPR/blob/master/GTG_LBSPR.r")
 source("./ui.R")
