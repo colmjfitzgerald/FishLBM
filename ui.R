@@ -163,7 +163,7 @@ body <-   mainPanel(
              #         plotlyOutput(outputId = "lengthAge",
              #                      width = "90%"),
              navbarPage(title = "GTG LB-SPR",
-                        id = "parLBSPR",
+                        id = "methodLBSPR",
                         tabPanel("Stock biological parameters",
                                  withMathJax(),
                                  fluidPage(
@@ -312,7 +312,7 @@ body <-   mainPanel(
                                    #   )
                                    # ),
                         ),
-                        tabPanel("Selectivity",
+                        tabPanel("Selectivity", value = "tabSelectivity",
                                  fluidRow(
                                    column(width = 4,
                                           div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
@@ -352,7 +352,7 @@ body <-   mainPanel(
                                           plotlyOutput(outputId = "plotSelectivityPattern"))
                                    )
                         ),
-                        tabPanel("Length composition",
+                        tabPanel("Length composition", value = "tabLengthComposition",
                                  fluidPage(
                                    fluidRow(
                                      column(width = 3,
@@ -388,7 +388,7 @@ body <-   mainPanel(
                                                 class = "btn-success"),
                                  )
                         ),
-                        tabPanel("Model fit", value = "modelFit",
+                        tabPanel("Model fit", value = "tabModelFit",
                                  fluidRow(
                                    column(width = 8,
                                           plotlyOutput(outputId = "visFitLBSPR",

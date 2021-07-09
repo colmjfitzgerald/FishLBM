@@ -228,6 +228,7 @@ server <- function(input, output, session){
   
 
   # Length data conversion and column selection ====
+  # consider changing - overly complex
   newLengthCol <- eventReactive(
     input$convertLengthUnits,
     {paste0("length_", input$newLengthUnits)}
@@ -264,7 +265,7 @@ server <- function(input, output, session){
       lengthScale <- lengthRecordsScale()
       #length_records <- catchdata_table() %>% select(input$lengthColSelect) %>% 
       #  mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
-      length_records <- catchdata_table()[input$catchDataTable_rows_all,] %>% #select(input$lengthColSelect) %>% 
+      length_records <- catchdata_table()[input$catchDataTable_rows_all,,drop = FALSE] %>% #select(input$lengthColSelect) %>% 
         mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
     }
   )
@@ -984,11 +985,13 @@ server <- function(input, output, session){
   }
   )
   
+  # btnStokcPars causes move to next tab
   observeEvent(input$btnStockPars,
                {print("debug observeEvent")
                  print(binLengthData())
                  length_records <- lengthRecordsFilter()[, newLengthCol()]
-                 print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])})
+                 print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])
+                 updateTabsetPanel(session, inputId = "methodLBSPR", selected = "tabSelectivity")})
   
   
   # visualise length composition by year - optional selection radio button
@@ -1157,7 +1160,10 @@ server <- function(input, output, session){
   
   # move panel within navBarPage after fit
   observeEvent(input$fitLBSPR,
-               {updateTabsetPanel(session, inputId = "parLBSPR", selected = "modelFit")})
+               {updateTabsetPanel(session, inputId = "methodLBSPR", selected = "tabModelFit")})
+  
+  observeEvent(input$btnFixedFleetPars,
+               updateTabsetPanel(session, inputId = "methodLBSPR", selected = "tabLengthComposition"))
   
   
   # print text on LBSPR estimating model fit 
