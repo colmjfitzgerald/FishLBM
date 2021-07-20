@@ -38,9 +38,14 @@ server <- function(input, output, session){
                  # the observers (including outputs) have finished running
                })
   
+  # debug
   observeEvent(input$selectCols,
-               { print(paste0("input select data"))
+               { print(paste0("choose length column"))
                  print(input$lengthColSelect)
+                 print(paste0("choose attributes"))
+                 print(input$checkboxCatchData)
+                 print(paste0("species column?"))
+                 print(grepl("species", input$checkboxCatchData, ignore.case = TRUE))
                })
 
     
@@ -60,16 +65,16 @@ server <- function(input, output, session){
     input$selectCols,
     { catchdata <- catchdata_read()[, c(input$checkboxCatchData, paste0(input$lengthColSelect))]
       charCols <- which(sapply(catchdata, is.character))
-      catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
+      if(!(length(charCols) == 0 & is.integer(charCols))) {
+        catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
+      } else {
+        catchdata <- data.frame(catchdata)
+        names(catchdata) <- paste0(input$lengthColSelect)
+      }
       catchdata
     }
   )
-  
-  observeEvent(input$selectCols,
-               {print(input$checkboxCatchData)
-                print(grepl("species", input$checkboxCatchData, ignore.case = TRUE))
-                }
-               )
+
   
   # catchdata_plot
   catchdata_plot <- eventReactive(
@@ -99,6 +104,8 @@ server <- function(input, output, session){
       # } else {
       #   
       # }
+      
+      if(!is.null(input$checkboxCatchData)){
       speciesCol <- input$checkboxCatchData[whichSpeciesCol]
       gearCol <- input$checkboxCatchData[whichGearCol]
       yearCol <- input$checkboxCatchData[whichYearCol]
@@ -142,7 +149,13 @@ server <- function(input, output, session){
                              closed = "left", boundary = 0, bins = 40)
           }
           pg <- pg + facet_grid(rows = as.formula(paste0(speciesCol, " ~ ", gearCol)), scales = "free")
-        } else {
+        } else if (any(whichSexCol)) {
+          # species and sex 
+          pg <- pg + 
+            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)), closed = "left", boundary = 0, bins = 40) + 
+            facet_grid(rows = ensym(speciesCol), scales = "free")
+          
+        } else{
           # species only
           pg <- pg + 
             geom_histogram(aes_(x = input$lengthColSelect), closed = "left", boundary = 0, bins = 40) + 
@@ -196,6 +209,10 @@ server <- function(input, output, session){
         }
         
       }
+      } else {
+        pg <- pg + geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+                             closed = "left", boundary = 0, bins = 40)
+      }
       pg + theme_bw() + theme(strip.text.x = element_text(margin = margin(0.125,0.25,0.25,0.25, "cm")))
     })
   
@@ -211,6 +228,7 @@ server <- function(input, output, session){
   
 
   # Length data conversion and column selection ====
+  # consider changing - overly complex
   newLengthCol <- eventReactive(
     input$convertLengthUnits,
     {paste0("length_", input$newLengthUnits)}
@@ -247,7 +265,7 @@ server <- function(input, output, session){
       lengthScale <- lengthRecordsScale()
       #length_records <- catchdata_table() %>% select(input$lengthColSelect) %>% 
       #  mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
-      length_records <- catchdata_table()[input$catchDataTable_rows_all,] %>% #select(input$lengthColSelect) %>% 
+      length_records <- catchdata_table()[input$catchDataTable_rows_all,,drop = FALSE] %>% #select(input$lengthColSelect) %>% 
         mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
     }
   )
@@ -280,7 +298,7 @@ server <- function(input, output, session){
   # useful when you want to manipulate the widget before rendering it in 
   # Shiny, e.g. you may apply a formatting function to a table widget"
   output$catchDataTable <- 
-    renderDataTable(
+    renderDT(
       expr = datatable(catchdata_table(), 
                        options = list(autowidth = TRUE, pageLength = 10, scrollX = TRUE, scrollY = FALSE,
                                       orderClasses = TRUE), # position of options? 
@@ -356,7 +374,9 @@ server <- function(input, output, session){
     } else {
       nls.m <- nls(length_cm ~ Linf*(1-exp(-K*(age-t0))), 
                    data = growthData, 
-                   start = list(Linf=input$sliderLinf, K = input$sliderK, t0=input$slidert0))
+                   start = list(Linf=input$sliderLinf, K = input$sliderK, t0=input$slidert0),
+                   nls.control(maxiter = 250, tol = 1e-05, minFactor = 1/4096, 
+                               printEval = TRUE, warnOnly = TRUE))
       print(class(nls.m))
     }
     x <- list(model = nls.m, data = growthData)
@@ -388,7 +408,9 @@ server <- function(input, output, session){
         gm_self_boot <- nls(length_cm ~ Linf*(1-exp(-K*(age-t0))),
                             data = data.frame(age = growthFitData$age,
                                               length_cm = resid_boot + mean_fit),
-                            start = list(Linf=40.,K=0.2,t0=0.0))
+                            start = list(Linf=40.,K=0.2,t0=0.0),
+                            nls.control(maxiter = 250, tol = 1e-05, minFactor = 1/4096, 
+                                        printEval = FALSE, warnOnly = TRUE))
         coef_boot[i,] <- gm_self_boot$m$getPars()
         # predict length based on bootstrap regression estimators
         pred_boot[,i] <- predict(gm_self_boot, pred_data)
@@ -433,8 +455,17 @@ server <- function(input, output, session){
     
     # age-length or just length data
     if(all(is.na(fishAgeLengthData[, "age"]))){
+      if(nrow(fishAgeLengthData) > 400){
+        fishAgeLengthDataSubSample <- 
+          rbind(fishAgeLengthData[fishAgeLengthData[ ,newLengthCol()] == min(fishAgeLengthData[ , newLengthCol()]),],
+            fishAgeLengthData[fishAgeLengthData[ ,newLengthCol()] == max(fishAgeLengthData[ , newLengthCol()]),],
+            fishAgeLengthData[sampleLengthRecords(),])  
+      } else {
+        fishAgeLengthDataSubSample <- fishAgeLengthData
+      }
       p <- p + 
-        geom_rug(data = fishAgeLengthData, mapping = aes(y = length_cm)) # geom_violin(data = lengthRecordsFilter(), mapping = aes_string(y = newLengthCol()), trim = TRUE, orientation = "y") +
+        geom_rug(data = fishAgeLengthDataSubSample, mapping = aes(y = length_cm)) 
+      
     } else {
       if("sex" %in% colnames(fishAgeLengthData)){
         p <- p + 
@@ -448,6 +479,13 @@ server <- function(input, output, session){
     }
     p + theme_bw()
   })
+  
+  # sample from length data for geom_rug
+  sampleLengthRecords <- reactive({
+    fishAgeLengthData <- gatherFishAgeLengthData()
+    sample(1:nrow(fishAgeLengthData), 398, replace = FALSE,)
+  })
+  
   
   # length-at-age confidence interval ribbon
   ggGrowthFitCI <- reactive({
@@ -507,7 +545,7 @@ server <- function(input, output, session){
   observeEvent(input$fitGrowth,
                {print(input$checkboxCatchData)
                  print(growthParChoices())
-                 print("debug observe event")
+                 print("debug observe event - print growthFrequentistFit(), growthFrequentistFitBoot()")
                  print(growthFrequentistFit())
                  print(growthFrequentistFitBoot())
                  print("are ggplots?")
@@ -536,36 +574,82 @@ server <- function(input, output, session){
   
   # LB-SPR assessment ====
   
-  # numeric inputs for LBSPR
+  
+  # natural mortality choices ####
+  
+  # choices for growth parameters
+  natMestChoices <- reactive({
+    growthChoices <- c("User-specified" = "user", 
+                       "PaulyNLS-T ($M = 4.118K^{0.73}L_{\\infty}^{-0.33}$)" = "pauly", 
+                       "Two-parameter K ($M = 0.098 + 1.55K$)" = "twoK")
+    if("age" %in% input$checkboxCatchData & 
+       any(!is.na(gatherFishAgeLengthData()[,grep("age", names(gatherFishAgeLengthData()), value = TRUE)]))) {
+      growthChoices = c(growthChoices, "HoenigNLS ($M = 4.899t_{max}^{-0.916}$)" = "hoenig")
+    }
+    expr = growthChoices
+  })
+  
+  output$natMortalityRadioBtn <- 
+    renderUI({
+      withMathJax(
+      radioButtons(inputId= "natMortality", label = "Empirical estimators",
+                   choices = natMestChoices(), selected = natMestChoices()[1])
+      )
+    }
+    )
+  
+  
+  # numeric inputs for LBSPR ####
   # default to sliderInput values
   output$numLinf <- renderUI({
     numericInput("Linf", label = NULL, #"Linf", 
-                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                 value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$model)["Linf"], digits = 2),
                                 round(input$sliderLinf, digits = 2)))
   })
   
   output$numKlvb <- renderUI({
     numericInput("kLvb", label = NULL, #"K growth", 
-                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                 value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$model)["K"], digits = 2),
                                 round(input$sliderK, digits = 2)))
   })
   
+  output$numM <- renderUI({
+    numericInput("M", label = NULL, #"M natural mortality", 
+                 value = 0.3)
+  })
+  
   output$numLm50 <- renderUI({
     numericInput("Lm50", label = NULL, #"Linf", 
-                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                 value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$model)["Linf"]*0.66, digits = 2),
                                 round(input$sliderLinf*0.66, digits = 2)))
   })
   
   output$numLm95 <- renderUI({
     numericInput("Lm95", label = NULL, #"Linf", 
-                 value = ifelse(input$growthParOption == growthParChoices()[2], 
+                 value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$model)["Linf"]*0.75, digits = 2),
                                 round(input$sliderLinf*0.75, digits = 2)),
                  min = input$sliderLinf*0.25)
   })
+  
+  
+  observeEvent(input$natMortality, {
+    if(input$natMortality == "user"){
+      updateNumericInput(session, "M", value = 0.3)      
+    } else if(input$natMortality == "pauly") {
+      updateNumericInput(session, "M", value = round(4.118*input$kLvb^0.73*input$Linf^(-0.33), 3))
+    } else if(input$natMortality == "twoK"){
+      updateNumericInput(session, "M", value = round(0.098 + 1.55*input$kLvb, 3))
+    } else if(input$natMortality == "hoenig") {
+      updateNumericInput(session, "M", value = round(4.899*max(gatherFishAgeLengthData()$age, na.rm = FALSE)^-0.916, 3))
+    }
+      #if(is.na(max(gatherFishAgeLengthData()$age, na.rm = FALSE)))
+      #if(is.na(tmax)) { NA } else { round(4.899*tmax^-0.916, 3) }
+  })
+  
   
   # reactive list for biological inputs
   reactiveStockPars <- eventReactive(input$btnStockPars,
@@ -585,59 +669,278 @@ server <- function(input, output, session){
                 })
   
   
+  
   # selectivity curve ####
-  # insertUI
-  # output$selectivityNote <- renderText("User specifies selectivity parameters")
-  output$selectivityParameters <- renderUI(
-    { 
-      if(input$specifySelectivity == "Specify"){
+
+  observe({
+    print("update radio buttons")    
+    updateRadioButtons(session, inputId = "specifySelectivity",
+                       choices = selectParameterSpecification())
+    print("finished updating")
+  })
+  
+  # reactive radioButton options..."Asymptotic" default:
+  # must match radioButtons(inputId = "specifySelectivity",
+  selectParameterSpecification <- reactive({
+    #if(input$selectSelectivityCurve == "Logistic" && !is.null(input$selectSelectivityCurve)){ # or input$chooseSelectivityPattern
+    if(input$chooseSelectivityPattern == "Asymptotic" && !is.null(input$chooseSelectivityPattern)){
+      x <- c("Estimate (LBSPR)", "Specify (user)")
+    } else {
+      x <- c("Specify (user)")
+    }
+  })
+
+  output$chooseSelectivityCurve <- renderUI({
+    selectivityCurveChoices <- sizeSelectivityCurves() 
+    selectInput(inputId = "selectSelectivityCurve",
+                label = "Size-selectivity curve",
+                choices = selectivityCurveChoices,
+                selected = selectivityCurveChoices[1])
+    })
+  
+  # chooseSelectivityCurve - reactive options
+  sizeSelectivityCurves <- reactive({
+    if(input$chooseSelectivityPattern == "Asymptotic" && !is.null(input$chooseSelectivityPattern)){
+      x <- c("Logistic", "Knife-edged")  
+    } else if(input$chooseSelectivityPattern == "Dome-shaped" && !is.null(input$chooseSelectivityPattern)) {
+      x <- c("Normal.loc", "Normal.sca", "logNorm")
+    }
+  })
+
+  
+  output$gearMeshSizes <- renderUI(
+    numericInput(inputId = "selectGearMeshSizes",
+                 label = "Number of mesh sizes in gear",
+                 value = 1, min = 1, max = 1)
+  )
+
+  # reactiveValues - when you read a value from it, the calling reactive expression takes a 
+  # reactive dependency on that value, and when you write to it, it notifies any reactive functions 
+  # that depend on that value. Note that values taken from the reactiveValues object are reactive, 
+  # but the reactiveValues object itself is not.
+  #reactValues <- reactiveValues()
+  
+  #observe({
+    # use reactiveValues and change the value of a reactive value in an observer...
+    # use that value as a dependency in the render function
+  #})
+  
+  # reactive or reactiveValues?
+  gearSelectivityParameters <- reactive({
+    x <- list(SL1 = NULL, SL2 = NULL, SLKnife = NULL)
+  })
+  
+  observe({
+    print("*** observe ***")
+    print(input$chooseSelectivityPattern)
+    print(paste0("sizeSelectivityCurves() == ",  sizeSelectivityCurves()))
+    print(input$selectSelectivityCurve)
+    # we comment out the print statements below because changes in reactive expressions 
+    # cause the observe expressions to evaluate. therefore to find out which reactive 
+    # expressions change we should examine each input individually and then together 
+    # print(paste0("selectSelectivityCurve is NULL: ", is.null(input$selectSelectivityCurve)))
+    # print(input$specifySelectivity)
+    # print(paste0("specify selectivity choices = ", selectParameterSpecification()))
+    # print(length(selectParameterSpecification()))
+    # print(paste0("specifySelectivity is NULL: ", is.null(input$specifySelectivity)))
+  })
+  
+  
+  # selectivity parameters
+  # numeric inputs
+  selectivityParsNumInp <- reactive({
+    if(input$specifySelectivity == "Specify (user)" & !is.null(input$specifySelectivity)){
+      if(input$selectSelectivityCurve == "Knife-edged" & !is.null(input$selectSelectivityCurve)){
         tagList(
-          numericInput(inputId = "SL50", label = "Length at 50% selectivity",
+          numericInput(inputId = "SLKnife", label = "MLL",
+                       value = round(input$Linf*0.50, digits = 2),
+                       min = 0.0, max = input$Linf),
+          actionButton(inputId = "btnFixedFleetPars", "Input selectivity parameters",
+                       class = "btn-success"),
+          bsTooltip(id = "SLKnife",
+                    title = "Minimum Length Limit. Fishery regulation whereby fish smaller than this limit must be returned to the water whereas larger fish may be retained.",
+                    placement = "left", trigger = "hover",  options = list(container = "body"))
+        )
+      } else if(input$selectSelectivityCurve == "Logistic" & !is.null(input$selectSelectivityCurve)) {
+        tagList(
+          numericInput(inputId = "SL1", label = "Length at 50% selectivity",
                        value = round(input$Linf*0.70, digits = 2)),
-          numericInput(inputId = "SL95", label = "Length at 95% selectivity",
+          numericInput(inputId = "SL2", label = "Length at 95% selectivity",
                        value = round(input$Linf*0.80, digits = 2)),
           actionButton(inputId = "btnFixedFleetPars", "Input selectivity parameters",
                        class = "btn-success"),
-          bsTooltip(id = "SL50", 
-                    title = "Length at 50% selectivity<br> <em>Length at which 50% of a stock is caught by fishery gear.</em> Replace default <b>SL50 = 0.7 Linf</b> with empirical data or expert knowledge. Influences F/M statistical inference.", 
+          bsTooltip(id = "SL1",
+                    title = "Length at 50% selectivity<br> <em>Length at which 50% of a stock is caught by fishery gear.</em> Replace default <b>SL50 = 0.7 Linf</b> with empirical data or expert knowledge. Influences F/M statistical inference.",
                     placement = "left", trigger = "hover",  options = list(container = "body")),
-          bsTooltip(id = "SL95", 
-                    title = "Length at 95% selectivity<br> <em>Length at which 95% of a stock is caught by fishery gear.</em> Replace default <db>SL50 = 0.8 Linf</b> with empirical data or expert knowledge. Influences F/M statistical inference.", 
+          bsTooltip(id = "SL2",
+                    title = "Length at 95% selectivity<br> <em>Length at which 95% of a stock is caught by fishery gear.</em> Replace default <db>SL50 = 0.8 Linf</b> with empirical data or expert knowledge. Influences F/M statistical inference.",
                     placement = "left", trigger = "hover",  options = list(container = "body"))
         )
-      } else {
-        tagList(renderText("Estimate selectivity parameters in model fitting process"))
+      } else if(input$selectSelectivityCurve %in% c("Normal.sca", "Normal.loc") &
+                !is.null(input$selectSelectivityCurve)) {
+        tagList(
+          numericInput(inputId = "SL1", label = "Length at maximum selectivity",
+                       value = round(input$Linf*0.70, digits = 2)),
+          numericInput(inputId = "SL2", label = "SD or spread of normal selectivity curve",
+                       value = round(input$Linf*0.10, digits = 2)),
+          numericInput(inputId = "SLKnife", label = "MLL",
+                       value = round(input$Linf*0.0, digits = 2),
+                       min = 0.0, max = input$Linf),
+          actionButton(inputId = "btnFixedFleetPars", "Input selectivity parameters",
+                       class = "btn-success")
+        )
+      } else if(input$selectSelectivityCurve %in% c("logNorm") & !is.null(input$selectSelectivityCurve)) {
+        tagList(
+          numericInput(inputId = "SL1", label = "Length at maximum selectivity",
+                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = 1),
+          numericInput(inputId = "SL2", label = "SD/spread of lognormal selectivity curve",
+                      value = round(input$Linf*0.01, digits = 2), min = 1e-3, max = 2, step = 0.01),
+          numericInput(inputId = "SLKnife", label = "MLL",
+                      value = round(input$Linf*0.0, digits = 2),
+                      min = 0.0, max = input$Linf,  step = 1)
+        )
       }
+    } else if (input$specifySelectivity == "Estimate (LBSPR)" & !is.null(input$specifySelectivity)) {
+      tagList(tags$p("Estimate selectivity parameters in model fitting process"))
+    }
+  })
+  
+  # slider controls
+  selectivityParsSliderInp <- reactive({
+    if(input$specifySelectivity == "Specify (user)" & !is.null(input$specifySelectivity)){
+      
+      if(input$selectSelectivityCurve == "Knife-edged" & !is.null(input$selectSelectivityCurve)){
+        tList <- tagList(
+          sliderInput(inputId = "SLKnife", label = "MLL",
+                      value = round(input$Linf*0.50, digits = 2),
+                      min = 0.0, max = input$Linf, step = 1)
+        )
+      } else if(input$selectSelectivityCurve == "Logistic" & !is.null(input$selectSelectivityCurve)) {
+        tList <- tagList(
+          sliderInput(inputId = "SL1", label = "Length at 50% selectivity",
+                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2),
+          sliderInput(inputId = "SL2", label = "Length at 95% selectivity",
+                      value = round(input$Linf*0.80, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2)
+        )
+      } else if(input$selectSelectivityCurve %in% c("Normal.sca", "Normal.loc") &
+                !is.null(input$selectSelectivityCurve)) {
+        tList <- tagList(
+          sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
+                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = 1),
+          sliderInput(inputId = "SL2", label = "SD (spread) of dome-shaped selectivity curve",
+                      value = round(input$Linf*0.10, digits = 2), min = 0, max = input$Linf, step = 1),
+          sliderInput(inputId = "SLKnife", label = "MLL",
+                      value = round(input$Linf*0.0, digits = 2),
+                      min = 0.0, max = input$Linf,  step = 1)
+        )
+      } else if(input$selectSelectivityCurve %in% c("logNorm") & !is.null(input$selectSelectivityCurve)) {
+        tList <- tagList(
+          sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
+                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = 1),
+          sliderInput(inputId = "SL2", label = "Log-normal SD/spread of dome-shaped selectivity curve",
+                      value = round(0.50, digits = 2), min = 1e-3, max = 2, step = 0.01),
+          sliderInput(inputId = "SLKnife", label = "MLL",
+                      value = round(input$Linf*0.0, digits = 2),
+                      min = 0.0, max = input$Linf,  step = 1)
+        )
+      }
+    } else if (input$specifySelectivity == "Estimate (LBSPR)" & !is.null(input$specifySelectivity)) {
+      tList <- tagList(tags$p("Estimate selectivity parameters in model fitting process"))
+    }
+    # add action button to submit selectivity parameters
+    tagList(tList, 
+            actionButton(inputId = "btnFixedFleetPars", 
+                         "Input selectivity parameters",
+                         class = "btn-success"))
+  })
+  
+  
+  # render reactive expression with tagList
+  output$selectivityParameters <- renderUI({  
+     selectivityParsSliderInp()
+    #selectivityParsNumInp()
+    #  tags$p("Text here")
     })
   
-  reactiveFixedFleetPars <- eventReactive(input$btnFixedFleetPars,
-                                          {list(SL50 = input$SL50, SL95 = input$SL95)
-                                          })
-  
-  # plot selectivity pattern provided input$specifySelectivity == "Specify"
-  observeEvent(
-    input$btnFixedFleetPars, {
-      length_vals <- seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), 
-                       input$Linf, length.out = 51)
+  # LBSPR fleet parameters
+  reactiveFixedFleetPars <- 
+    eventReactive(input$btnFixedFleetPars, 
+                  {
+                    if(input$chooseSelectivityPattern == "Dome-shaped"){
+                      list(SL1 = input$SL1, SL2 = input$SL2, SLMin = input$SLKnife, 
+                        SLmesh = 1, selectivityCurve = input$selectSelectivityCurve)
+                    } else {
+                      if(input$selectSelectivityCurve == "Logistic") {
+                        list(selectivityCurve = input$selectSelectivityCurve)
+                      } else if(input$selectSelectivityCurve == "Knife") {
+                        list(SLKnife = input$SLKnife, selectivityCurve = input$selectSelectivityCurve)
+                      } 
+                    }
+    })
 
-      ggdata <- rbind(data.frame(length = length_vals, 
-                          proportion = 1.0/(1+exp(-log(19)*(length_vals-input$SL50)/(input$SL95-input$SL50))),
-                          size = 1,
-                          quantity = "selectivity"),
-                     data.frame(length = length_vals, 
-                                proportion = 1.0/(1+exp(-log(19)*(length_vals-input$Lm50)/(input$Lm95-input$Lm50))),
-                                size = 2,
-                                quantity = "maturity")
-                     )
+  
+  # selectivity curve data frame - reactive or reactiveValues?
+  selectionCurves <- reactive({
+    # nb handle SLKnife, SLMLL dependent on selectivityCurve value (logistic, knife-edged etc.)?
+    if(input$specifySelectivity == "Specify (user)" & 
+       !(is.null(input$SL1) | is.null(input$SL2)) ){
+      isolate(dSC <- data.frame(
+        length = seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), input$Linf, length.out = 51),
+        size = 1, quantity = "selectivity"))
+      SLmesh <- 1
+      if(input$selectSelectivityCurve == "Logistic"){
+        dSC$proportion <- 1.0/(1+exp(-log(19)*(dSC$length-input$SL1)/(input$SL2-input$SL1)))
+      } else if(input$selectSelectivityCurve == "Normal.loc") {
+        dSC$proportion <- exp(-0.5*((dSC$length-((input$SL1)*SLmesh))/(input$SL2))^2)
+        dSC$proportion[dSC$length < input$SLKnife] <- 0
+      } else if(input$selectSelectivityCurve == "Normal.sca") {
+        dSC$proportion <- exp(-0.5*((dSC$length-((input$SL1)*SLmesh))/((input$SL2^0.5)*SLmesh)^2))
+        dSC$proportion[dSC$length < input$SLKnife] <- 0
+      } else if(input$selectSelectivityCurve == "logNorm") {
+        dSC$proportion <- exp(-0.5*((log(dSC$length)-log((input$SL1)*SLmesh))/(input$SL2))^2)
+        dSC$proportion[dSC$length < input$SLKnife] <- 0
+      }
+    } else {
+      dSC <- NULL
+    }
+    dSC
+  })
+  
+  
+  # plot selectivity pattern provided input$specifySelectivity == "Specify (user)"
+
+  #observeEvent(
+  #  input$btnFixedFleetPars, {
       output$plotSelectivityPattern <- renderPlotly({
-       expr = ggplotly(ggplot(ggdata) + 
-                         geom_line(aes( x = length, y = proportion, colour = quantity, size = size), ) +
-                         scale_colour_manual(values = c("red", "black")) +
-                         scale_size_identity() + 
-                         labs(title = "User-specified selectivity and maturity") +
-                         theme_bw())
-     })
-    })
+        isolate(length_vals <- seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), 
+                           input$Linf, length.out = 201))
+        
+        ggdata <- rbind(selectionCurves(),
+                        data.frame(length = length_vals, 
+                                   proportion = 1.0/(1+exp(-log(19)*(length_vals-input$Lm50)/(input$Lm95-input$Lm50))),
+                                   size = 2,
+                                   quantity = "maturity")
+        )
+        expr = ggplotly(ggplot(ggdata) + 
+                          geom_line(aes( x = length, y = proportion, colour = quantity, size = size), ) +
+                          scale_colour_manual(values = c("red", "black")) +
+                          scale_size_identity() + 
+                          labs(title = "User-specified maturity and selectivity") + # could have reactive
+                          theme_bw())
+      })
+      
+      # sliders for plot??
+      # You can use a simple observeEvent to detect when button pressed, 
+      # and then show the hidden sliderInput and plotOutput widgets
+      # output$selectivityControls <- renderUI({
+      #   
+      # })
+      
+#    })
+  
+
+  
+  
   # eventReactive??
   # slideLenBins <- reactive(
   #   {# eventually have a reactive StockPars object
@@ -682,11 +985,29 @@ server <- function(input, output, session){
   }
   )
   
+  # btnStokcPars causes move to next tab
   observeEvent(input$btnStockPars,
                {print("debug observeEvent")
                  print(binLengthData())
                  length_records <- lengthRecordsFilter()[, newLengthCol()]
-                 print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])})
+                 print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])
+                 updateTabsetPanel(session, inputId = "methodLBSPR", selected = "tabSelectivity")})
+  
+  
+  # visualise length composition by year - optional selection radio button
+  observeEvent(input$selectCols,
+               { rbChoices <- c("in aggregate")
+                 if(any(grepl("year", input$checkboxCatchData, ignore.case = TRUE))){
+                   rbChoices <- c(rbChoices, 
+                                  paste0("by ", 
+                                         grep("year", input$checkboxCatchData, ignore.case = TRUE, value = TRUE))
+                                  )
+                 }
+                 updateRadioButtons(inputId = "visualiseLengthComposition",
+                                    label = "Visualise...",
+                                    choices = rbChoices,
+                                    selected = "in aggregate")
+               })
   
   
   # plot length composition of filtered data - change with slider input
@@ -694,18 +1015,15 @@ server <- function(input, output, session){
     renderPlotly({
       lengthData <- lengthRecordsFilter()
       lengthData$isVulnerable <- lengthData[, newLengthCol()] >= input$MLL
-      lengthData <- lengthData[, c(newLengthCol(), "isVulnerable")]
-      print(names(lengthData))
-      print(lengthData)
       if(all(lengthData$isVulnerable, na.rm = TRUE)) {
-        ggLengthComp <- ggplot(lengthData %>% na.omit()) +  
+        ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) +  
           geom_histogram(mapping = aes_string(x = newLengthCol()), fill = "grey80",
                          breaks = binLengthData()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
           geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
           theme_bw()
       } else {
-        ggLengthComp <- ggplot(lengthData %>% na.omit()) + 
+        ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) + 
           geom_histogram(mapping = aes_string(x = newLengthCol(), fill = "isVulnerable"),
                          breaks = binLengthData()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
@@ -714,7 +1032,11 @@ server <- function(input, output, session){
           theme_bw() + 
           theme(legend.position = "bottom")
       }
-      if(input$visualiseLengthComposition == "by year"){ # was observeEvent or eventReactive 
+      if(input$visualiseLengthComposition == 
+         paste0("by ", grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE, value = TRUE))
+         ){ # was observeEvent or eventReactive 
+        print(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
+                          value = TRUE)," ~ ."))
         ggLengthComp <- ggLengthComp + 
           facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
                                             value = TRUE)," ~ ."))) 
@@ -737,10 +1059,10 @@ server <- function(input, output, session){
       
       fixedFleetPars <- NULL
       titleFitPlot <- "Model-estimated selectivity parameters"
-      if(input$specifySelectivity == "Specify"){
-        fixedFleetPars <- reactiveFixedFleetPars()
+      if(input$specifySelectivity == "Specify (user)"){
         titleFitPlot <- "User-specified selectivity parameters"
       }
+      fixedFleetPars <- reactiveFixedFleetPars()
       #SizeBins <- list(Linc = input$Linc, ToSize = NULL)
       #SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
       # 
@@ -761,27 +1083,46 @@ server <- function(input, output, session){
       LenDatVul <- binLengthData()$LenDatVul
       
       
-      
       # GTG-LBSPR optimisation
-      optGTG <- DoOpt(StockPars,  fixedFleetPars, LenDatVul, SizeBins, "GTG")
+      optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatVul, SizeBins, "GTG")#, input$selectSelectivityCurve)
       # optGTG$Ests
       # optGTG$PredLen
       # optGTG$nlminbOut
       
-      if(input$specifySelectivity == "Specify"){
+      if(input$specifySelectivity == "Specify (user)"){
         optFleetPars <- list(FM = optGTG$Ests["FM"],
-                             SL50 = fixedFleetPars$SL50, 
-                             SL95 = fixedFleetPars$SL95)
-      } else if(input$specifySelectivity == "Estimate") {
-        optFleetPars <- list(FM = optGTG$Ests["FM"],
-                             SL50 = optGTG$Ests["SL50"], 
-                             SL95 = optGTG$Ests["SL95"])
+                             selectivityCurve = optGTG$SelectivityCurve,
+                             SL1 = fixedFleetPars$SL1, 
+                             SL2 = fixedFleetPars$SL2,
+                             SLMin = fixedFleetPars$SLMin,
+                             SLmesh = fixedFleetPars$SLmesh)
+      } else if(input$specifySelectivity == "Estimate (LBSPR)") {
+        optFleetPars <- list(FM = optGTG$Ests["FM"], 
+                             selectivityCurve = optGTG$SelectivityCurve,
+                             SL1 = optGTG$Ests["SL1"], 
+                             SL2 = optGTG$Ests["SL2"])
       }
+
       # per recruit theory
-      prGTG <- GTGLBSPRSim(StockPars, optFleetPars, SizeBins)
-      
+      prGTG <- GTGDomeLBSPRSim(StockPars, optFleetPars, SizeBins)#, input$selectSelectivityCurve)
+
       # configure outputs
-      VulLen2 <- 1.0/(1+exp(-log(19)*(LenMids-optFleetPars$SL50)/(optFleetPars$SL95-optFleetPars$SL50))) # Selectivity-at-Length
+      # ifelse statement depending on selectivity curve
+      if(input$selectSelectivityCurve == "Logistic"){
+        VulLen2 <- 1.0/(1+exp(-log(19)*(LenMids-optFleetPars$SL1)/(optFleetPars$SL2-optFleetPars$SL1))) # Selectivity-at-Length
+      } else if(input$selectSelectivityCurve == "Normal.loc") {
+        VulLen2 <- exp(-0.5*((LenMids-((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SL2))^2)
+        VulLen2[LenMids < optFleetPars$SLMin] <- 0
+      } else if(input$selectSelectivityCurve == "Normal.sca") {
+        VulLen2 <- exp(-0.5*((LenMids-((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SLmesh*(optFleetPars$SL2)^0.5)^2))
+        VulLen2[LenMids < optFleetPars$SLMin] <- 0
+      } else if(input$selectSelectivityCurve == "logNorm") {
+        VulLen2 <- exp(-0.5*((log(LenMids)-log((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SL2))^2)
+        VulLen2[LenMids < optFleetPars$SLMin] <- 0
+      } else if(input$selectSelectivityCurve == "Knife-edged"){
+        VulLen2 <- rep(1, length(LenMids))
+        VulLen2[LenMids < optFleetPars$SLMin] <- 0
+      }
       
       # numbers-at-length (midpoints) LBSPR
       NatL_LBSPR <- data.frame(length_mid = prGTG$LenMids,
@@ -798,13 +1139,13 @@ server <- function(input, output, session){
                                                 "Length at 95% selectivity",
                                                 "Spawning Potential Ratio"),
                                 Estimate = c(unname(optFleetPars$FM), 
-                                             unname(optFleetPars$SL50), 
-                                             unname(optFleetPars$SL95),
+                                             unname(optFleetPars$SL1), 
+                                             unname(optFleetPars$SL2),
                                              prGTG$SPR))
       #        opModelOut <- data.frame(Parameter = c("SPR", "YPR"),
       #                                 Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
       #                                 Estimate = c(prGTG$SPR, prGTG$YPR))      
-      if(input$specifySelectivity == "Specify"){
+      if(input$specifySelectivity == "Specify (user)"){
         estModelFit$Source <- c("Model fit", "User-specified", "User-specified", "Model")
       }
       
@@ -816,10 +1157,26 @@ server <- function(input, output, session){
     }
   )
   
+  
+  # move panel within navBarPage after fit
+  observeEvent(input$fitLBSPR,
+               {updateTabsetPanel(session, inputId = "methodLBSPR", selected = "tabModelFit")})
+  
+  observeEvent(input$btnFixedFleetPars,
+               updateTabsetPanel(session, inputId = "methodLBSPR", selected = "tabLengthComposition"))
+  
+  
   # print text on LBSPR estimating model fit 
-  output$textLBSPREstFit <- renderPrint({
-    expr = print(fitGTGLBSPR()$estModelFit)
-  })
+  output$textLBSPREstFit <- function()
+    {
+    fitGTGLBSPR()$estModelFit %>%
+      knitr::kable("html", digits = 3) %>%
+      kable_styling("striped", full_width = F, position = "float_left")
+    }
+    
+  #renderPrint({
+  #  expr = print(fitGTGLBSPR()$estModelFit)
+  #})
   
   # # print text on LBSPR operating model output
   # output$textLBSPROpOut <- renderPrint({
@@ -846,9 +1203,9 @@ server <- function(input, output, session){
                    values_to = "numbers-per-recruit")
     
     
-    if(input$specifySelectivity == "Specify"){
+    if(input$specifySelectivity == "Specify (user)"){
       titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (specified)"
-    } else if (input$specifySelectivity == "Estimate") {
+    } else if (input$specifySelectivity == "Estimate (LBSPR)") {
       titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (estimated)"
     }
     
@@ -872,12 +1229,9 @@ server <- function(input, output, session){
                                              #labels = c("0", "1")
       #                                       ) )
     
-    
-    
-    expr = ggplotly(p = pg +  
+    expr = ggplotly(pg +  
                       scale_x_continuous(name = length_col) +
-                      theme_bw(),
-                    height = 400, width = 600)
+                      theme_bw())
   })
   
   
@@ -927,11 +1281,44 @@ server <- function(input, output, session){
     expr <- pl_y
   })
   
+  # nlminb (optimisation function for matching expected per-recruit length composition to
+  # multinomial log likelihood)
   output$textFitLBSPR <- renderPrint({
     expr <- print(fitGTGLBSPR()$nlminbOut)
     
   })
   
+  # stock paramater summary
+  output$stockPopParameters <- reactive({
+    lbsprFit <- fitGTGLBSPR()$estModelFit
+    lbsprStockInput <- reactiveStockPars()
+    lbsprGearInput <- reactiveFixedFleetPars()
+    FM <- lbsprFit[lbsprFit$Parameter == "FM",]$Estimate
+    M <- lbsprStockInput$M
+    tableData <- data.frame(Notation = c("M", "F", "Z", "Linf", "K", "Lm50", "Lm95", "SLCurve", "SL1", "SL2", "SLMin", "SPR"),
+                            Description = c("Natural mortality", "Fishing mortality", "Total mortality",
+                               "Asymptotic length", "LVB growth constant", 
+                               "Length-at-50%-maturity", "Length-at-95%-maturity", 
+                               "Selectivity-at-length curve", "Selectivity-at-length parameter 1", "Selectivity-at-length parameter 2", 
+                               "Minimum length limit", "Spawning potential ratio"),
+                            Estimate = c(M, M*FM, M*(1 + FM), 
+                                         lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
+                                         lbsprGearInput$selectivityCurve,
+                                         ifelse(is.null(lbsprGearInput$SL1), lbsprFit$Estimate[lbsprFit$Parameter=="SL50"], lbsprGearInput$SL1),
+                                         ifelse(is.null(lbsprGearInput$SL2), lbsprFit$Estimate[lbsprFit$Parameter=="SL95"], lbsprGearInput$SL2),
+                                         ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
+                                         lbsprFit[lbsprFit$Parameter == "SPR",]$Estimate)
+    )
+    tableData %>%
+      kable("html", digits = c(3,3,3,1,3,2,2,NA,3,3,3,3)) %>%
+      kable_styling("striped", full_width = F, position = "float_left") %>%
+      pack_rows("Mortality", 1, 3) %>%
+      pack_rows("Growth", 4, 5) %>%
+      pack_rows("Maturity", 6, 7) %>%
+      pack_rows("Status", 8, 12)
+  })
+  
+  # visual comparison of exploited and unexploited fish populations
   output$plotPopLBSPR <- renderPlot({
     NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
     LPopUnfished <- NatL_LBSPR$popUnfished_at_length
@@ -940,8 +1327,8 @@ server <- function(input, output, session){
     print(max(LenMids))
     
     estModelFit <- fitGTGLBSPR()$estModelFit  
-    SL50 <- estModelFit$Estimate[estModelFit$Parameter == "SL50"]
-    SL95 <- estModelFit$Estimate[estModelFit$Parameter == "SL95"]
+    SL50 <- estModelFit$Estimate[estModelFit$Parameter == "SL1"]
+    SL95 <- estModelFit$Estimate[estModelFit$Parameter == "SL2"]
     SLmin <- SL50 - (SL95-SL50)
     
     par(mfrow = c(2,1), mgp = c(2,1,0), mar = c(4,3,3,1), cex = 1.15)

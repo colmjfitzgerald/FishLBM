@@ -96,7 +96,7 @@ body <-   mainPanel(
                       DTOutput(outputId = "catchDataTable", height = "auto")
                ),
                fluidRow(
-                 div(id = "unitConversion", hr()),
+                 div(id = "unitConversionOption", hr()),
                  column(width = 4,
                         h3("Length unit conversion"),
                         radioButtons(inputId = "unitConvertRadioBtn",
@@ -107,7 +107,7 @@ body <-   mainPanel(
                  ),
                  column(width = 8,
                         conditionalPanel(condition = "input.unitConvertRadioBtn == 'Convert units'",
-                          h4("Convert length units, input data"),
+                          #h4("Convert length units, input data"),
                           selectInput(inputId = "dataLengthUnits", label = "Current length units", 
                                       choices = c("mm", "cm", "m", "in"), selected = "cm"),
                           selectInput(inputId = "newLengthUnits", label = "New length units", 
@@ -129,7 +129,7 @@ body <-   mainPanel(
                       plotlyOutput(outputId = "lvbGrowthCurve"),
                       actionButton(inputId = "fitGrowth", label = "Fit LVB curve"),
                       bsTooltip(id = "fitGrowth", 
-                                title = "Statistical fit if age data is available. Where age, length data is available then slider settings are used as initial estimates of the parameters Linf, K, t0 in nonlinear regression.", 
+                                title = "Apply statistical fit if age data is available. Where age, length data are available then slider settings are used as initial estimates of the parameters Linf, K, t0 in nonlinear regression.", 
                                 placement = "right", trigger = "hover",  options = list(container = "body"))
                ),
                column(width = 4, 
@@ -163,33 +163,48 @@ body <-   mainPanel(
              #         plotlyOutput(outputId = "lengthAge",
              #                      width = "90%"),
              navbarPage(title = "GTG LB-SPR",
-                        id = "parLBSPR",
+                        id = "methodLBSPR",
                         tabPanel("Stock biological parameters",
+                                 withMathJax(),
                                  fluidPage(
                                    fluidRow(
+                                     column(width = 4,
+                                            h3("Growth parameters"),
+                                            uiOutput(outputId = "growthParRadioBtn"),
+                                            h3("Natural mortality"),
+                                            uiOutput(outputId= "natMortalityRadioBtn")
+                                     ),
                                      column(width = 8,
                                             #                                          box(status = "primary", width = NULL,
                                             #                                          ),
                                             tags$table(id = "tableLBSPR",
                                                        tags$thead(h3("LB-SPR stock parameters")),
-                                                       tags$tr(tags$th(class = "parTable", "Parameter"), tags$th(class = "parTable", "Value")),
-                                                       tags$tr(tags$td(strong("M"), id = "M_label"), 
-                                                               tags$td(class = "inline", 
-                                                                       numericInput(inputId = "M", label = NULL, value = 0.3))),
-                                                       tags$tr(tags$td(strong("K (LVB)"), id = "K_label"), 
-                                                               tags$td(class = "inline", 
-                                                                       uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
+                                                       tags$tr(tags$th(class = "parTable", "Parameter"), 
+                                                               tags$th(class = "parTable", "Description"), 
+                                                               tags$th(class = "parTable", "Value")),
                                                        tags$tr(tags$td(strong("Linf (LVB)"), id = "Linf_label"), 
+                                                               tags$td("Asymptotic length"),
                                                                tags$td(class = "inline",
                                                                        uiOutput(outputId = "numLinf"))), #numericInput(inputId = "Linf", label = "Linf", value = input$sliderLinf),
                                                        tags$tr(tags$td(strong("CV for Linf"), id = "CVLinf_label"), 
+                                                               tags$td("Coefficient of variation for asymptotic length"),
                                                                tags$td(class = "inline",
                                                                        numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
                                                                                     min = 0.001, max = 1, step = 0.001))),
+                                                       tags$tr(tags$td(strong("K (LVB)"), id = "K_label"), 
+                                                               tags$td("Growth (length-at-age) constant "),
+                                                               tags$td(class = "inline", 
+                                                                       uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
+                                                       tags$tr(tags$td(strong("M"), id = "M_label"), 
+                                                               tags$td("Natural mortality rate"),
+                                                               tags$td(class = "inline", 
+                                                                       uiOutput(outputId = "numM"))),
                                                        tags$tr(tags$td(strong("Lm50"), id = "Lm50_label"), 
+                                                               tags$td("Length at 50% maturity"),
                                                                tags$td(class = "inline",
                                                                        uiOutput(outputId = "numLm50"))), 
                                                        tags$tr(tags$td(strong("Lm95"), id = "Lm95_label"), 
+                                                               tags$td("Length at 95% maturity"),
                                                                tags$td(class = "inline",
                                                                        uiOutput(outputId = "numLm95"))),
                                                        tags$tfoot()
@@ -197,66 +212,65 @@ body <-   mainPanel(
                                      ),
                                      # tooltips
                                      bsTooltip(id = "M_label", 
-                                               title = "Natural mortality rate: in per-recruit theory M/K determines the natural rate of decrease of numbers-at-length in the absence of fishing mortality", 
+                                               title = "In per-recruit theory M/K determines the natural rate of decrease of numbers-at-length in the absence of fishing mortality. M strongly influences estimate of F/M, SPR.", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
                                      bsTooltip(id = "K_label",#"numKlvb", 
-                                               title = "Growth constant (Brody growth parameter): populations with greater values of K approach asymptotic length Linf at earlier ages.", 
+                                               title = "Populations with greater values of K approach asymptotic length Linf at earlier ages.", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
                                      bsTooltip(id = "Linf_label",#"numLinf", 
-                                               title = "Length-at-infinity - mean aysmptotic length that fish in a population can reach.",  
+                                               title = "Length-at-infinity - mean aysmptotic length that fish in a population can reach. In LB-SPR, an overestimate of Linf may cause an overestimate of F/M and similarly for an underestimate...",  
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
                                      bsTooltip(id = "CVLinf_label", # "CVLinf", 
                                                title = "Coefficient of variation around Linf: larger values imply greater scatter of individual fish lengths around the expected population growth trajectory", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
                                      bsTooltip(id = "Lm50_label", #"numLm50", 
-                                               title = "Length at 50% maturity<br> <em>Length at which 50% of a population have reached reproductive maturity.</em> Replace default <b>Lm50 = 0.66 Linf</b> value (based on Beverton-Holt life history invariants) where empirical data or expert knowledge is available. Influences SPR calculation.", 
+                                               title = "Default value <b>Lm50 = 0.66 Linf</b> based on Beverton-Holt life history invariants. <br> Replace default where empirical data or expert knowledge is available. <br> Influences SPR calculation.", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
                                      bsTooltip(id = "Lm95_label", #"numLm95", 
-                                               title = "Length at 95% maturity<br> <em>Length at which 95% of a population have reached reproductive maturity.</em> Replace default <b>Lm95 = 0.75 Linf</b> value (assumed to be biologically reasonable) where empirical data or expert knowledge is available. Influences SPR calculation.", 
+                                               title = "Default value <b>Lm95 = 0.75 Linf</b> (assumed to be biologically reasonable). <br> Replace default where empirical data or expert knowledge is available. <br> Influences SPR calculation.", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
-                                     column(width = 4,
-                                            h3("Growth parameters"),
-                                            uiOutput(outputId = "growthParRadioBtn")
-                                     )
+                                     bsTooltip(id = "natMortalityRadioBtn", 
+                                               title = "User default: M = 0.3 1/yr. <br> Empirical natural mortality estimators are from Then et al. (2015) doi:10.1093/icesjms/fsu136", 
+                                               placement = "bottom", trigger = "hover",  options = list(container = "body"))
                                    ), 
                                    fluidRow(
-                                      column(width = 8,
-                                          box(status = "info", width = NULL,
-                                              collapsible = TRUE, collapsed = TRUE,
-                                              title = "Other parameters",
-                                              tags$table(
-                                              tags$tr(tags$td("Walpha"), 
-                                                      tags$td(numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
-                                              tags$tr(tags$td("Wbeta"), 
-                                                      tags$td(numericInput(inputId = "Wbeta", label = NULL, value = 3))),
-                                              tags$tr(tags$td("FecB"), 
-                                                      tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))
-                                              ),
-                                              tags$tr(tags$td("Steepness"),
-                                                      tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))
-                                              ),
-                                              tags$tr(tags$td("Mpow"),
-                                                      tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.8))
-                                              ),
-                                              tags$tr(tags$td("NGTG"),
-                                                      tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))
-                                              ),
-                                              tags$tr(tags$td("GTG Max SD about Linf"),
-                                                      tags$td(numericInput(inputId = "MaxSD", label = NULL, 
-                                                                           value = 2, min = 0, max = 4))),
-                                              tags$tfoot()
-                                              )
-                                            ),
-                                      ), 
-                                      column(width = 4,
+                                     column(width = 4,
                                             # enter pars button
                                             actionButton(inputId = "btnStockPars",
                                                          label = "Enter Stock Pars",
                                                          class = "btn-success")
                                      ),
+                                     column(width = 8,
+                                            box(status = "info", width = NULL,
+                                                collapsible = TRUE, collapsed = TRUE,
+                                                title = "Other parameters",
+                                                tags$table(
+                                                  tags$tr(tags$td("Walpha"), 
+                                                          tags$td(numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
+                                                  tags$tr(tags$td("Wbeta"), 
+                                                          tags$td(numericInput(inputId = "Wbeta", label = NULL, value = 3))),
+                                                  tags$tr(tags$td("FecB"), 
+                                                          tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))
+                                                  ),
+                                                  tags$tr(tags$td("Steepness"),
+                                                          tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))
+                                                  ),
+                                                  tags$tr(tags$td("Mpow"),
+                                                          tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0))
+                                                  ),
+                                                  tags$tr(tags$td("NGTG"),
+                                                          tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))
+                                                  ),
+                                                  tags$tr(tags$td("GTG Max SD about Linf"),
+                                                          tags$td(numericInput(inputId = "MaxSD", label = NULL, 
+                                                                               value = 2, min = 0, max = 4))),
+                                                  tags$tfoot()
+                                                )
+                                            ),
+                                     ), 
                                    )
-                                )
-                                   # tags$head(
+                                 )
+                                 # tags$head(
                                    #   tags$style(
                                    #     'thead {
                                    #        display: table-header-group;
@@ -298,35 +312,47 @@ body <-   mainPanel(
                                    #   )
                                    # ),
                         ),
-                        tabPanel("Selectivity",
+                        tabPanel("Selectivity", value = "tabSelectivity",
                                  fluidRow(
                                    column(width = 4,
                                           div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
                                           radioButtons(inputId = "chooseSelectivityPattern",
-                                                       label = "Fishery selectivity curve",
-                                                       choices = c("Asymptotic")#, "Dome-shaped")
+                                                       label = "Size-selectivity pattern",
+                                                       choices = c("Asymptotic", "Dome-shaped"),
+                                                       selected = "Asymptotic"
                                                        ),
                                           radioButtons(inputId = "specifySelectivity",
                                                        label = "Fishery selectivity parameters",
-                                                       choices = c("Estimate",
-                                                                   "Specify"))#,
-                                          # actionButton(inputId = "btnSelectivity",
-                                          #              label = "Input selectivity choices",
+                                                       choices = c("Estimate (LBSPR)", "Specify (user)"),
+                                                       selected = c("Estimate (LBSPR)")),
+                                          uiOutput(outputId = "chooseSelectivityCurve"),
+                                          #tags$div(id = "meshSizes"),  # for insertUI, removeUI
+                                          conditionalPanel(
+                                            "input.specifySelectivity == 'Specify (user)' && !input.specifySelectivity && 
+                                              input.chooseSelectivityPattern == 'Dome-shaped && !input.chooseSelectivityPattern'",
+                                            uiOutput(outputId = "gearMeshSizes")),
+                                           #actionButton(inputId = "btnSelectivity",
+                                           #             label = "Input selectivity choices",
                                           #              class = "btn-success")
                                           ),
                                  column(width = 8,
-                                        div(id = "specifySelectivity", h4("Fishery selectivity parameters")),
+                                        div(id = "specifySelectivityParameters", 
+                                            h4("Fishery selectivity parameters")),
                                         #textOutput(outputId = "selectivityNote"),
                                         uiOutput(outputId = "selectivityParameters")
                                         # specify parameters dependent on input
                                         )
                                  ),
-                                 fluidRow(width = 6,
-                                          div(id = "plotSelectivitySection", hr()),
-                                          plotlyOutput(outputId = "plotSelectivityPattern")
-                                          ) 
+                                 div(id = "plotSelectivitySection", hr()),
+                                 fluidRow(
+#                                   column(width = 3,
+#                                          uiOutput(outputId = "selectivityControls")
+#                                   ),
+                                   column(width = 12, # 9
+                                          plotlyOutput(outputId = "plotSelectivityPattern"))
+                                   )
                         ),
-                        tabPanel("Length composition",
+                        tabPanel("Length composition", value = "tabLengthComposition",
                                  fluidPage(
                                    fluidRow(
                                      column(width = 3,
@@ -345,7 +371,7 @@ body <-   mainPanel(
                                           div(id = "aboveVisualiseRadioButtons", hr()),
                                           radioButtons(inputId = "visualiseLengthComposition",
                                                        label = "Visualise...",
-                                                       choices = c("in aggregate", "by year"),
+                                                       choices = c("in aggregate"), #, "by year"),
                                                        selected = "in aggregate"
                                                        )
                                      ),
@@ -355,46 +381,58 @@ body <-   mainPanel(
                                                          height = "400px")
                                             )
                                      ),
+                                 ),
+                                 div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
+                                 fluidRow(
+                                   actionButton("fitLBSPR", "Apply GTG-LBSPR", icon = icon("chart-line"),
+                                                class = "btn-success"),
                                  )
                         ),
-                        tabPanel("Model fit",
-                                 actionButton("fitLBSPR", "Apply GTG-LBSPR", icon = icon("chart-line"),
-                                              class = "btn-success"),
-                                 fluidPage(
-                                   column(width = 4,
-                                          div(id = 'resultsDiv', hr(), class = 'simpleDiv'),
-                                          verbatimTextOutput(outputId = "textLBSPREstFit")
-                                          #verbatimTextOutput(outputId = "textLBSPROpOut")
-                                          #DTOutput(outputId = "gtgLBSPREstModel"),
-                                          #DTOutput(outputId = "gtgLBSPROpModel"),
-                                   ),
+                        tabPanel("Model fit", value = "tabModelFit",
+                                 fluidRow(
                                    column(width = 8,
                                           plotlyOutput(outputId = "visFitLBSPR",
                                                        width = "100%",
-                                                       height = "400px")
+                                                       height = "600px")
+                                   ),
+                                   column(width = 3, offset = 1, #tags$h3("LB-SPR estimates"),
+                                          tableOutput(outputId = "textLBSPREstFit"),
+                                          tags$h4("nlminb() output"),
+                                          verbatimTextOutput(outputId = "textFitLBSPR")#
+                                          #DTOutput(outputId = "gtgLBSPREstModel"),
+                                          #DTOutput(outputId = "gtgLBSPROpModel"),
                                    )
                                  ),
                                  icon = icon("chart-line")
                         ),
-                        tabPanel("Diagnostics",
+                        tabPanel("Interpretation",
                                  fluidRow(
-                                   column(width = 9,
+                                   column(width = 8,
                                           #tags$h3("Population length composition"),
                                           #plotOutput(outputId = "plotPopLBSPR"),
                                           #tags$hr(),
                                           tags$h3("Expected catch-at-length - per recruit theory"),
                                           plotlyOutput(outputId = "plotCatchLBSPR")
-                                   ),
-                                   column(width = 3, 
-                                          verbatimTextOutput(outputId = "textFitLBSPR")),
+                                   ), 
+                                   column(width = 4,
+                                          tags$h3("Stock parameters and status"),
+                                          tableOutput(outputId = "stockPopParameters")
                                    #plotlyOutput(outputId = "plotOpLBSPR",
                                    #              width = "100%",
-                                   #             height = "400px")
+                                   #             height = "400px"
+                                   )
                                  )
                         )),
              icon = icon("list-ui")
     ),
-    tabPanel("LBB")#, 
+    tabPanel("Other length-based methods",
+             tags$div(
+               tags$ul(
+                 tags$li("Length-based Bayesian biomass estimator (LBB) - Froese et al., 2018"),
+                 tags$li("Length-based pseudo-cohort analysis (LBPA) - Canales, Punt, Mardones, 2020 "),
+                 tags$li("Size-based fishing status estimation for data-poor stocks - Kokkalis, .., Andersen, 2015")
+               )
+             ))#, 
     #inline = FALSE))
     #tabPanel("Stock assessment\n - diagnostics", 
     #         fluidRow(width = 12,
