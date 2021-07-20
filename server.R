@@ -1229,12 +1229,9 @@ server <- function(input, output, session){
                                              #labels = c("0", "1")
       #                                       ) )
     
-    
-    
-    expr = ggplotly(p = pg +  
+    expr = ggplotly(pg +  
                       scale_x_continuous(name = length_col) +
-                      theme_bw(),
-                    height = 400, width = 600)
+                      theme_bw())
   })
   
   

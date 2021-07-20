@@ -393,12 +393,12 @@ body <-   mainPanel(
                                    column(width = 8,
                                           plotlyOutput(outputId = "visFitLBSPR",
                                                        width = "100%",
-                                                       height = "500px")
+                                                       height = "600px")
                                    ),
-                                   column(width = 4, #tags$h3("LB-SPR estimates"),
-                                          tableOutput(outputId = "textLBSPREstFit")
-                                          #verbatimTextOutput(outputId = "textLBSPREstFit")
-                                          #verbatimTextOutput(outputId = "textLBSPROpOut")
+                                   column(width = 3, offset = 1, #tags$h3("LB-SPR estimates"),
+                                          tableOutput(outputId = "textLBSPREstFit"),
+                                          tags$h4("nlminb() output"),
+                                          verbatimTextOutput(outputId = "textFitLBSPR")#
                                           #DTOutput(outputId = "gtgLBSPREstModel"),
                                           #DTOutput(outputId = "gtgLBSPROpModel"),
                                    )
@@ -416,8 +416,7 @@ body <-   mainPanel(
                                    ), 
                                    column(width = 4,
                                           tags$h3("Stock parameters and status"),
-                                          tableOutput(outputId = "stockPopParameters"),
-                                          verbatimTextOutput(outputId = "textFitLBSPR")#),
+                                          tableOutput(outputId = "stockPopParameters")
                                    #plotlyOutput(outputId = "plotOpLBSPR",
                                    #              width = "100%",
                                    #             height = "400px"
