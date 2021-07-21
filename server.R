@@ -69,7 +69,7 @@ server <- function(input, output, session){
         catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
       } else {
         catchdata <- data.frame(catchdata)
-        names(catchdata) <- paste0(input$lengthColSelect)
+        names(catchdata) <- c(input$checkboxCatchData, paste0(input$lengthColSelect))
       }
       catchdata
     }
@@ -551,6 +551,7 @@ server <- function(input, output, session){
                  print("are ggplots?")
                  print(is.ggplot(ggGrowthFitMean()))
                  print(is.ggplot(ggGrowth_CurveALData()))
+                 print(tags$p("(/^weight/).test(input.checkboxCatchData)"))
                  #insertUI(selector = "#sectionGrowthFitSummary",
                 #          where = "beforeBegin",
                 #          ui = actionButton(inputId = "removeFit", label = "Remove fit"))
