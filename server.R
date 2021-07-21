@@ -992,7 +992,7 @@ server <- function(input, output, session){
                  print(binLengthData())
                  length_records <- lengthRecordsFilter()[, newLengthCol()]
                  print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])
-                 updateTabsetPanel(session, inputId = "methodLBSPR", selected = "tabSelectivity")})
+                 updateTabsetPanel(session, inputId = "tabMain", selected = "tabSelectivity")})
   
   
   # visualise length composition by year - optional selection radio button
@@ -1161,10 +1161,10 @@ server <- function(input, output, session){
   
   # move panel within navBarPage after fit
   observeEvent(input$fitLBSPR,
-               {updateTabsetPanel(session, inputId = "methodLBSPR", selected = "tabModelFit")})
+               {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")})
   
   observeEvent(input$btnFixedFleetPars,
-               updateTabsetPanel(session, inputId = "methodLBSPR", selected = "tabLengthComposition"))
+               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBSPR"))
   
   
   # print text on LBSPR estimating model fit 

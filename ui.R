@@ -73,7 +73,7 @@ body <-   mainPanel(
   width = 9,
   #fluidPage(
   tabsetPanel(
-    id = "tabDataPlotAnalysis",
+    id = "tabMain",
     type = "tabs",
     tabPanel("Data Overview", 
              fluidPage(
@@ -300,7 +300,47 @@ body <-   mainPanel(
                         )
              )
     ),
-    tabPanel("LB-SPR", 
+    tabPanel("Gear selectivity", value = "tabSelectivity",
+             fluidRow(
+               column(width = 4,
+                      div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
+                      radioButtons(inputId = "chooseSelectivityPattern",
+                                   label = "Size-selectivity pattern",
+                                   choices = c("Asymptotic", "Dome-shaped"),
+                                   selected = "Asymptotic"
+                      ),
+                      radioButtons(inputId = "specifySelectivity",
+                                   label = "Fishery selectivity parameters",
+                                   choices = c("Estimate (LBSPR)", "Specify (user)"),
+                                   selected = c("Estimate (LBSPR)")),
+                      uiOutput(outputId = "chooseSelectivityCurve"),
+                      #tags$div(id = "meshSizes"),  # for insertUI, removeUI
+                      conditionalPanel(
+                        "input.specifySelectivity == 'Specify (user)' && !input.specifySelectivity && 
+                                              input.chooseSelectivityPattern == 'Dome-shaped && !input.chooseSelectivityPattern'",
+                        uiOutput(outputId = "gearMeshSizes")),
+                      #actionButton(inputId = "btnSelectivity",
+                      #             label = "Input selectivity choices",
+                      #              class = "btn-success")
+               ),
+               column(width = 8,
+                      div(id = "specifySelectivityParameters", 
+                          h4("Fishery selectivity parameters")),
+                      #textOutput(outputId = "selectivityNote"),
+                      uiOutput(outputId = "selectivityParameters")
+                      # specify parameters dependent on input
+               )
+             ),
+             div(id = "plotSelectivitySection", hr()),
+             fluidRow(
+               #                                   column(width = 3,
+               #                                          uiOutput(outputId = "selectivityControls")
+               #                                   ),
+               column(width = 12, # 9
+                      plotlyOutput(outputId = "plotSelectivityPattern"))
+             )
+    ),
+    tabPanel("LB-SPR", value = "tabLBSPR",
              #         plotlyOutput(outputId = "lengthAge",
              #                      width = "90%"),
              navbarPage(title = "GTG LB-SPR",
@@ -333,46 +373,6 @@ body <-   mainPanel(
                                             ),
                                      ) 
                                    )
-                                 )
-                        ),
-                        tabPanel("Selectivity", value = "tabSelectivity",
-                                 fluidRow(
-                                   column(width = 4,
-                                          div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
-                                          radioButtons(inputId = "chooseSelectivityPattern",
-                                                       label = "Size-selectivity pattern",
-                                                       choices = c("Asymptotic", "Dome-shaped"),
-                                                       selected = "Asymptotic"
-                                          ),
-                                          radioButtons(inputId = "specifySelectivity",
-                                                       label = "Fishery selectivity parameters",
-                                                       choices = c("Estimate (LBSPR)", "Specify (user)"),
-                                                       selected = c("Estimate (LBSPR)")),
-                                          uiOutput(outputId = "chooseSelectivityCurve"),
-                                          #tags$div(id = "meshSizes"),  # for insertUI, removeUI
-                                          conditionalPanel(
-                                            "input.specifySelectivity == 'Specify (user)' && !input.specifySelectivity && 
-                                              input.chooseSelectivityPattern == 'Dome-shaped && !input.chooseSelectivityPattern'",
-                                            uiOutput(outputId = "gearMeshSizes")),
-                                          #actionButton(inputId = "btnSelectivity",
-                                          #             label = "Input selectivity choices",
-                                          #              class = "btn-success")
-                                   ),
-                                   column(width = 8,
-                                          div(id = "specifySelectivityParameters", 
-                                              h4("Fishery selectivity parameters")),
-                                          #textOutput(outputId = "selectivityNote"),
-                                          uiOutput(outputId = "selectivityParameters")
-                                          # specify parameters dependent on input
-                                   )
-                                 ),
-                                 div(id = "plotSelectivitySection", hr()),
-                                 fluidRow(
-                                   #                                   column(width = 3,
-                                   #                                          uiOutput(outputId = "selectivityControls")
-                                   #                                   ),
-                                   column(width = 12, # 9
-                                          plotlyOutput(outputId = "plotSelectivityPattern"))
                                  )
                         ),
                         tabPanel("Length composition", value = "tabLengthComposition",
