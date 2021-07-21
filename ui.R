@@ -348,10 +348,10 @@ body <-   mainPanel(
                         tabPanel("Method parameters", value = "tabMethodParameters",
                                  fluidPage(
                                    fluidRow(
-                                     column(width = 8,
+                                     column(width = 12,
                                             box(status = "info", width = NULL,
-                                                collapsible = TRUE, collapsed = TRUE,
-                                                title = "Other parameters",
+                                                collapsible = TRUE, collapsed = FALSE,
+                                                title = "Method-specific parameters",
                                                 tags$table(
                                                   tags$tr(tags$td("FecB"), 
                                                           tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))
@@ -371,6 +371,8 @@ body <-   mainPanel(
                                                   tags$tfoot()
                                                 )
                                             ),
+                                            actionButton(inputId = "btnMethodSpecificPars", label = "Input parameters",
+                                                         class = "btn-success")
                                      ) 
                                    )
                                  )

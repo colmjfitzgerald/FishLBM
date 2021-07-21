@@ -1160,12 +1160,14 @@ server <- function(input, output, session){
   
   
   # move panel within navBarPage after fit
+  observeEvent(input$btnMethodSpecificPars,
+               updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabLengthComposition"))
+  
   observeEvent(input$fitLBSPR,
                {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")})
   
   observeEvent(input$btnFixedFleetPars,
                updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBSPR"))
-  
   
   # print text on LBSPR estimating model fit 
   output$textLBSPREstFit <- function()
