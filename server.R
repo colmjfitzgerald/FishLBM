@@ -653,22 +653,83 @@ server <- function(input, output, session){
   
   
   # reactive list for biological inputs
-  reactiveStockPars <- eventReactive(input$btnStockPars,
-                {expr = list(Linf = input$Linf,
-                             K = input$kLvb,
-                             M = input$M,
-                             Walpha = input$Walpha, 
-                             Wbeta = input$Wbeta, 
-                             FecB = input$FecB, 
-                             Steepness = input$Steepness,
-                             Mpow = input$Mpow,
-                             CVLinf = input$CVLinf,
-                             NGTG = input$NGTG, 
-                             MaxSD = input$MaxSD,
-                             L50 = input$Lm50, # length at first maturity
-                             L95 = input$Lm95)
-                })
+  setLHPars <- #eventReactive(input$btnStockPars,{
+    reactive({# common life history parameters
+    lhp_list <- list(Linf = input$Linf,     # linf
+                     K = input$kLvb,        # vbk 
+                     t0 = input$slidert0,   # not used LBSPR
+                     M = input$M,           # M
+                     Walpha = input$Walpha, # lwa
+                     Wbeta = input$Wbeta,   # lwb
+                     L50 = input$Lm50,      # length at first maturity, M50
+                     L95 = ifelse(!is.null(input$Lm95), input$Lm95, NULL), # M95
+                     CVLinf = input$CVLinf  # CVlen
+    )  
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      lhp_list <- c(lhp_list, 
+                    list(FecB = input$FecB, 
+                         Steepness = input$Steepness,
+                         Mpow = input$Mpow,
+                         MaxSD = input$MaxSD,
+                         NGTG = input$NGTG)) # "technical" parameter?
+    } else if(input$lengthBasedAssessmentMethod == "LIME") {
+      lhp_list <- c(lhp_list, list(maturity_input="length"))
+    }
+    expr = lhp_list
+  })
   
+  # technical method parameters
+  output$tableTechnicalParameters <- renderUI({
+#    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      tagList(
+        tags$table(
+          tags$tr(tags$td("FecB"),
+                  tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))),
+          tags$tr(tags$td("Steepness"),
+                  tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))),
+          tags$tr(tags$td("Mpow"),
+                  tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0))),
+          tags$tr(tags$td("NGTG"),
+                  tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))),
+          tags$tr(tags$td("GTG Max SD about Linf"),
+                  tags$td(numericInput(inputId = "MaxSD", label = NULL,
+                                       value = 2, min = 0, max = 4))),
+          tags$tfoot()
+        ),
+#      )
+#    } else if(input$lengthBasedAssessmentMethod == "LIME"){
+      tagList(
+        tags$table(
+          tags$tr(tags$td("SigmaR"),
+                  tags$td(numericInput(inputId = "SigmaR", label = NULL, value = 0.737))),
+          tags$tr(tags$td("SigmaF"),
+                  tags$td(numericInput(inputId = "SigmaF", label = NULL, value = 0.2))),
+          tags$tr(tags$td("SigmaC"),
+                  tags$td(numericInput(inputId = "SigmaC", label = NULL, value = 0.1))),
+          tags$tr(tags$td("SigmaI"),
+                  tags$td(numericInput(inputId = "SigmaI", label = NULL, value = 0.1))),
+          tags$tr(tags$td("R0"),
+                  tags$td(numericInput(inputId = "R0", label = NULL, value = 1, min = 0))),
+          tags$tr(tags$td("Frate"),
+                  tags$td(numericInput(inputId = "Frate", label = NULL, value = 0.1, min = 0))),
+          tags$tr(tags$td("Fequil"),
+                  tags$td(numericInput(inputId = "Frate", label = NULL, value = 0.25, min = 0))),
+          tags$tr(tags$td("qcoef"),
+                  tags$td(numericInput(inputId = "qcoef", label = NULL, value = 1e-5, min = 0))),
+          tags$tr(tags$td("start_ages"),
+                  tags$td(numericInput(inputId = "start_ages", label = NULL, value = 0))),
+          tags$tr(tags$td("rho"),
+                  tags$td(numericInput(inputId = "rho", label = NULL, value = 0.43, min = 0))),
+          tags$tr(tags$td("theta"),
+                  tags$td(numericInput(inputId = "theta", label = NULL, value = 10, min = 0))),
+          tags$tr(tags$td("nseasons"),
+                  tags$td(numericInput(inputId = "nseasons", label = NULL, value = 1, min = 0))),
+          tags$tfoot()
+        )
+      )
+)
+#    }
+  })
   
   
   # selectivity curve ####
@@ -864,9 +925,10 @@ server <- function(input, output, session){
     })
   
   # LBSPR fleet parameters
-  reactiveFixedFleetPars <- 
+  setFleetPars <- 
     eventReactive(input$btnFixedFleetPars, 
                   {
+                    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
                     if(input$chooseSelectivityPattern == "Dome-shaped"){
                       list(SL1 = input$SL1, SL2 = input$SL2, SLMin = input$SLKnife, 
                         SLmesh = 1, selectivityCurve = input$selectSelectivityCurve)
@@ -876,6 +938,13 @@ server <- function(input, output, session){
                       } else if(input$selectSelectivityCurve == "Knife") {
                         list(SLKnife = input$SLKnife, selectivityCurve = input$selectSelectivityCurve)
                       } 
+                    }
+                    } else if(input$lengthBasedAssessmentMethod == "LIME"){
+                      list(S50 = input$SL1, S95 = input$SL2,
+                           selex_input = "length",
+                           selex_type = tolower(input$selectSelectivityCurve),
+                           nfleets = 1 # where is the best place for this?
+                           )
                     }
     })
 
@@ -913,6 +982,8 @@ server <- function(input, output, session){
   #observeEvent(
   #  input$btnFixedFleetPars, {
       output$plotSelectivityPattern <- renderPlotly({
+        print("before isolate")
+        print(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE))
         isolate(length_vals <- seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), 
                            input$Linf, length.out = 201))
         
@@ -949,7 +1020,7 @@ server <- function(input, output, session){
   #     #                                      CVLinf = input$CVLinf,
   #     #                                      Linc = input$Linc,
   #     #                                      Linf = input$sliderLinf)
-  #     StockPars <- reactiveStockPars()
+  #     StockPars <- setLHPars()
   #     
   #     SizeBins <- list(Linc = input$Linc, ToSize = NULL)
   #     SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
@@ -960,12 +1031,27 @@ server <- function(input, output, session){
   
   # binned length data
   binLengthData <- reactive({
-    StockPars <- reactiveStockPars() # eventReactive(input$btnStockPars
-    SizeBins <- list(Linc = input$Linc, ToSize = NULL) # input$Linc
-    SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
-    LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
-    LenMids <- seq(from=0.5*SizeBins$Linc, 
-                   by=SizeBins$Linc, length.out=(length(LenBins)-1))
+    
+    StockPars <- setLHPars() # eventReactive(input$btnStockPars
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      SizeBins <- list(Linc = input$Linc, ToSize = NULL) # input$Linc
+      SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
+      LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
+      LenMids <- seq(from=0.5*SizeBins$Linc, 
+                     by=SizeBins$Linc, length.out=(length(LenBins)-1))
+    } else if(input$lengthBasedAssessmentMethod == "LIME") {
+      ## length bins (LIME)
+      binwidth <- input$Linc  # in fitLIME: binwidth <- isolate(input$Linc)
+      mids <- seq((binwidth/2), StockPars$Linf*1.3, by=binwidth) 
+      highs <- mids + (binwidth/2)
+      lows <- mids - (binwidth)/2
+      # Q. where exactly in LIME code is data discretised? A. create_lh_list
+      LenBins <- c(lows[1],highs)
+      LenMids <- mids
+      
+      # nb. binning lengthData should depend on year also
+      
+    }
     
     # input length data, exclude NAs
     length_col <- newLengthCol()
@@ -978,37 +1064,78 @@ server <- function(input, output, session){
     
     
     # bins and binned counts
-    list(SizeBins = SizeBins,
-         LenBins = LenBins,
-         LenMids = LenMids,
-         LenDat = histogram_length$counts,
-         LenDatVul = histogram_length$counts*isLenBinFished)
+    list_out <- NULL
+    if((input$lengthBasedAssessmentMethod == "LB-SPR")){
+      list_out <- list(SizeBins = SizeBins) # SizeBins for LB-SPR only
+    }
+    list_out <- c(list_out, 
+                  list(LenBins = LenBins,
+                       LenMids = LenMids,
+                       LenDat = histogram_length$counts,
+                       LenDatVul = histogram_length$counts*isLenBinFished)
+    )
   }
   )
   
-  # btnStokcPars causes move to next tab
-  observeEvent(input$btnStockPars,
-               {print("debug observeEvent")
-                 print(binLengthData())
-                 length_records <- lengthRecordsFilter()[, newLengthCol()]
+  # app navigation
+  # btnStockPars causes move to next tab
+  observeEvent(input$btnStockPars, {
+    print(setLHPars())
+    updateTabsetPanel(session, inputId = "tabMain", selected = "tabSelectivity")
+  })
+  
+  # btnTechnicalStockPars 
+  observeEvent(input$btnTechnicalStockPars,
+               {length_records <- lengthRecordsFilter()[, newLengthCol()]
                  print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])
-                 updateTabsetPanel(session, inputId = "tabMain", selected = "tabSelectivity")})
+               })
   
   
   # visualise length composition by year - optional selection radio button
-  observeEvent(input$selectCols,
-               { rbChoices <- c("in aggregate")
-                 if(any(grepl("year", input$checkboxCatchData, ignore.case = TRUE))){
-                   rbChoices <- c(rbChoices, 
-                                  paste0("by ", 
-                                         grep("year", input$checkboxCatchData, ignore.case = TRUE, value = TRUE))
-                                  )
-                 }
-                 updateRadioButtons(inputId = "visualiseLengthComposition",
-                                    label = "Visualise...",
-                                    choices = rbChoices,
-                                    selected = "in aggregate")
-               })
+  # observeEvent(input$selectCols,
+  #              { rbChoices <- c("in aggregate")
+  #              if(any(grepl("year", input$checkboxCatchData, ignore.case = TRUE))){
+  #                if(input$lengthBasedAssessmentMethod == "LB-SPR") {
+  #                  rbChoices <- c(rbChoices, 
+  #                                 paste0("by ", 
+  #                                        grep("year", input$checkboxCatchData, ignore.case = TRUE, value = TRUE))
+  #                  )
+  #                } else if(input$lengthBasedAssessmentMethod == "LIME"){
+  #                  rbChoices <- paste0("by ", grep("year", input$checkboxCatchData, ignore.case = TRUE, value = TRUE))
+  #                  print(rbChoices)
+  #                }
+  #              }
+  #              
+  #              updateRadioButtons(inputId = "visualiseLengthComposition",
+  #                                 label = "Visualise...",
+  #                                 choices = rbChoices) 
+  #              #, selected = "in aggregate")
+  #              })
+  collateLengthChoice <- reactive({
+    lengthRecordAttributes <- input$checkboxCatchData
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      collationChoice <- "all"
+      if(any(grepl("year", lengthRecordAttributes, ignore.case = TRUE))){
+        collationChoice <- c(collationChoice, 
+                             paste0("each ", grep("year", lengthRecordAttributes, ignore.case = TRUE, value = TRUE)))
+      } 
+    } else if(input$lengthBasedAssessmentMethod == "LIME"){
+      if(any(grepl("year", lengthRecordAttributes, ignore.case = TRUE))){
+        collationChoice <- paste0("each ", grep("year", lengthRecordAttributes, ignore.case = TRUE, value = TRUE))
+      } else {
+        collationChoice <- "all"
+      }
+    }
+    collationChoice
+  })
+  
+  observe({ 
+    updateRadioButtons(inputId = "visualiseLengthComposition",
+                       label = "Assess...",
+                       choices = collateLengthChoice())#, selected = defaultChoice)
+  })
+  
+  
   
   
   # plot length composition of filtered data - change with slider input
@@ -1033,8 +1160,10 @@ server <- function(input, output, session){
           theme_bw() + 
           theme(legend.position = "bottom")
       }
+      print("visualiseLengthComposition")
+      print(input$visualiseLengthComposition)
       if(input$visualiseLengthComposition == 
-         paste0("by ", grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE, value = TRUE))
+         paste0("each ", grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE, value = TRUE))
          ){ # was observeEvent or eventReactive 
         print(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
                           value = TRUE)," ~ ."))
@@ -1046,16 +1175,17 @@ server <- function(input, output, session){
     })
   
 
-  # Fit LBSPR ####
+  # Fit LBA ####
   fitGTGLBSPR <- eventReactive(
-    input$fitLBSPR,
+    input$fitLBA,
     {
       # as.name
       length_records <- lengthRecordsFilter()
       length_col <- newLengthCol()
-#      print(head(length_records[, length_col]))
+      print(head(length_records[, length_col]))
+      print(length_records[, length_col])
       
-      StockPars <- reactiveStockPars()
+      StockPars <- setLHPars()
       StockPars$MK <- StockPars$M/StockPars$K
       
       fixedFleetPars <- NULL
@@ -1063,7 +1193,7 @@ server <- function(input, output, session){
       if(input$specifySelectivity == "Specify (user)"){
         titleFitPlot <- "User-specified selectivity parameters"
       }
-      fixedFleetPars <- reactiveFixedFleetPars()
+      fixedFleetPars <- setFleetPars()
       #SizeBins <- list(Linc = input$Linc, ToSize = NULL)
       #SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
       # 
@@ -1082,14 +1212,13 @@ server <- function(input, output, session){
       LenMids <- binLengthData()$LenMids
       LenDat <- binLengthData()$LenDat
       LenDatVul <- binLengthData()$LenDatVul
-      
-      
+
       # GTG-LBSPR optimisation
       optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatVul, SizeBins, "GTG")#, input$selectSelectivityCurve)
       # optGTG$Ests
       # optGTG$PredLen
       # optGTG$nlminbOut
-      
+
       if(input$specifySelectivity == "Specify (user)"){
         optFleetPars <- list(FM = optGTG$Ests["FM"],
                              selectivityCurve = optGTG$SelectivityCurve,
@@ -1158,24 +1287,165 @@ server <- function(input, output, session){
     }
   )
   
+
+  fitLIME <- reactive(
+    {
+      lhParVals <- isolate(setLHPars()) # only evaluated if fitLIME called
+      fleetParVals <- isolate(setFleetPars()) 
+      binwidth <- isolate(input$Linc)
+      print("fleet par vals")
+      print(fleetParVals)
+      # selectivity parameters fitted or estimated
+      titleFitPlot <- "Model-estimated selectivity parameters"
+      if(input$specifySelectivity == "Specify (user)"){
+        titleFitPlot <- "User-specified selectivity parameters"
+      }
+      
+      # how to handle specifying/estimating SL50/SL95 for logistic
+      if(tolower(fleetParVals$selex_type) == "logistic"){
+        if(input$specifySelectivity == "Estimate (LBSPR)"){
+          S50 <- 0.66*lhParVals$Linf  # initial estimate of selectivity-at-length 50%
+          S95 <- 0.80*lhParVals$Linf
+        } else if(input$specifySelectivity == "Specify (user)") {
+          S50=fleetParVals$SL1 # initial estimate of selectivity-at-length 50%
+          S95=fleetParVals$SL2
+        }
+      }
+      lh <- create_lh_list(vbk= lhParVals$K,    # vb growth coefficient
+                           linf= lhParVals$Linf,  # vbg Linf
+                           t0= input$slidert0,  
+                           lwa=lhParVals$Walpha,     # length-weight W = aL^b: a  
+                           lwb=lhParVals$Wbeta,     # length-weight W = aL^b: b
+                           S50=S50, #50,  # selectivity-at-length 50%
+                           S95=S95, #95,  # selectivity-at-length 95%
+                           selex_input="length",#fleetParVals$selex_input,
+                           selex_type=tolower(fleetParVals$selex_type), #fleetParVals$selectivityCurve,
+                           M50=lhParVals$L50,     # length at 50% maturity
+                           maturity_input="length", #lhParVals$maturity_input,
+                           M=lhParVals$M,     # natural mortality
+                           binwidth=binwidth,
+                           CVlen=lhParVals$CVLinf,  # coefficient of variation with length
+                           #technical parameters through output$tableTechnicalParameters
+                           SigmaR=input$SigmaR, # standard deviation in recruitment process
+                           SigmaF=input$SigmaF,
+                           SigmaC=input$SigmaC,
+                           SigmaI=input$SigmaI,
+                           R0=input$R0,
+                           Frate=input$Frate,
+                           Fequil=input$Fequil,
+                           qcoef=input$qcoef,
+                           start_ages=input$start_ages,
+                           rho=input$rho,
+                           theta=input$theta,
+                           nseasons=input$nseasons,
+                           nfleets=1 # fleetParVals$nfleets
+                           )
+      
+      
+      # length records
+      length_records <- isolate(lengthRecordsFilter())
+      lengthCol <- isolate(newLengthCol())
+      lengthBins <- isolate(binLengthData()$LenBins)
+      lengthMids <- isolate(binLengthData()$LenMids)
+      
+      # lengthbins vulnerable to fishery
+      isVulnerable <- (lengthMids >= input$MLL)  # lengthBins[-1] > input$MLL
+      
+      # years 
+      yearCol <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+
+      if(any(grepl("year", names(length_records), ignore.case = TRUE))){
+        year_min <- min(length_records[, yearCol])
+        year_max <- max(length_records[, yearCol])
+      }
+      
+      
+      # collate length data in LIME format #### 
+      # Q should upper limit be 
+      # ---------------> lh$linf*(1 + lh$CVlen)
+      # or ------------> lh$binwidth*ceiling(lh$linf*(1 + lh$CVlen)/lh$binwidth)
+      lrLIME <- length_records[, c(yearCol, lengthCol)] %>% na.omit() %>%
+        mutate(lengthBin = cut(!!ensym(lengthCol), breaks = lengthBins, 
+                               right = FALSE),
+               year = factor(!!ensym(yearCol), levels = seq(year_min, year_max, 1)))  %>% # lengthMids??
+        group_by(year, lengthBin) %>%
+        summarise(nFish = n())
+
+
+      # configure length data for LIME
+      lfLIME <- xtabs(formula = nFish ~ year + lengthBin, data = lrLIME)
+      
+      # 26/07/2021
+      #lengthBins <- seq(0, lh$binwidth*ceiling(lh$linf*(1 + lh$CVlen)/lh$binwidth), lh$binwidth)
+      #lengthMids <- seq(from=0.5*lh$binwidth, by=lh$binwidth, length.out=length(lengthBins)-1)
+      lfLIME <- lfLIME*outer(rep.int(1, nrow(lfLIME)), isVulnerable)
+      
+      
+      # lfLIME col.name with upper end of length bins or mid-bin??
+      colnames(lfLIME) <- as.character(lengthBins)[-1]#as.character(lengthMids)
+      
+      
+      # array LF[,,]
+      LF <- array(data = NA, 
+                  dim = c(dim(lfLIME),1), 
+                  dimnames = list(rownames(lfLIME), colnames(lfLIME), NULL))
+      LF[,,1] <- lfLIME
+      
+      neff_ft <- array(apply(LF,1,"sum"),
+                       dim = c(1,dim(LF)[1]), 
+                       dimnames = list(NULL,rownames(lfLIME)))
+      
+
+      # prepare LIME inputs
+      data_all <- list("years"=as.numeric(first(rownames(lfLIME))):as.numeric(last(rownames(lfLIME))), 
+                       "LF"=LF,  
+                       "neff_ft"= neff_ft)
+
+      inputs_all <- create_inputs(lh=lh, input_data=data_all)
+      
+      print(data_all)
+      
+      #  run_LIME ####
+      start <- Sys.time()
+      
+      lc_only <- run_LIME(modpath=NULL, 
+                          input=inputs_all,
+                          data_avail="LC")
+      end <- Sys.time() - start
+      print(end)
+      print(lc_only$input)
+      # outputs
+      list(length_data_raw = length_records[, c(yearCol, lengthCol)] %>% na.omit(),
+           LF = LF, lc_only = lc_only)
+    }
+  )
+  
   
   # move panel within navBarPage after fit
-  observeEvent(input$btnMethodSpecificPars,
+  observeEvent(input$btnTechnicalStockPars,
                updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabLengthComposition"))
   
-  observeEvent(input$fitLBSPR,
+  observeEvent(input$fitLBA,
                {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")})
   
   observeEvent(input$btnFixedFleetPars,
                updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBSPR"))
   
   # print text on LBSPR estimating model fit 
-  output$textLBSPREstFit <- function()
+  output$tableLBAEstimates <- reactive(
     {
-    fitGTGLBSPR()$estModelFit %>%
-      knitr::kable("html", digits = 3) %>%
-      kable_styling("striped", full_width = F, position = "float_left")
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      fitGTGLBSPR()$estModelFit %>%
+        knitr::kable("html", digits = 3) %>%
+        kable_styling("striped", full_width = F, position = "float_left")
+    } else if(input$lengthBasedAssessmentMethod == "LIME"){
+      NULL
+      # fitLIME()$Report %>%
+      #   knitr::kable("html", digits = 3) %>%
+      #   kable_styling("striped", full_width = F, position = "float_left")
     }
+    }
+  )
     
   #renderPrint({
   #  expr = print(fitGTGLBSPR()$estModelFit)
@@ -1186,7 +1456,7 @@ server <- function(input, output, session){
   #   expr = print(fitGTGLBSPR()$opModelOut)
   # })
   
-  output$visFitLBSPR <- renderPlotly({
+  output$plotLBAModelFit <- renderPlotly({
     # length data
     length_records <- lengthRecordsFilter()
     length_col <- newLengthCol()
@@ -1195,46 +1465,94 @@ server <- function(input, output, session){
     LenBins <- binLengthData()$LenBins
     LenDat <- binLengthData()$LenDatVul # vulnerable to fishery only
     # maxLenDat <- max(LenDat)
-    
-    NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
-    
-    # pivot_longer
-    NatL_long <- NatL_LBSPR %>%
-      pivot_longer(cols = ends_with("at_length"),
-                   names_to = "quantity",
-                   names_pattern = "(.*)_at_length",
-                   values_to = "numbers-per-recruit")
-    
-    
-    if(input$specifySelectivity == "Specify (user)"){
-      titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (specified)"
-    } else if (input$specifySelectivity == "Estimate (LBSPR)") {
-      titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (estimated)"
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+      
+      # pivot_longer
+      NatL_long <- NatL_LBSPR %>%
+        pivot_longer(cols = ends_with("at_length"),
+                     names_to = "quantity",
+                     names_pattern = "(.*)_at_length",
+                     values_to = "numbers-per-recruit")
+      
+      
+      if(input$specifySelectivity == "Specify (user)"){
+        titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (specified)"
+      } else if (input$specifySelectivity == "Estimate (LBSPR)") {
+        titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (estimated)"
+      }
+      
+      # create ggplot with data...
+      pg <- ggplot(length_records %>% filter(isVulnerable) ) + 
+        geom_histogram(mapping = aes_string(x = length_col), breaks = LenBins, 
+                       closed = "left", colour = "black", fill = "grey75")
+      
+      # ...and fit
+      pg <- pg + 
+        geom_area(data = NatL_LBSPR,
+                  mapping = aes(x = length_mid, y = max(LenDat)*catchFished_at_length), 
+                  fill = "salmon", alpha = 0.5) +
+        geom_line(data = NatL_LBSPR,
+                  mapping = aes(x = length_mid, y = max(LenDat)*selectivityF_at_length), 
+                  colour = "red", lwd = 1) + 
+        labs(title = titleFitPlot,
+             caption = paste("Data from", input$uploadFile, sep = " "))#+ 
+      #scale_y_continuous(sec.axis = sec_axis(~  . /maxLenDat, name = "selectivity",
+      #breaks = c(0, 1),
+      #labels = c("0", "1")
+      #                                       ) )
+      
+      expr = ggplotly(pg +  
+                        scale_x_continuous(name = length_col) +
+                        theme_bw())
+    } else if(input$lengthBasedAssessmentMethod == "LIME"){
+      fitLIMEobj <- fitLIME()
+      
+      # length data and year attribute
+      length_records <- fitLIMEobj$length_data_raw
+      year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+
+      # predictions - code extracted from https://github.com/merrillrudd/LIME/blob/master/R/plot_LCfits.R
+      Inputs <- fitLIMEobj$lc_only$Inputs
+      Report <- fitLIMEobj$lc_only$Report
+      nf <- fitLIMEobj$lc_only$input$nfleets
+      Tyrs <- fitLIMEobj$lc_only$input$years
+      
+      # Plot_LCfits code (modified)
+      if(all(is.null(Report))==FALSE){
+        # pred <- Report$plb
+        pred <- lapply(1:nf, function(x){
+          sub <- matrix(Report$plb[,,x], nrow=length(Tyrs))
+          rownames(sub) <- Tyrs
+          colnames(sub) <- colnames(Inputs$Data$LF_tlf)
+          return(sub)
+        })
+        
+        pred_df <- reshape2::melt(pred)
+        names(pred_df) <- c(year_col , length_col, "proportion", "fleet")
+        pred_df <- pred_df %>%
+          dplyr::group_by(!!ensym(year_col), !!ensym(length_col), proportion, fleet)
+        pred_df[[year_col]] <- factor(pred_df[[year_col]])
+        pred_df[[length_col]] <- as.numeric(pred_df[[length_col]])
+        pred_df$proportion <-  as.numeric(pred_df$proportion)
+        pred_df$fleet <- factor(pred_df$fleet)
+      }
+      pred_df2 <- pred_df %>% mutate("Type"="Predicted") %>% mutate("Model"="LIME")
+      
+      # plot_LCfits adaption
+      pg <- ggplot(length_records) + 
+        geom_histogram(aes_string(x = length_col, y = "..density.."), breaks = LenBins, closed = "right") + 
+        geom_line(data=pred_df2 %>% filter(Type=="Predicted"), 
+                  aes(x=!!ensym(length_col), y=proportion, color=Model), lwd=1.2) +
+        facet_wrap(as.formula(paste0(year_col," ~ ."))) + 
+        scale_color_brewer(palette="Set1", direction=-1)
+      
+      #      pg <- plot_LCfits_cf(Inputs=fitLIMEobj$lc_only$Inputs,
+      #                        Report=fitLIMEobj$lc_only$Report, plot_type = "counts")
+      
+      expr = ggplotly(pg + theme_bw()) %>% layout(autosize = TRUE)
     }
     
-    # create ggplot with data...
-    pg <- ggplot(length_records %>% filter(isVulnerable) ) + 
-      geom_histogram(mapping = aes_string(x = length_col), breaks = LenBins, 
-                     closed = "left", colour = "black", fill = "grey75")
-    
-    # ...and fit
-    pg <- pg + 
-      geom_area(data = NatL_LBSPR,
-                mapping = aes(x = length_mid, y = max(LenDat)*catchFished_at_length), 
-                fill = "salmon", alpha = 0.5) +
-      geom_line(data = NatL_LBSPR,
-                mapping = aes(x = length_mid, y = max(LenDat)*selectivityF_at_length), 
-                colour = "red", lwd = 1) + 
-      labs(title = titleFitPlot,
-           caption = paste("Data from", input$uploadFile, sep = " "))#+ 
-      #scale_y_continuous(sec.axis = sec_axis(~  . /maxLenDat, name = "selectivity",
-                                             #breaks = c(0, 1),
-                                             #labels = c("0", "1")
-      #                                       ) )
-    
-    expr = ggplotly(pg +  
-                      scale_x_continuous(name = length_col) +
-                      theme_bw())
   })
   
   
@@ -1259,6 +1577,7 @@ server <- function(input, output, session){
   #                   height = 400, width = 600)
   # })
   output$plotCatchLBSPR <- renderPlotly({
+    
     # data
     length_records <- lengthRecordsFilter()
     length_col <- newLengthCol()
@@ -1286,32 +1605,51 @@ server <- function(input, output, session){
   
   # nlminb (optimisation function for matching expected per-recruit length composition to
   # multinomial log likelihood)
-  output$textFitLBSPR <- renderPrint({
-    expr <- print(fitGTGLBSPR()$nlminbOut)
+  output$textLBAModelFit <- renderPrint({
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      expr <- print(fitGTGLBSPR()$nlminbOut)  
+    } else if(input$lengthBasedAssessmentMethod == "LIME") {
+      expr <- print(fitLIME()$lc_only$Sdreport)
+    }
+    
     
   })
   
   # stock paramater summary
   output$stockPopParameters <- reactive({
-    lbsprFit <- fitGTGLBSPR()$estModelFit
-    lbsprStockInput <- reactiveStockPars()
-    lbsprGearInput <- reactiveFixedFleetPars()
-    FM <- lbsprFit[lbsprFit$Parameter == "FM",]$Estimate
-    M <- lbsprStockInput$M
     tableData <- data.frame(Notation = c("M", "F", "Z", "Linf", "K", "Lm50", "Lm95", "SLCurve", "SL1", "SL2", "SLMin", "SPR"),
                             Description = c("Natural mortality", "Fishing mortality", "Total mortality",
-                               "Asymptotic length", "LVB growth constant", 
-                               "Length-at-50%-maturity", "Length-at-95%-maturity", 
-                               "Selectivity-at-length curve", "Selectivity-at-length parameter 1", "Selectivity-at-length parameter 2", 
-                               "Minimum length limit", "Spawning potential ratio"),
-                            Estimate = c(M, M*FM, M*(1 + FM), 
-                                         lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
-                                         lbsprGearInput$selectivityCurve,
-                                         ifelse(is.null(lbsprGearInput$SL1), lbsprFit$Estimate[lbsprFit$Parameter=="SL50"], lbsprGearInput$SL1),
-                                         ifelse(is.null(lbsprGearInput$SL2), lbsprFit$Estimate[lbsprFit$Parameter=="SL95"], lbsprGearInput$SL2),
-                                         ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
-                                         lbsprFit[lbsprFit$Parameter == "SPR",]$Estimate)
-    )
+                                            "Asymptotic length", "LVB growth constant", 
+                                            "Length-at-50%-maturity", "Length-at-95%-maturity", 
+                                            "Selectivity-at-length curve", "Selectivity-at-length parameter 1", "Selectivity-at-length parameter 2", 
+                                            "Minimum length limit", "Spawning potential ratio"),
+                            Estimate = NA
+                            )
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      lbsprFit <- fitGTGLBSPR()$estModelFit
+      lbsprStockInput <- setLHPars()
+      lbsprGearInput <- setFleetPars()
+      FM <- lbsprFit[lbsprFit$Parameter == "FM",]$Estimate
+      M <- lbsprStockInput$M
+      tableData$Esimtate <- c(M, M*FM, M*(1 + FM), 
+                              lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
+                              lbsprGearInput$selectivityCurve,
+                              ifelse(is.null(lbsprGearInput$SL1), lbsprFit$Estimate[lbsprFit$Parameter=="SL50"], lbsprGearInput$SL1),
+                              ifelse(is.null(lbsprGearInput$SL2), lbsprFit$Estimate[lbsprFit$Parameter=="SL95"], lbsprGearInput$SL2),
+                              ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
+                              lbsprFit[lbsprFit$Parameter == "SPR",]$Estimate)
+    } else if(input$lengthBasedAssessmentMethod == "LIME") {
+      lime_data <- fitLIME()$lc_only
+      print("lime_data$input$selex_type")
+      print(lime_data$input$selex_type)
+      tableData$Estimate = c(lime_data$input$M, mean(lime_data$Report$F_t), mean(lime_data$Report$F_t)+lime_data$input$M, 
+                             lime_data$input$linf, lime_data$input$vbk, 
+                             lime_data$input$ML50, lime_data$input$ML95, 
+                             as.character(lime_data$input$selex_type),
+                             lime_data$Report$S50_f,lime_data$Report$S95_f,
+                             input$MLL, 
+                             mean(lime_data$Report$SPR_t))
+    }
     tableData %>%
       kable("html", digits = c(3,3,3,1,3,2,2,NA,3,3,3,3)) %>%
       kable_styling("striped", full_width = F, position = "float_left") %>%

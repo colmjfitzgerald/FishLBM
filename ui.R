@@ -61,9 +61,9 @@ sidebar <- sidebarPanel(
   # ),
   uiOutput(outputId = "btnSelectCols", width = "100%"),
   
-  # div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
-  # radioButtons(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
-  #              choices = c("LB-SPR", "LIME"))
+  div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
+  radioButtons(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
+               choices = c("LB-SPR", "LIME"))
 #  uiOutput(outputId = "cbLBA", width = "100%"),
 
 )
@@ -149,7 +149,7 @@ body <-   mainPanel(
                                                       step = 0.01, ticks = TRUE, round = FALSE),
                                           sliderInput(inputId = "slidert0", 
                                                       label = "LVB t0",
-                                                      min = -1.5, max = 1.5, value = 0.0,
+                                                      min = -1.5, max = 1.5, value = -0.01,
                                                       step = 0.05, ticks = TRUE, round = FALSE),
                                           sliderInput(inputId = "sliderAgeMax", 
                                                       label = "Max age",
@@ -352,26 +352,9 @@ body <-   mainPanel(
                                             box(status = "info", width = NULL,
                                                 collapsible = TRUE, collapsed = FALSE,
                                                 title = "Method-specific parameters",
-                                                tags$table(
-                                                  tags$tr(tags$td("FecB"), 
-                                                          tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))
-                                                  ),
-                                                  tags$tr(tags$td("Steepness"),
-                                                          tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))
-                                                  ),
-                                                  tags$tr(tags$td("Mpow"),
-                                                          tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0))
-                                                  ),
-                                                  tags$tr(tags$td("NGTG"),
-                                                          tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))
-                                                  ),
-                                                  tags$tr(tags$td("GTG Max SD about Linf"),
-                                                          tags$td(numericInput(inputId = "MaxSD", label = NULL, 
-                                                                               value = 2, min = 0, max = 4))),
-                                                  tags$tfoot()
-                                                )
+                                                uiOutput(outputId = "tableTechnicalParameters")
                                             ),
-                                            actionButton(inputId = "btnMethodSpecificPars", label = "Input parameters",
+                                            actionButton(inputId = "btnTechnicalStockPars", label = "Input parameters",
                                                          class = "btn-success")
                                      ) 
                                    )
@@ -395,10 +378,11 @@ body <-   mainPanel(
                                                          min = 0.0),
                                             div(id = "aboveVisualiseRadioButtons", hr()),
                                             radioButtons(inputId = "visualiseLengthComposition",
-                                                         label = "Visualise...",
-                                                         choices = c("in aggregate"), #, "by year"),
-                                                         selected = "in aggregate"
+                                                         label = "Assess...",
+                                                         choices = c("all"), #, "by year"),
+                                                         selected = "all"
                                             )
+                                            #uiOutput(outputId = "btnPlotLengthComposition")
                                      ),
                                      column(width = 9,
                                             plotlyOutput(outputId = "plotResponsiveLengthComposition",
@@ -409,21 +393,21 @@ body <-   mainPanel(
                                  ),
                                  div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
                                  fluidRow(
-                                   actionButton("fitLBSPR", "Apply GTG-LBSPR", icon = icon("chart-line"),
+                                   actionButton("fitLBA", "Assess stock", icon = icon("chart-line"),
                                                 class = "btn-success"),
                                  )
                         ),
                         tabPanel("Model fit", value = "tabModelFit",
                                  fluidRow(
                                    column(width = 8,
-                                          plotlyOutput(outputId = "visFitLBSPR",
+                                          plotlyOutput(outputId = "plotLBAModelFit",
                                                        width = "100%",
                                                        height = "600px")
                                    ),
                                    column(width = 3, offset = 1, #tags$h3("LB-SPR estimates"),
-                                          tableOutput(outputId = "textLBSPREstFit"),
+                                          tableOutput(outputId = "tableLBAEstimates"),
                                           tags$h4("nlminb() output"),
-                                          verbatimTextOutput(outputId = "textFitLBSPR")#
+                                          verbatimTextOutput(outputId = "textLBAModelFit")#
                                           #DTOutput(outputId = "gtgLBSPREstModel"),
                                           #DTOutput(outputId = "gtgLBSPROpModel"),
                                    )
