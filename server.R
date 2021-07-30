@@ -925,24 +925,24 @@ server <- function(input, output, session){
     })
   
   # LBSPR fleet parameters
-  setFleetPars <- 
-    eventReactive(input$btnFixedFleetPars, 
+  setFleetPars <- reactive(
+    #eventReactive(input$btnFixedFleetPars, 
                   {
                     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
                     if(input$chooseSelectivityPattern == "Dome-shaped"){
                       list(SL1 = input$SL1, SL2 = input$SL2, SLMin = input$SLKnife, 
-                        SLmesh = 1, selectivityCurve = input$selectSelectivityCurve)
+                        SLmesh = 1, selexCurve = input$selectSelectivityCurve)
                     } else {
                       if(input$selectSelectivityCurve == "Logistic") {
-                        list(selectivityCurve = input$selectSelectivityCurve)
+                        list(selexCurve = input$selectSelectivityCurve)
                       } else if(input$selectSelectivityCurve == "Knife") {
-                        list(SLKnife = input$SLKnife, selectivityCurve = input$selectSelectivityCurve)
+                        list(SLKnife = input$SLKnife, selexCurve = input$selectSelectivityCurve)
                       } 
                     }
                     } else if(input$lengthBasedAssessmentMethod == "LIME"){
                       list(S50 = input$SL1, S95 = input$SL2,
-                           selex_input = "length",
-                           selex_type = tolower(input$selectSelectivityCurve),
+                           selexBy = "length",
+                           selexCurve = tolower(input$selectSelectivityCurve),
                            nfleets = 1 # where is the best place for this?
                            )
                     }
@@ -1029,53 +1029,98 @@ server <- function(input, output, session){
   #   }
   # )
   
-  # binned length data
-  binLengthData <- reactive({
+  # create and bin length data
+  createLengthBins <- reactive({
+    # eventReactive(input$btnStockPars
+    StockPars <- setLHPars()
+    StockPars$MaxSD <- input$MaxSD
+    binwidth <- input$Linc  # in fitLIME: binwidth <- isolate(input$Linc)
     
-    StockPars <- setLHPars() # eventReactive(input$btnStockPars
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      SizeBins <- list(Linc = input$Linc, ToSize = NULL) # input$Linc
+      # SizeBins object for LBSPR
+      SizeBins <- list(Linc = binwidth, ToSize = NULL)
       SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
       LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
       LenMids <- seq(from=0.5*SizeBins$Linc, 
                      by=SizeBins$Linc, length.out=(length(LenBins)-1))
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
       ## length bins (LIME)
-      binwidth <- input$Linc  # in fitLIME: binwidth <- isolate(input$Linc)
+      # see https://github.com/merrillrudd/LIME/blob/master/R/create_lh_list.R
       mids <- seq((binwidth/2), StockPars$Linf*1.3, by=binwidth) 
       highs <- mids + (binwidth/2)
       lows <- mids - (binwidth)/2
-      # Q. where exactly in LIME code is data discretised? A. create_lh_list
       LenBins <- c(lows[1],highs)
       LenMids <- mids
-      
-      # nb. binning lengthData should depend on year also
-      
     }
     
-    # input length data, exclude NAs
-    length_col <- newLengthCol()
-    length_records <- na.omit(lengthRecordsFilter()[, length_col])
-    
-    histogram_length <- hist(length_records, plot = FALSE, breaks = LenBins, right = FALSE)
-    
-    # vulnerable 
-    isLenBinFished <- (LenMids >= input$MLL)
-    
-    
-    # bins and binned counts
+    # bins and mid points
     list_out <- NULL
     if((input$lengthBasedAssessmentMethod == "LB-SPR")){
       list_out <- list(SizeBins = SizeBins) # SizeBins for LB-SPR only
     }
     list_out <- c(list_out, 
                   list(LenBins = LenBins,
-                       LenMids = LenMids,
-                       LenDat = histogram_length$counts,
-                       LenDatVul = histogram_length$counts*isLenBinFished)
+                       LenMids = LenMids
+                  )
     )
-  }
-  )
+  })
+  
+  
+  # bin length records - may depend on year also
+  binLengthData <- reactive({
+    # length bins
+    lengthBins <- createLengthBins()$LenBins
+    lengthMids <- createLengthBins()$LenMids
+    
+    # length records
+    length_records <- lengthRecordsFilter()
+    print(str(length_records))
+    
+    # check for year attribute
+    year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+    if(any(grepl("year", names(length_records), ignore.case = TRUE))){
+      year_min <- min(length_records[, year_col])
+      year_max <- max(length_records[, year_col])
+    }
+
+    # length_col (+ optional year_col): exclude NAs
+    length_col <- newLengthCol()
+    length_records <- na.omit(lengthRecordsFilter()[, c(year_col,length_col)])
+    
+    # vulnerable to fishery 
+    isVulnerable <- (lengthMids >= input$MLL)
+    
+    # bin length data
+    if(length(year_col)==0L | input$lengthBasedAssessmentMethod == "LB-SPR"){
+      print("length_records")
+      print(is.numeric(length_records[, length_col]))
+      LF <- hist(length_records[, length_col], plot = FALSE, breaks = lengthBins, right = FALSE)
+      print(LF)
+    } else {
+      length_records_by_year <- length_records[, c(year_col, length_col)] %>% na.omit() %>%
+        mutate(lengthBin = cut(!!ensym(length_col), breaks = lengthBins, 
+                               right = FALSE),
+               year = factor(!!ensym(year_col), levels = seq(year_min, year_max, 1)))  %>% # lengthMids??
+        group_by(year, lengthBin) %>%
+        summarise(nFish = n())
+      
+      # configure length data for LIME
+      LFYear <- xtabs(formula = nFish ~ year + lengthBin, data = length_records_by_year)
+      colnames(LFYear) <- as.character(lengthBins)[-1] # lfLIME col.name with upper end of length bins or mid-bin??
+      LFVulYear <- LFYear*outer(rep.int(1, nrow(LFYear)), isVulnerable)
+    }
+
+    # binned counts
+    list_out <- NULL
+    if((input$lengthBasedAssessmentMethod == "LB-SPR")){
+      list_out <- list(LenDat = LF$counts,
+                    LenDatVul = LF$counts*isVulnerable)
+    } else if(input$lengthBasedAssessmentMethod == "LIME") {
+      list_out <- list(LenDat = LFYear,
+                    LenDatVul = LFVulYear)      
+    }
+    list_out
+  })
   
   # app navigation
   # btnStockPars causes move to next tab
@@ -1146,14 +1191,14 @@ server <- function(input, output, session){
       if(all(lengthData$isVulnerable, na.rm = TRUE)) {
         ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) +  
           geom_histogram(mapping = aes_string(x = newLengthCol()), fill = "grey80",
-                         breaks = binLengthData()$LenBins, # slideLenBins(),
+                         breaks = createLengthBins()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
           geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
           theme_bw()
       } else {
         ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) + 
           geom_histogram(mapping = aes_string(x = newLengthCol(), fill = "isVulnerable"),
-                         breaks = binLengthData()$LenBins, # slideLenBins(),
+                         breaks = createLengthBins()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
           scale_fill_manual(name = "fishery \n vulnerable", breaks = waiver(), values = c("grey20", "grey80")) + 
           geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
@@ -1194,6 +1239,7 @@ server <- function(input, output, session){
         titleFitPlot <- "User-specified selectivity parameters"
       }
       fixedFleetPars <- setFleetPars()
+      names(fixedFleetPars)[names(fixedFleetPars) == "selexCurve"] <- "selectivityCurve"
       #SizeBins <- list(Linc = input$Linc, ToSize = NULL)
       #SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
       # 
@@ -1207,12 +1253,18 @@ server <- function(input, output, session){
       #   hist(length_records[, length_col], plot = FALSE,  breaks = LenBins, right = FALSE)
       # # apply knife-edge selection to length composition data
       # LenDat <- histogram_length$counts
-      SizeBins <- binLengthData()$SizeBins
-      LenBins <- binLengthData()$LenBins
-      LenMids <- binLengthData()$LenMids
+      SizeBins <- createLengthBins()$SizeBins
+      LenBins <- createLengthBins()$LenBins
+      LenMids <- createLengthBins()$LenMids
       LenDat <- binLengthData()$LenDat
       LenDatVul <- binLengthData()$LenDatVul
-
+      
+      print("GTG LBSPR")
+      print(StockPars)
+      print(fixedFleetPars)
+      print(LenDatVul)
+      print(SizeBins)
+      
       # GTG-LBSPR optimisation
       optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatVul, SizeBins, "GTG")#, input$selectSelectivityCurve)
       # optGTG$Ests
@@ -1302,7 +1354,7 @@ server <- function(input, output, session){
       }
       
       # how to handle specifying/estimating SL50/SL95 for logistic
-      if(tolower(fleetParVals$selex_type) == "logistic"){
+      if(tolower(fleetParVals$selexCurve) == "logistic"){
         if(input$specifySelectivity == "Estimate (LBSPR)"){
           S50 <- 0.66*lhParVals$Linf  # initial estimate of selectivity-at-length 50%
           S95 <- 0.80*lhParVals$Linf
@@ -1318,8 +1370,8 @@ server <- function(input, output, session){
                            lwb=lhParVals$Wbeta,     # length-weight W = aL^b: b
                            S50=S50, #50,  # selectivity-at-length 50%
                            S95=S95, #95,  # selectivity-at-length 95%
-                           selex_input="length",#fleetParVals$selex_input,
-                           selex_type=tolower(fleetParVals$selex_type), #fleetParVals$selectivityCurve,
+                           selex_input=fleetParVals$selexBy,# "length"
+                           selex_type=tolower(fleetParVals$selexCurve), # fleetParVals$selex_type
                            M50=lhParVals$L50,     # length at 50% maturity
                            maturity_input="length", #lhParVals$maturity_input,
                            M=lhParVals$M,     # natural mortality
@@ -1345,42 +1397,44 @@ server <- function(input, output, session){
       # length records
       length_records <- isolate(lengthRecordsFilter())
       lengthCol <- isolate(newLengthCol())
-      lengthBins <- isolate(binLengthData()$LenBins)
-      lengthMids <- isolate(binLengthData()$LenMids)
-      
-      # lengthbins vulnerable to fishery
-      isVulnerable <- (lengthMids >= input$MLL)  # lengthBins[-1] > input$MLL
-      
-      # years 
       yearCol <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+      lengthBins <- isolate(createLengthBins()$LenBins)
+      lengthMids <- isolate(createLengthBins()$LenMids)
+      
+      # # lengthbins vulnerable to fishery
+      # isVulnerable <- (lengthMids >= input$MLL)  # lengthBins[-1] > input$MLL
+      # 
+      # # years 
+      # yearCol <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+      # 
+      # if(any(grepl("year", names(length_records), ignore.case = TRUE))){
+      #   year_min <- min(length_records[, yearCol])
+      #   year_max <- max(length_records[, yearCol])
+      # }
+      # 
+      # 
+      # # collate length data in LIME format #### 
+      # # Q should upper limit be 
+      # # ---------------> lh$linf*(1 + lh$CVlen)
+      # # or ------------> lh$binwidth*ceiling(lh$linf*(1 + lh$CVlen)/lh$binwidth)
+      # lrLIME <- length_records[, c(yearCol, lengthCol)] %>% na.omit() %>%
+      #   mutate(lengthBin = cut(!!ensym(lengthCol), breaks = lengthBins, 
+      #                          right = FALSE),
+      #          year = factor(!!ensym(yearCol), levels = seq(year_min, year_max, 1)))  %>% # lengthMids??
+      #   group_by(year, lengthBin) %>%
+      #   summarise(nFish = n())
+      # 
+      # 
+      # # configure length data for LIME
+      # lfLIME <- xtabs(formula = nFish ~ year + lengthBin, data = lrLIME)
+      # 
+      # # 26/07/2021
+      # #lengthBins <- seq(0, lh$binwidth*ceiling(lh$linf*(1 + lh$CVlen)/lh$binwidth), lh$binwidth)
+      # #lengthMids <- seq(from=0.5*lh$binwidth, by=lh$binwidth, length.out=length(lengthBins)-1)
+      # lfLIME <- lfLIME*outer(rep.int(1, nrow(lfLIME)), isVulnerable)
+      print("pre-lfLIME")
+      lfLIME <- binLengthData()$LenDatVul
 
-      if(any(grepl("year", names(length_records), ignore.case = TRUE))){
-        year_min <- min(length_records[, yearCol])
-        year_max <- max(length_records[, yearCol])
-      }
-      
-      
-      # collate length data in LIME format #### 
-      # Q should upper limit be 
-      # ---------------> lh$linf*(1 + lh$CVlen)
-      # or ------------> lh$binwidth*ceiling(lh$linf*(1 + lh$CVlen)/lh$binwidth)
-      lrLIME <- length_records[, c(yearCol, lengthCol)] %>% na.omit() %>%
-        mutate(lengthBin = cut(!!ensym(lengthCol), breaks = lengthBins, 
-                               right = FALSE),
-               year = factor(!!ensym(yearCol), levels = seq(year_min, year_max, 1)))  %>% # lengthMids??
-        group_by(year, lengthBin) %>%
-        summarise(nFish = n())
-
-
-      # configure length data for LIME
-      lfLIME <- xtabs(formula = nFish ~ year + lengthBin, data = lrLIME)
-      
-      # 26/07/2021
-      #lengthBins <- seq(0, lh$binwidth*ceiling(lh$linf*(1 + lh$CVlen)/lh$binwidth), lh$binwidth)
-      #lengthMids <- seq(from=0.5*lh$binwidth, by=lh$binwidth, length.out=length(lengthBins)-1)
-      lfLIME <- lfLIME*outer(rep.int(1, nrow(lfLIME)), isVulnerable)
-      
-      
       # lfLIME col.name with upper end of length bins or mid-bin??
       colnames(lfLIME) <- as.character(lengthBins)[-1]#as.character(lengthMids)
       
@@ -1462,7 +1516,7 @@ server <- function(input, output, session){
     length_col <- newLengthCol()
     length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
     
-    LenBins <- binLengthData()$LenBins
+    LenBins <- createLengthBins()$LenBins
     LenDat <- binLengthData()$LenDatVul # vulnerable to fishery only
     # maxLenDat <- max(LenDat)
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
@@ -1633,7 +1687,7 @@ server <- function(input, output, session){
       M <- lbsprStockInput$M
       tableData$Esimtate <- c(M, M*FM, M*(1 + FM), 
                               lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
-                              lbsprGearInput$selectivityCurve,
+                              lbsprGearInput$selexCurve,
                               ifelse(is.null(lbsprGearInput$SL1), lbsprFit$Estimate[lbsprFit$Parameter=="SL50"], lbsprGearInput$SL1),
                               ifelse(is.null(lbsprGearInput$SL2), lbsprFit$Estimate[lbsprFit$Parameter=="SL95"], lbsprGearInput$SL2),
                               ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
