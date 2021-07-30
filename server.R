@@ -746,7 +746,7 @@ server <- function(input, output, session){
   selectParameterSpecification <- reactive({
     #if(input$selectSelectivityCurve == "Logistic" && !is.null(input$selectSelectivityCurve)){ # or input$chooseSelectivityPattern
     if(input$chooseSelectivityPattern == "Asymptotic" && !is.null(input$chooseSelectivityPattern)){
-      x <- c("Estimate (LBSPR)", "Specify (user)")
+      x <- c("Estimate (model fit)", "Specify (user)")
     } else {
       x <- c("Specify (user)")
     }
@@ -862,7 +862,7 @@ server <- function(input, output, session){
                       min = 0.0, max = input$Linf,  step = 1)
         )
       }
-    } else if (input$specifySelectivity == "Estimate (LBSPR)" & !is.null(input$specifySelectivity)) {
+    } else if (input$specifySelectivity == "Estimate (model fit)" & !is.null(input$specifySelectivity)) {
       tagList(tags$p("Estimate selectivity parameters in model fitting process"))
     }
   })
@@ -906,7 +906,7 @@ server <- function(input, output, session){
                       min = 0.0, max = input$Linf,  step = 1)
         )
       }
-    } else if (input$specifySelectivity == "Estimate (LBSPR)" & !is.null(input$specifySelectivity)) {
+    } else if (input$specifySelectivity == "Estimate (model fit)" & !is.null(input$specifySelectivity)) {
       tList <- tagList(tags$p("Estimate selectivity parameters in model fitting process"))
     }
     # add action button to submit selectivity parameters
@@ -1278,7 +1278,7 @@ server <- function(input, output, session){
                              SL2 = fixedFleetPars$SL2,
                              SLMin = fixedFleetPars$SLMin,
                              SLmesh = fixedFleetPars$SLmesh)
-      } else if(input$specifySelectivity == "Estimate (LBSPR)") {
+      } else if(input$specifySelectivity == "Estimate (model fit)") {
         optFleetPars <- list(FM = optGTG$Ests["FM"], 
                              selectivityCurve = optGTG$SelectivityCurve,
                              SL1 = optGTG$Ests["SL1"], 
@@ -1355,7 +1355,7 @@ server <- function(input, output, session){
       
       # how to handle specifying/estimating SL50/SL95 for logistic
       if(tolower(fleetParVals$selexCurve) == "logistic"){
-        if(input$specifySelectivity == "Estimate (LBSPR)"){
+        if(input$specifySelectivity == "Estimate (model fit)"){
           S50 <- 0.66*lhParVals$Linf  # initial estimate of selectivity-at-length 50%
           S95 <- 0.80*lhParVals$Linf
         } else if(input$specifySelectivity == "Specify (user)") {
@@ -1470,7 +1470,7 @@ server <- function(input, output, session){
       print(lc_only$input)
       # outputs
       list(length_data_raw = length_records[, c(yearCol, lengthCol)] %>% na.omit(),
-           LF = LF, lc_only = lc_only)
+           LF = LF, lc_only = lc_only, lh = lh)
     }
   )
   
@@ -1532,7 +1532,7 @@ server <- function(input, output, session){
       
       if(input$specifySelectivity == "Specify (user)"){
         titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (specified)"
-      } else if (input$specifySelectivity == "Estimate (LBSPR)") {
+      } else if (input$specifySelectivity == "Estimate (model fit)") {
         titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (estimated)"
       }
       
@@ -1751,4 +1751,18 @@ server <- function(input, output, session){
     
   })
   
+  
+  output$plotLIMEOutput <- renderPlot({
+    if(input$lengthBasedAssessmentMethod == "LIME"){
+      lc_only <- fitLIME()$lc_only
+      lh <- fitLIME()$lh
+      plot_output(Inputs=lc_only$Inputs,
+                  Report=lc_only$Report,
+                  Sdreport=lc_only$Sdreport,
+                  lh=lh,
+                  True=NULL,
+                  plot=c("Fish","Rec","SPR","ML","SB","Selex"),
+                  set_ylim=list("Fish"=c(0,2.0),"SPR"=c(0,1)))
+    }
+  })
 }

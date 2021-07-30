@@ -59,12 +59,7 @@ sidebar <- sidebarPanel(
   #   column(width = 6,
   #          uiOutput(outputId = "yearSelect", width = "100%"))
   # ),
-  uiOutput(outputId = "btnSelectCols", width = "100%"),
-  
-  div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
-  radioButtons(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
-               choices = c("LB-SPR", "LIME"))
-#  uiOutput(outputId = "cbLBA", width = "100%"),
+  uiOutput(outputId = "btnSelectCols", width = "100%")
 
 )
 
@@ -164,7 +159,7 @@ body <-   mainPanel(
                                    )
                                  ),
                         ),
-                        tabPanel("Weight",
+                        tabPanel("Maturity",
                                  fluidRow(
                                    column(width = 12,
                                           NULL)
@@ -311,8 +306,8 @@ body <-   mainPanel(
                       ),
                       radioButtons(inputId = "specifySelectivity",
                                    label = "Fishery selectivity parameters",
-                                   choices = c("Estimate (LBSPR)", "Specify (user)"),
-                                   selected = c("Estimate (LBSPR)")),
+                                   choices = c("Estimate (model fit)", "Specify (user)"),
+                                   selected = c("Estimate (model fit)")),
                       uiOutput(outputId = "chooseSelectivityCurve"),
                       #tags$div(id = "meshSizes"),  # for insertUI, removeUI
                       conditionalPanel(
@@ -340,15 +335,21 @@ body <-   mainPanel(
                       plotlyOutput(outputId = "plotSelectivityPattern"))
              )
     ),
-    tabPanel("LB-SPR", value = "tabLBSPR",
+    tabPanel("Length-based assessment", value = "tabLBSPR",
              #         plotlyOutput(outputId = "lengthAge",
              #                      width = "90%"),
-             navbarPage(title = "GTG LB-SPR",
+             navbarPage(title = "Assessment steps",
                         id = "methodLBSPR",
                         tabPanel("Method parameters", value = "tabMethodParameters",
                                  fluidPage(
                                    fluidRow(
-                                     column(width = 12,
+                                     column(width = 4,
+                                            #div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
+                                            selectInput(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
+                                                         choices = c("LB-SPR", "LIME"))
+                                            #  uiOutput(outputId = "cbLBA", width = "100%"),)
+                                     ),
+                                     column(width = 8,
                                             box(status = "info", width = NULL,
                                                 collapsible = TRUE, collapsed = FALSE,
                                                 title = "Method-specific parameters",
@@ -420,8 +421,9 @@ body <-   mainPanel(
                                           #tags$h3("Population length composition"),
                                           #plotOutput(outputId = "plotPopLBSPR"),
                                           #tags$hr(),
-                                          tags$h3("Expected catch-at-length - per recruit theory"),
-                                          plotlyOutput(outputId = "plotCatchLBSPR")
+                                          #tags$h3("Expected catch-at-length - per recruit theory"),
+                                          plotlyOutput(outputId = "plotCatchLBSPR"),
+                                          plotOutput(outputId = "plotLIMEOutput")
                                    ), 
                                    column(width = 4,
                                           tags$h3("Stock parameters and status"),
@@ -433,15 +435,15 @@ body <-   mainPanel(
                                  )
                         )),
              icon = icon("list-ui")
-    ),
-    tabPanel("Other length-based methods",
-             tags$div(
-               tags$ul(
-                 tags$li("Length-based Bayesian biomass estimator (LBB) - Froese et al., 2018"),
-                 tags$li("Length-based pseudo-cohort analysis (LBPA) - Canales, Punt, Mardones, 2020 "),
-                 tags$li("Size-based fishing status estimation for data-poor stocks - Kokkalis, .., Andersen, 2015")
-               )
-             ))#, 
+    )#,
+    # tabPanel("Other length-based methods",
+    #          tags$div(
+    #            tags$ul(
+    #              tags$li("Length-based Bayesian biomass estimator (LBB) - Froese et al., 2018"),
+    #              tags$li("Length-based pseudo-cohort analysis (LBPA) - Canales, Punt, Mardones, 2020 "),
+    #              tags$li("Size-based fishing status estimation for data-poor stocks - Kokkalis, .., Andersen, 2015")
+    #            )
+    #          ))#, 
     #inline = FALSE))
     #tabPanel("Stock assessment\n - diagnostics", 
     #         fluidRow(width = 12,
