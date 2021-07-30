@@ -1630,32 +1630,7 @@ server <- function(input, output, session){
   #   expr = ggplotly(p = pg + theme_bw(),
   #                   height = 400, width = 600)
   # })
-  output$plotCatchLBSPR <- renderPlotly({
-    
-    # data
-    length_records <- lengthRecordsFilter()
-    length_col <- newLengthCol()
-    length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
-    
-    # theory
-    NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
-    
-    
-    # plotly
-    pl_y <- plot_ly(data = NatL_LBSPR, 
-                    x = ~ length_mid, y = ~ catchUnfished_at_length, name = "unfished", 
-                    type = "scatter", mode = "lines+markers", frame = TRUE) %>% 
-      add_trace(y = ~ catchFished_at_length, name = "fished", mode = "lines+markers")
-    # adding histogram/bar data difficult in plot_ly
-    #lengthData <- binLengthData()
-      # %>% add_bars(data = lengthData,
-      #           x = ~ LenMids, y = LenDatVul, name = "catch data") %>% 
-      # layout(barmode = "stack", bargap = 0.1)
-    pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
-                            yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
-                            #title = "Per recruit theory - catch")
-    expr <- pl_y
-  })
+
   
   # nlminb (optimisation function for matching expected per-recruit length composition to
   # multinomial log likelihood)
@@ -1713,7 +1688,60 @@ server <- function(input, output, session){
       pack_rows("Status", 8, 12)
   })
   
+  
+  # interpretation panel
   # visual comparison of exploited and unexploited fish populations
+  output$plotCatchLBSPR <- renderPlotly({
+    
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      # data
+      length_records <- lengthRecordsFilter()
+      length_col <- newLengthCol()
+      length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
+      
+      # theory
+      NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+      
+      
+      # plotly
+      pl_y <- plot_ly(data = NatL_LBSPR, 
+                      x = ~ length_mid, y = ~ catchUnfished_at_length, name = "unfished", 
+                      type = "scatter", mode = "lines+markers", frame = TRUE) %>% 
+        add_trace(y = ~ catchFished_at_length, name = "fished", mode = "lines+markers")
+      # adding histogram/bar data difficult in plot_ly
+      #lengthData <- binLengthData()
+      # %>% add_bars(data = lengthData,
+      #           x = ~ LenMids, y = LenDatVul, name = "catch data") %>% 
+      # layout(barmode = "stack", bargap = 0.1)
+      pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
+                              yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
+      #title = "Per recruit theory - catch")
+    } else if(input$lengthBasedAssessmentMethod == "LIME") {
+      pl_y <- plotly_empty() %>% 
+        plotly:: config(staticPlot = TRUE)
+    }
+    expr <- pl_y
+  })
+  
+  
+  output$plotLIMEOutput <- renderPlot({
+    if(input$lengthBasedAssessmentMethod == "LIME"){
+      lc_only <- fitLIME()$lc_only
+      lh <- fitLIME()$lh
+      p <- plot_output(Inputs=lc_only$Inputs,
+                  Report=lc_only$Report,
+                  Sdreport=lc_only$Sdreport,
+                  lh=lh,
+                  True=NULL,
+                  plot=c("Fish","Rec","SPR","ML","SB","Selex"),
+                  set_ylim=list("Fish"=c(0,2.0),"SPR"=c(0,1)))
+    } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      p <- plot.new()
+    }
+    p
+  })
+  
+  
   output$plotPopLBSPR <- renderPlot({
     NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
     LPopUnfished <- NatL_LBSPR$popUnfished_at_length
@@ -1751,18 +1779,4 @@ server <- function(input, output, session){
     
   })
   
-  
-  output$plotLIMEOutput <- renderPlot({
-    if(input$lengthBasedAssessmentMethod == "LIME"){
-      lc_only <- fitLIME()$lc_only
-      lh <- fitLIME()$lh
-      plot_output(Inputs=lc_only$Inputs,
-                  Report=lc_only$Report,
-                  Sdreport=lc_only$Sdreport,
-                  lh=lh,
-                  True=NULL,
-                  plot=c("Fish","Rec","SPR","ML","SB","Selex"),
-                  set_ylim=list("Fish"=c(0,2.0),"SPR"=c(0,1)))
-    }
-  })
 }
