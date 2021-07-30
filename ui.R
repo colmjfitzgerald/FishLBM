@@ -343,22 +343,24 @@ body <-   mainPanel(
                         tabPanel("Method parameters", value = "tabMethodParameters",
                                  fluidPage(
                                    fluidRow(
-                                     column(width = 4,
+                                     column(width = 6,
                                             #div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
                                             selectInput(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
                                                          choices = c("LB-SPR", "LIME"))
                                             #  uiOutput(outputId = "cbLBA", width = "100%"),)
                                      ),
-                                     column(width = 8,
-                                            box(status = "info", width = NULL,
-                                                collapsible = TRUE, collapsed = FALSE,
-                                                title = "Method-specific parameters",
-                                                uiOutput(outputId = "tableTechnicalParameters")
-                                            ),
+                                     column(width = 6,
                                             actionButton(inputId = "btnTechnicalStockPars", label = "Input parameters",
-                                                         class = "btn-success")
-                                     ) 
-                                   )
+                                                         class = "btn-success"))
+                                   ), 
+                                   fluidRow(
+                                     column(width = 6,
+                                            uiOutput(outputId = "boxTechParsLBSPR")
+                                     ),
+                                     column(width = 6,
+                                            uiOutput(outputId = "boxTechParsLIME")
+                                     ),
+                                   ) 
                                  )
                         ),
                         tabPanel("Length composition", value = "tabLengthComposition",

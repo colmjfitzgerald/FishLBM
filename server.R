@@ -678,59 +678,71 @@ server <- function(input, output, session){
     expr = lhp_list
   })
   
+
   # technical method parameters
-  output$tableTechnicalParameters <- renderUI({
-#    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      tagList(
-        tags$table(
-          tags$tr(tags$td("FecB"),
-                  tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))),
-          tags$tr(tags$td("Steepness"),
-                  tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))),
-          tags$tr(tags$td("Mpow"),
-                  tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0))),
-          tags$tr(tags$td("NGTG"),
-                  tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))),
-          tags$tr(tags$td("GTG Max SD about Linf"),
-                  tags$td(numericInput(inputId = "MaxSD", label = NULL,
-                                       value = 2, min = 0, max = 4))),
-          tags$tfoot()
-        ),
-#      )
-#    } else if(input$lengthBasedAssessmentMethod == "LIME"){
-      tagList(
-        tags$table(
-          tags$tr(tags$td("SigmaR"),
-                  tags$td(numericInput(inputId = "SigmaR", label = NULL, value = 0.737))),
-          tags$tr(tags$td("SigmaF"),
-                  tags$td(numericInput(inputId = "SigmaF", label = NULL, value = 0.2))),
-          tags$tr(tags$td("SigmaC"),
-                  tags$td(numericInput(inputId = "SigmaC", label = NULL, value = 0.1))),
-          tags$tr(tags$td("SigmaI"),
-                  tags$td(numericInput(inputId = "SigmaI", label = NULL, value = 0.1))),
-          tags$tr(tags$td("R0"),
-                  tags$td(numericInput(inputId = "R0", label = NULL, value = 1, min = 0))),
-          tags$tr(tags$td("Frate"),
-                  tags$td(numericInput(inputId = "Frate", label = NULL, value = 0.1, min = 0))),
-          tags$tr(tags$td("Fequil"),
-                  tags$td(numericInput(inputId = "Frate", label = NULL, value = 0.25, min = 0))),
-          tags$tr(tags$td("qcoef"),
-                  tags$td(numericInput(inputId = "qcoef", label = NULL, value = 1e-5, min = 0))),
-          tags$tr(tags$td("start_ages"),
-                  tags$td(numericInput(inputId = "start_ages", label = NULL, value = 0))),
-          tags$tr(tags$td("rho"),
-                  tags$td(numericInput(inputId = "rho", label = NULL, value = 0.43, min = 0))),
-          tags$tr(tags$td("theta"),
-                  tags$td(numericInput(inputId = "theta", label = NULL, value = 10, min = 0))),
-          tags$tr(tags$td("nseasons"),
-                  tags$td(numericInput(inputId = "nseasons", label = NULL, value = 1, min = 0))),
-          tags$tfoot()
+  output$boxTechParsLBSPR <- renderUI({
+    box(status = "info", width = NULL,
+        collapsible = TRUE,
+        collapsed = ifelse(is.null(input$lengthBasedAssessmentMethod), TRUE, !(input$lengthBasedAssessmentMethod == "LB-SPR")),
+        title = "LB-SPR parameters",
+        tagList(
+          tags$table(
+            tags$tr(tags$td("FecB"),
+                    tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))),
+            tags$tr(tags$td("Steepness"),
+                    tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))),
+            tags$tr(tags$td("Mpow"),
+                    tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0))),
+            tags$tr(tags$td("NGTG"),
+                    tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))),
+            tags$tr(tags$td("GTG Max SD about Linf"),
+                    tags$td(numericInput(inputId = "MaxSD", label = NULL,
+                                         value = 2, min = 0, max = 4))),
+            tags$tfoot()
+          ),
         )
-      )
-)
-#    }
+        # uiOutput(outputId = "tableTechnicalParametersLBSPR")
+    )
+    
   })
   
+  output$boxTechParsLIME <- renderUI({
+     box(status = "info", width = NULL,
+         collapsible = TRUE,
+         collapsed = ifelse(is.null(input$lengthBasedAssessmentMethod), TRUE, !(input$lengthBasedAssessmentMethod == "LIME")),
+         title = "LIME parameters",
+         tagList(
+           tags$table(
+             tags$tr(tags$td("SigmaR"),
+                     tags$td(numericInput(inputId = "SigmaR", label = NULL, value = 0.737))),
+             tags$tr(tags$td("SigmaF"),
+                     tags$td(numericInput(inputId = "SigmaF", label = NULL, value = 0.2))),
+             tags$tr(tags$td("SigmaC"),
+                     tags$td(numericInput(inputId = "SigmaC", label = NULL, value = 0.1))),
+             tags$tr(tags$td("SigmaI"),
+                     tags$td(numericInput(inputId = "SigmaI", label = NULL, value = 0.1))),
+             tags$tr(tags$td("R0"),
+                     tags$td(numericInput(inputId = "R0", label = NULL, value = 1, min = 0))),
+             tags$tr(tags$td("Frate"),
+                     tags$td(numericInput(inputId = "Frate", label = NULL, value = 0.1, min = 0))),
+             tags$tr(tags$td("Fequil"),
+                     tags$td(numericInput(inputId = "Frate", label = NULL, value = 0.25, min = 0))),
+             tags$tr(tags$td("qcoef"),
+                     tags$td(numericInput(inputId = "qcoef", label = NULL, value = 1e-5, min = 0))),
+             tags$tr(tags$td("start_ages"),
+                     tags$td(numericInput(inputId = "start_ages", label = NULL, value = 0))),
+             tags$tr(tags$td("rho"),
+                     tags$td(numericInput(inputId = "rho", label = NULL, value = 0.43, min = 0))),
+             tags$tr(tags$td("theta"),
+                     tags$td(numericInput(inputId = "theta", label = NULL, value = 10, min = 0))),
+             tags$tr(tags$td("nseasons"),
+                     tags$td(numericInput(inputId = "nseasons", label = NULL, value = 1, min = 0))),
+             tags$tfoot()
+           )
+         )
+    #     uiOutput(outputId = "tableTechnicalParametersLIME")
+     )
+  })
   
   # selectivity curve ####
 
@@ -1734,7 +1746,7 @@ server <- function(input, output, session){
                   lh=lh,
                   True=NULL,
                   plot=c("Fish","Rec","SPR","ML","SB","Selex"),
-                  set_ylim=list("Fish"=c(0,2.0),"SPR"=c(0,1)))
+                  set_ylim=list("Fish"=c(0,mean(lc_only$Report$F_t)*2),"SPR"=c(0,1)))
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       p <- plot.new()
     }
