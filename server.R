@@ -949,7 +949,7 @@ server <- function(input, output, session){
                         if(input$specifySelectivity == "Specify (user)"){
                           list(SL1 = input$SL1, SL2 = input$SL2, 
                                selexCurve = input$selectSelectivityCurve)
-                        } else if(input$specifySelectivity == "Estimate (LBSPR)") {
+                        } else if(input$specifySelectivity == "Estimate (model fit)") {
                           list(selexCurve = input$selectSelectivityCurve)  
                         }
                       } else if(input$selectSelectivityCurve == "Knife") {
