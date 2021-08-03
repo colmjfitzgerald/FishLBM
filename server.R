@@ -946,7 +946,12 @@ server <- function(input, output, session){
                         SLmesh = 1, selexCurve = input$selectSelectivityCurve)
                     } else {
                       if(input$selectSelectivityCurve == "Logistic") {
-                        list(selexCurve = input$selectSelectivityCurve)
+                        if(input$specifySelectivity == "Specify (user)"){
+                          list(SL1 = input$SL1, SL2 = input$SL2, 
+                               selectivityCurve = input$selectSelectivityCurve)
+                        } else if(input$specifySelectivity == "Estimate (LBSPR)") {
+                          list(selectivityCurve = input$selectSelectivityCurve)  
+                        }
                       } else if(input$selectSelectivityCurve == "Knife") {
                         list(SLKnife = input$SLKnife, selexCurve = input$selectSelectivityCurve)
                       } 
@@ -1271,11 +1276,6 @@ server <- function(input, output, session){
       LenDat <- binLengthData()$LenDat
       LenDatVul <- binLengthData()$LenDatVul
       
-      print("GTG LBSPR")
-      print(StockPars)
-      print(fixedFleetPars)
-      print(LenDatVul)
-      print(SizeBins)
       
       # GTG-LBSPR optimisation
       optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatVul, SizeBins, "GTG")#, input$selectSelectivityCurve)
