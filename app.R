@@ -11,10 +11,14 @@ if(!require(knitr)){install.packages("knitr", dependencies = TRUE); require(knit
 if(!require(kableExtra)){install.packages("kableExtra", dependencies = TRUE); require(kableExtra)}
 if(!require(DT)){install.packages("DT", dependencies = TRUE); require(DT)}
 if(!require(devtools)){install.packages("devtools", dependencies = TRUE); require(devtools)}
+devtools::install_github("merrillrudd/LIME", dependencies=TRUE)
+require(LIME)
 
 #library(htmltools)
 options(shiny.maxRequestSize = 5*1024^2)
 source("../GTG-LBSPR_DomeShaped/GTGLBSPR_Dome.R")
+source("./LIME/create_lh_list.R")
+source("./LIME/plot_LCfits_cf.R")
 #source_url("https://github.com/AdrianHordyk/GTG_LBSPR/blob/master/GTG_LBSPR.r")
 source("./ui.R")
 source("./server.R")
