@@ -1700,7 +1700,7 @@ server <- function(input, output, session){
       lbsprGearInput <- setFleetPars()
       FM <- lbsprFit[lbsprFit$Parameter == "FM",]$Estimate
       M <- lbsprStockInput$M
-      tableData$Esimtate <- c(M, M*FM, M*(1 + FM), 
+      tableData$Estimate <- c(M, M*FM, M*(1 + FM), 
                               lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
                               lbsprGearInput$selexCurve,
                               ifelse(is.null(lbsprGearInput$SL1), lbsprFit$Estimate[lbsprFit$Parameter=="SL50"], lbsprGearInput$SL1),
