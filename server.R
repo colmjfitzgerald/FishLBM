@@ -599,6 +599,18 @@ server <- function(input, output, session){
     }
     )
   
+  output$btnRadioMaturity <- 
+    renderUI({
+      withMathJax(
+        radioButtons(inputId= "maturityPars", label = "Length-at-50%-maturity",
+                     choices = c("User-specified" = "user", 
+                       "Beverton-Holt LHI ($Lm50 = 0.66 L_\\infty$)" = "bhlhi",
+                       "Binohlan and Froese (2009) ($Lm50  = exp(-0.1189) (L\\max)^{0.9157}$)" = "bf2009"), 
+                       selected = "bhlhi")
+      )
+    }
+    )
+  
   
   # numeric inputs for LBSPR ####
   # default to sliderInput values
@@ -621,6 +633,7 @@ server <- function(input, output, session){
                  value = 0.3)
   })
   
+  # nb value = initial value
   output$numLm50 <- renderUI({
     numericInput("Lm50", label = NULL, #"Linf", 
                  value = ifelse(grepl("fit", input$growthParOption), 
@@ -637,18 +650,33 @@ server <- function(input, output, session){
   })
   
   
-  observeEvent(input$natMortality, {
-    if(input$natMortality == "user"){
-      updateNumericInput(session, "M", value = 0.3)      
-    } else if(input$natMortality == "pauly") {
-      updateNumericInput(session, "M", value = round(4.118*input$kLvb^0.73*input$Linf^(-0.33), 3))
-    } else if(input$natMortality == "twoK"){
-      updateNumericInput(session, "M", value = round(0.098 + 1.55*input$kLvb, 3))
-    } else if(input$natMortality == "hoenig") {
-      updateNumericInput(session, "M", value = round(4.899*max(gatherFishAgeLengthData()$age, na.rm = FALSE)^-0.916, 3))
+  observe({
+    updateNumericInput(session, "M", value = updateMortality())
+    updateNumericInput(session, "Lm50", value = updateMaturity()) # update Lm95
+  })
+  
+  updateMaturity <- reactive({
+    if(input$maturityPars == "user" || is.null(input$maturityPars)){
+      expr = round(0.66*input$Linf,1)
+    } else if(input$maturityPars == "bhlhi") {
+      expr = round(0.66*input$Linf,1)
+    } else if(input$maturityPars == "bf2009") {
+      expr = round(exp(-0.1189 + 0.9157*log(max(gatherFishAgeLengthData()[, newLengthCol()]))),1)
     }
-      #if(is.na(max(gatherFishAgeLengthData()$age, na.rm = FALSE)))
-      #if(is.na(tmax)) { NA } else { round(4.899*tmax^-0.916, 3) }
+  })
+  
+  updateMortality <- reactive({
+    #if(is.na(max(gatherFishAgeLengthData()$age, na.rm = FALSE)))
+    #if(is.na(tmax)) { NA } else { round(4.899*tmax^-0.916, 3) }
+    if(input$natMortality == "user" || is.null(input$natMortality)){
+      expr = 0.3
+    } else if(input$natMortality == "pauly") {
+      expr = round(4.118*input$kLvb^0.73*input$Linf^(-0.33), 3)
+    } else if(input$natMortality == "twoK") {
+      expr = round(0.098 + 1.55*input$kLvb, 3)        
+    } else if(input$natMortality == "hoenig") {
+      expr = round(4.899*max(gatherFishAgeLengthData()$age, na.rm = FALSE)^-0.916, 3) 
+    }
   })
   
   

@@ -173,7 +173,9 @@ body <-   mainPanel(
                                             h3("Growth"),
                                             uiOutput(outputId = "growthParRadioBtn"),
                                             h3("Natural mortality"),
-                                            uiOutput(outputId= "natMortalityRadioBtn")
+                                            uiOutput(outputId= "natMortalityRadioBtn"),
+                                            h3("Maturity"),
+                                            uiOutput(outputId= "btnRadioMaturity")
                                      ),
                                      column(width = 8,
                                             #                                          box(status = "primary", width = NULL,
