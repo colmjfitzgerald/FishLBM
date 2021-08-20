@@ -120,7 +120,7 @@ body <-   mainPanel(
              ),
              icon = icon("table")
     ),
-    tabPanel("Life history estimation",
+    tabPanel("Life history estimation", value = "tabLHP",
              navbarPage(title = "Life history",
                         id = "lhEstimate",
                         tabPanel("Growth",

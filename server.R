@@ -308,7 +308,8 @@ server <- function(input, output, session){
   
   # visualise data ====
   output$lengthComposition <- renderPlotly({
-    expr = ggplotly(p = catchdata_plot())#, height = 800, width = 400)
+    # catchdata_plot() <- eventReactive(input$selectCols,...)
+    expr = ggplotly(p = catchdata_plot())
   })
   
   
@@ -605,7 +606,7 @@ server <- function(input, output, session){
         radioButtons(inputId= "maturityPars", label = "Length-at-50%-maturity",
                      choices = c("User-specified" = "user", 
                        "Beverton-Holt LHI ($Lm50 = 0.66 L_\\infty$)" = "bhlhi",
-                       "Binohlan and Froese (2009) ($Lm50  = exp(-0.1189) (L\\max)^{0.9157}$)" = "bf2009"), 
+                       "Binohlan, Froese (2009) $Lm50  = e^{-0.119} (L\\max)^{0.916}$" = "bf2009"), 
                        selected = "bhlhi")
       )
     }
@@ -1121,6 +1122,9 @@ server <- function(input, output, session){
     length_records <- lengthRecordsFilter()
     print(str(length_records))
     
+    # length column
+    length_col <- newLengthCol()
+    
     # check for year attribute
     year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
     if(any(grepl("year", names(length_records), ignore.case = TRUE))){
@@ -1129,8 +1133,7 @@ server <- function(input, output, session){
     }
 
     # length_col (+ optional year_col): exclude NAs
-    length_col <- newLengthCol()
-    length_records <- na.omit(lengthRecordsFilter()[, c(year_col,length_col)])
+    length_records <- na.omit(length_records[, c(year_col,length_col)])
     
     # vulnerable to fishery 
     isVulnerable <- (lengthMids >= input$MLL)
@@ -1168,6 +1171,14 @@ server <- function(input, output, session){
   })
   
   # app navigation
+  
+  # after button clicks
+  observeEvent(input$convertLengthUnits,
+               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLHP"))  
+  
+  observeEvent(input$btnFixedFleetPars,
+               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBSPR"))  
+  
   # btnStockPars causes move to next tab
   observeEvent(input$btnStockPars, {
     print(setLHPars())
@@ -1557,6 +1568,8 @@ server <- function(input, output, session){
     length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
     
     LenBins <- createLengthBins()$LenBins
+    LenMids <- createLengthBins()$LenMids	
+    
     LenDat <- binLengthData()$LenDatVul # vulnerable to fishery only
     # maxLenDat <- max(LenDat)
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
@@ -1590,7 +1603,7 @@ server <- function(input, output, session){
                   mapping = aes(x = length_mid, y = max(LenDat)*selectivityF_at_length), 
                   colour = "red", lwd = 1) + 
         labs(title = titleFitPlot,
-             caption = paste("Data from", input$uploadFile, sep = " "))#+ 
+             caption = paste("Data from", input$uploadFile[[1]], sep = " "))#+ 
       #scale_y_continuous(sec.axis = sec_axis(~  . /maxLenDat, name = "selectivity",
       #breaks = c(0, 1),
       #labels = c("0", "1")
@@ -1605,6 +1618,7 @@ server <- function(input, output, session){
       # length data and year attribute
       length_records <- fitLIMEobj$length_data_raw
       year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+      length_records$isVulnerable <- length_records[, length_col] >= input$MLL
 
       # predictions - code extracted from https://github.com/merrillrudd/LIME/blob/master/R/plot_LCfits.R
       Inputs <- fitLIMEobj$lc_only$Inputs
@@ -1635,11 +1649,13 @@ server <- function(input, output, session){
       
       # plot_LCfits adaption
       pg <- ggplot(length_records) + 
-        geom_histogram(aes_string(x = length_col, y = "..density.."), breaks = LenBins, closed = "right") + 
+        geom_histogram(aes_string(x = length_col, y = "..density..", fill = "isVulnerable"), breaks = LenBins, closed = "right") + 
+        scale_fill_manual(name = "fishery \n vulnerable", breaks = waiver(), values = c("grey20", "grey80"),
+                          guide = NULL) +
         geom_line(data=pred_df2 %>% filter(Type=="Predicted"), 
                   aes(x=!!ensym(length_col), y=proportion, color=Model), lwd=1.2) +
-        facet_wrap(as.formula(paste0(year_col," ~ ."))) + 
-        scale_color_brewer(palette="Set1", direction=-1)
+        scale_color_brewer(palette="Set1", direction=-1) + 
+        facet_wrap(as.formula(paste0(year_col," ~ .")))
       
       #      pg <- plot_LCfits_cf(Inputs=fitLIMEobj$lc_only$Inputs,
       #                        Report=fitLIMEobj$lc_only$Report, plot_type = "counts")
