@@ -15,17 +15,47 @@ server <- function(input, output, session){
   })
   
   
-  observeEvent(input$uploadFile,
-               {updateVarSelectInput(session = getDefaultReactiveDomain(),
-                                     "lengthColSelect",
-                                     data = catchdata_read(),
-                                     selected = ifelse(any(grepl("length", colnames(catchdata_read()), ignore.case = TRUE)),
-                                                       grep("length", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE),
-                                                       NULL))})
+  # freezeReactiveValue https://mastering-shiny.org/action-dynamic.html?q=freeze#freezing-reactive-inputs
+  # This ensures that any reactives or outputs that use the input won’t be updated 
+  # until the next full round of invalidation...
+  # You might wonder when you should use freezeReactiveValue(): it’s actually good 
+  # practice to always use it when you dynamically change an input value. The actual 
+  # modification takes some time to flow to the browser then back to Shiny, and in 
+  # the interim any reads of the value are at best wasted, and at worst lead to errors. 
+  # Use freezeReactiveValue() to tell all downstream calculations that an input value 
+  # is stale and they should save their effort until it’s useful.
   
-  # updates checkboxCatchData
+  # update*Input functions
+  # the input updater functions send a message to the client, telling it to change 
+  # the settings of an input object
+  # the messages are collect and sent after all the observers (including outputs) have
+  # finished running
+  
+  # Put freezeReactiveValue() before update*Input() to prevent reactive expressions depending 
+  # on a reactive value re-evaluating before being updated.?
+  
+  # observer help... will automatically re-execute when those dependencies change
+  #              ... obseervers are only useful for their side effects
+  #              ... reactive expressions use lazy evaluation...wait until they are called by someone else
+  #              ... observers use eager evaluations; as soon as their dependencies change, they 
+  #              ... schedule themselves to re-execute
+  
+  #observeEvent(input$uploadFile,
+  observe(
+    { freezeReactiveValue(input, "lengthColSelect")
+      updateVarSelectInput(session = getDefaultReactiveDomain(),
+                           "lengthColSelect",
+                           data = catchdata_read(),
+                           selected = ifelse(any(grepl("length", colnames(catchdata_read()), ignore.case = TRUE)),
+                                             grep("length", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE),
+                                             NULL))
+      cat(file = stderr(), "after updateVarSelectInput\n")})
+  
+  # updates checkboxCatchData after lengthColSelect changes
   observeEvent(input$lengthColSelect,
-               {
+               { cat(file = stderr(), "before freezeReactiveValue(input, checkboxCatchData)\n")
+                 freezeReactiveValue(input, "checkboxCatchData")
+                 cat(file = stderr(), "after freezeReactiveValue(input, checkboxCatchData)\n")
                  updateCheckboxGroupInput(session = getDefaultReactiveDomain(),
                                           inputId = "checkboxCatchData",
                                           choices = setdiff(colnames(catchdata_read()),
@@ -38,7 +68,11 @@ server <- function(input, output, session){
                  # the observers (including outputs) have finished running
                })
   
-  # debug
+  observe({
+    cat(file=stderr(), "selected length column", input$lengthColSelect, "\n")
+    cat(file=stderr(), "number of rows selected", length(input$catchDataTable_rows_all), "\n")
+  })
+  
   observeEvent(input$selectCols,
                { print(paste0("choose length column"))
                  print(input$lengthColSelect)
@@ -61,16 +95,22 @@ server <- function(input, output, session){
   
   
   # catchdata element for plotting and LBSPR
-  catchdata_table <- eventReactive(
-    input$selectCols,
-    { catchdata <- catchdata_read()[, c(input$checkboxCatchData, paste0(input$lengthColSelect))]
+  catchdata_table <- eventReactive(input$checkboxCatchData,
+    { 
+      req(input$lengthColSelect)
+      cat(file = stderr(), "catchdata_table: new length col", input$lengthColSelect,"\n")
+      checkboxCols <- input$checkboxCatchData
+      cat(file = stderr(), "catchdata_table: first $checkboxCatchData", checkboxCols,"\n")
+      cat(file = stderr(), "catchdata_table: names(catchdata_read())", names(catchdata_read()),"\n")
+      catchdata <- catchdata_read()[, c(checkboxCols, paste0(input$lengthColSelect))]
       charCols <- which(sapply(catchdata, is.character))
       if(!(length(charCols) == 0 & is.integer(charCols))) {
         catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
       } else {
         catchdata <- data.frame(catchdata)
-        names(catchdata) <- c(input$checkboxCatchData, paste0(input$lengthColSelect))
+        names(catchdata) <- c(checkboxCols, paste0(input$lengthColSelect))
       }
+      cat(file = stderr(), "catchdata_table: second $checkboxCatchdata", checkboxCols,"\n")
       catchdata
     }
   )
@@ -87,24 +127,7 @@ server <- function(input, output, session){
       whichSpeciesCol <- grepl("species", input$checkboxCatchData, ignore.case = TRUE)
       
       pg <- ggplot(catchdata_table())
-      # if(any(whichSexCol) & !any(whichGearCol) & !any(whichYearCol)){ # sex
-      #   
-      # } else if(any(whichSexCol) & !any(whichGearCol) & any(whichYearCol)) {  # sex + year
-      #   
-      # } else if(!any(whichSexCol) & !any(whichGearCol) & any(whichYearCol)){ # year
-      #   
-      # } else if(any(whichSexCol) & any(whichGearCol) & !any(whichYearCol)) { # sex + gear
-      #   
-      # } else if(!any(whichSexCol) & any(whichGearCol) & !any(whichYearCol)) { # gear + year
-      #   
-      # } else if(!any(whichSexCol) & any(whichGearCol) & !any(whichYearCol)) { # gear
-      #   
-      # } else if(any(whichSexCol) & any(whichGearCol) & any(whichYearCol)) { # sex + gear + year
-      #   
-      # } else {
-      #   
-      # }
-      
+
       if(!is.null(input$checkboxCatchData)){
       speciesCol <- input$checkboxCatchData[whichSpeciesCol]
       gearCol <- input$checkboxCatchData[whichGearCol]
@@ -259,14 +282,14 @@ server <- function(input, output, session){
     }
   )
   
-  lengthRecordsFilter <- reactive(
-    #   eventReactive(input$convertLengthUnits,
+  lengthRecordsFilter <- reactive(#   eventReactive(input$convertLengthUnits,
     { 
       lengthScale <- lengthRecordsScale()
-      #length_records <- catchdata_table() %>% select(input$lengthColSelect) %>% 
-      #  mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
+      cat(file = stderr(), paste0("number of rows = ", length(input$catchDataTable_rows_all)),"\n")
       length_records <- catchdata_table()[input$catchDataTable_rows_all,,drop = FALSE] %>% #select(input$lengthColSelect) %>% 
         mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
+      cat(file = stderr(), "lengthRecordsFilter\n")
+      length_records
     }
   )
   
@@ -308,7 +331,7 @@ server <- function(input, output, session){
   
   # visualise data ====
   output$lengthComposition <- renderPlotly({
-    # catchdata_plot() <- eventReactive(input$selectCols,...)
+    # catchdata_plot() eventReactive on input$selectCols
     expr = ggplotly(p = catchdata_plot())
   })
   
@@ -344,8 +367,10 @@ server <- function(input, output, session){
 
   gatherFishAgeLengthData <- reactive({
     # lengthRecordsFilter() dependence ***
+    cat(file = stderr(), "gatherFishAgeLengthData\n")
     lengthCol <- newLengthCol()
     sexCol <- grep("sex", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
+    cat(file = stderr(), "gatherFishAgeLengthData lengthCol, sexCol\n")
     if(any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))){
       ageCol <- grep("age", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
       lengthAge <- data.frame(lengthRecordsFilter()[, c(newLengthCol())], 
@@ -446,6 +471,7 @@ server <- function(input, output, session){
   
   # reactive ggplot elements/geoms #### 
   ggGrowth_CurveALData <- reactive({
+    cat(file = stderr(), "ggGrowth_CurveALData\n")
     growthcurve <- createPlotSliderCurveData()
     fishAgeLengthData <- gatherFishAgeLengthData()
     
@@ -483,6 +509,7 @@ server <- function(input, output, session){
   
   # sample from length data for geom_rug
   sampleLengthRecords <- reactive({
+    cat(file = stderr(), "sampleLengthRecords\n")
     fishAgeLengthData <- gatherFishAgeLengthData()
     sample(1:nrow(fishAgeLengthData), 398, replace = FALSE,)
   })
@@ -545,14 +572,14 @@ server <- function(input, output, session){
   # debug observe events
   observeEvent(input$fitGrowth,
                {print(input$checkboxCatchData)
-                 print(growthParChoices())
-                 print("debug observe event - print growthFrequentistFit(), growthFrequentistFitBoot()")
-                 print(growthFrequentistFit())
-                 print(growthFrequentistFitBoot())
-                 print("are ggplots?")
-                 print(is.ggplot(ggGrowthFitMean()))
-                 print(is.ggplot(ggGrowth_CurveALData()))
-                 print(tags$p("(/^weight/).test(input.checkboxCatchData)"))
+                 # print(growthParChoices())
+                 # print("debug observe event - print growthFrequentistFit(), growthFrequentistFitBoot()")
+                 # print(growthFrequentistFit())
+                 # print(growthFrequentistFitBoot())
+                 # print("are ggplots?")
+                 # print(is.ggplot(ggGrowthFitMean()))
+                 # print(is.ggplot(ggGrowth_CurveALData()))
+                 # print(tags$p("(/^weight/).test(input.checkboxCatchData)"))
                  #insertUI(selector = "#sectionGrowthFitSummary",
                 #          where = "beforeBegin",
                 #          ui = actionButton(inputId = "removeFit", label = "Remove fit"))
@@ -662,7 +689,7 @@ server <- function(input, output, session){
     } else if(input$maturityPars == "bhlhi") {
       expr = round(0.66*input$Linf,1)
     } else if(input$maturityPars == "bf2009") {
-      expr = round(exp(-0.1189 + 0.9157*log(max(gatherFishAgeLengthData()[, newLengthCol()]))),1)
+      expr = round(exp(-0.1189 + 0.9157*log(max(isolate(gatherFishAgeLengthData())[, newLengthCol()]))),1)
     }
   })
   
@@ -676,7 +703,7 @@ server <- function(input, output, session){
     } else if(input$natMortality == "twoK") {
       expr = round(0.098 + 1.55*input$kLvb, 3)        
     } else if(input$natMortality == "hoenig") {
-      expr = round(4.899*max(gatherFishAgeLengthData()$age, na.rm = FALSE)^-0.916, 3) 
+      expr = round(4.899*max(isolate(gatherFishAgeLengthData())$age, na.rm = FALSE)^-0.916, 3) 
     }
   })
   
@@ -1133,7 +1160,7 @@ server <- function(input, output, session){
     }
 
     # length_col (+ optional year_col): exclude NAs
-    length_records <- na.omit(length_records[, c(year_col,length_col)])
+    length_records <- na.omit(length_records[, c(year_col,length_col), drop = FALSE])
     
     # vulnerable to fishery 
     isVulnerable <- (lengthMids >= input$MLL)
@@ -1141,6 +1168,7 @@ server <- function(input, output, session){
     # bin length data
     if(length(year_col)==0L | input$lengthBasedAssessmentMethod == "LB-SPR"){
       print("length_records")
+      print(dim(length_records))
       print(is.numeric(length_records[, length_col]))
       LF <- hist(length_records[, length_col], plot = FALSE, breaks = lengthBins, right = FALSE)
       print(LF)
@@ -1187,7 +1215,8 @@ server <- function(input, output, session){
   
   # btnTechnicalStockPars 
   observeEvent(input$btnTechnicalStockPars,
-               {length_records <- lengthRecordsFilter()[, newLengthCol()]
+               { cat(file = stderr(), "input$btnTechnicalStockPars\n")
+                 length_records <- lengthRecordsFilter()[, newLengthCol()]
                  print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])
                })
   
