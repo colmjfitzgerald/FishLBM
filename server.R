@@ -119,20 +119,29 @@ server <- function(input, output, session){
   # catchdata_plot
   catchdata_plot <- eventReactive(
     input$selectCols,
-    { 
-      # identify columns for grid plotting
-      whichSexCol <- grepl("sex", input$checkboxCatchData, ignore.case = TRUE)
-      whichGearCol <- grepl("gear|method", input$checkboxCatchData, ignore.case = TRUE)
-      whichYearCol <- grepl("year", input$checkboxCatchData, ignore.case = TRUE)
-      whichSpeciesCol <- grepl("species", input$checkboxCatchData, ignore.case = TRUE)
+    { # reactive "sources" and "conductors"
+      #reactive({
+      #freezeReactiveValue(input$uploadFile)
+      #catchDataCols <- isolate(input$checkboxCatchData)
+      #lengthCol <- isolate(input$lengthColSelect)
+      req(input$selectCols)
+      lengthCol <- input$lengthColSelect
+      catchDataCols <- input$checkboxCatchData
+      ggdata <- catchdata_table() # eventReactive(input$checkboxCatchData,...)
       
-      pg <- ggplot(catchdata_table())
+      # identify columns for grid plotting
+      whichSexCol <- grepl("sex", catchDataCols, ignore.case = TRUE)
+      whichGearCol <- grepl("gear|method", catchDataCols, ignore.case = TRUE)
+      whichYearCol <- grepl("year", catchDataCols, ignore.case = TRUE)
+      whichSpeciesCol <- grepl("species", catchDataCols, ignore.case = TRUE)
+      
+      pg <- ggplot(ggdata)
 
-      if(!is.null(input$checkboxCatchData)){
-      speciesCol <- input$checkboxCatchData[whichSpeciesCol]
-      gearCol <- input$checkboxCatchData[whichGearCol]
-      yearCol <- input$checkboxCatchData[whichYearCol]
-      sexCol <- input$checkboxCatchData[whichSexCol]
+      if(!is.null(catchDataCols)){
+      speciesCol <- catchDataCols[whichSpeciesCol]
+      gearCol <- catchDataCols[whichGearCol]
+      yearCol <- catchDataCols[whichYearCol]
+      sexCol <- catchDataCols[whichSexCol]
       # facet by species (rows) if multispecies
       if(any(whichSpeciesCol)){
         # years as col, sex as colours
@@ -140,15 +149,15 @@ server <- function(input, output, session){
           # if gear and sex, use sex as colour category
           if(any(whichSexCol)){
             pg <- pg + 
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40)
           } else if (any(whichGearCol)){
             pg <- pg + 
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(gearCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(gearCol)),
                              closed = "left", boundary = 0, bins = 40)
           } else {
             pg <- pg + 
-              geom_histogram(aes_(x = input$lengthColSelect),
+              geom_histogram(aes_(x = lengthCol),
                              closed = "left", boundary = 0, bins = 40)
           }
           if(length(unique(catchdata_table()[, speciesCol])) <= 
@@ -164,24 +173,24 @@ server <- function(input, output, session){
         } else if(any(whichGearCol)){
           if(any(whichSexCol)){
             pg <- pg + 
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40)
           } else {
             pg <- pg + 
-              geom_histogram(aes_(x = input$lengthColSelect),
+              geom_histogram(aes_(x = lengthCol),
                              closed = "left", boundary = 0, bins = 40)
           }
           pg <- pg + facet_grid(rows = as.formula(paste0(speciesCol, " ~ ", gearCol)), scales = "free")
         } else if (any(whichSexCol)) {
           # species and sex 
           pg <- pg + 
-            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)), closed = "left", boundary = 0, bins = 40) + 
+            geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)), closed = "left", boundary = 0, bins = 40) + 
             facet_grid(rows = ensym(speciesCol), scales = "free")
           
         } else{
           # species only
           pg <- pg + 
-            geom_histogram(aes_(x = input$lengthColSelect), closed = "left", boundary = 0, bins = 40) + 
+            geom_histogram(aes_(x = lengthCol), closed = "left", boundary = 0, bins = 40) + 
             facet_grid(rows = ensym(speciesCol), scales = "free")
         }
       } else {
@@ -189,21 +198,21 @@ server <- function(input, output, session){
         if(any(whichSexCol)){ 
           if(!any(whichGearCol) & !any(whichYearCol)){
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40)
           } else if(any(whichGearCol) & !any(whichYearCol)) {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(gearCol), scales = "free")
           } else if(!any(whichGearCol) & any(whichYearCol)) {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(yearCol),  scales = "free")
           } else {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
           }
@@ -211,21 +220,21 @@ server <- function(input, output, session){
           # no species or sex
           if(!any(whichGearCol) & !any(whichYearCol)){
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+              geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40)
           } else if(any(whichGearCol) & !any(whichYearCol)) {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+              geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(gearCol), scales = "free")
           } else if(!any(whichGearCol) & any(whichYearCol)) {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+              geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(yearCol), scales = "free")
           } else {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+              geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = as.formula(paste0(yearCol, " ~ ", gearCol)), scales = "free")
           }
@@ -233,7 +242,7 @@ server <- function(input, output, session){
         
       }
       } else {
-        pg <- pg + geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+        pg <- pg + geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40)
       }
       pg + theme_bw() + theme(strip.text.x = element_text(margin = margin(0.125,0.25,0.25,0.25, "cm")))
@@ -369,21 +378,23 @@ server <- function(input, output, session){
     # lengthRecordsFilter() dependence ***
     cat(file = stderr(), "gatherFishAgeLengthData\n")
     lengthCol <- newLengthCol()
-    sexCol <- grep("sex", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
+    filteredLengthRecords <- lengthRecordsFilter()
+    checkboxCatchCols <- input$checkboxCatchData
+    sexCol <- grep("sex", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
     cat(file = stderr(), "gatherFishAgeLengthData lengthCol, sexCol\n")
-    if(any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))){
-      ageCol <- grep("age", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
-      lengthAge <- data.frame(lengthRecordsFilter()[, c(newLengthCol())], 
-                              lengthRecordsFilter()[, ageCol],
-                              lengthRecordsFilter()[, sexCol])
-      colnames(lengthAge) <- c(newLengthCol(), ageCol, sexCol)
-      lengthAgeData <- lengthAge[!is.na(lengthAge[, ageCol]) & !is.na(lengthAge[, newLengthCol()]),]
+    if(any(grepl("age", checkboxCatchCols, ignore.case = TRUE))){
+      ageCol <- grep("age", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
+      lengthAge <- data.frame(filteredLengthRecords[, c(lengthCol)], 
+                              filteredLengthRecords[, ageCol],
+                              filteredLengthRecords[, sexCol])
+      colnames(lengthAge) <- c(lengthCol, ageCol, sexCol)
+      lengthAgeData <- lengthAge[!is.na(lengthAge[, ageCol]) & !is.na(lengthAge[, lengthCol]),]
     } else {
-      lengthAgeData <- data.frame(lengthRecordsFilter()[, c(newLengthCol())], 
+      lengthAgeData <- data.frame(filteredLengthRecords[, c(lengthCol)], 
                                   age = NA,
-                                  sex = lengthRecordsFilter()[, sexCol])
-      colnames(lengthAgeData) <- c(newLengthCol(), "age", sexCol)
-      lengthAgeData <- lengthAgeData[!is.na(lengthAgeData[, newLengthCol()]),]
+                                  sex = filteredLengthRecords[, sexCol])
+      colnames(lengthAgeData) <- c(lengthCol, "age", sexCol)
+      lengthAgeData <- lengthAgeData[!is.na(lengthAgeData[, lengthCol]),]
     }
     lengthAgeData
   })
@@ -474,6 +485,7 @@ server <- function(input, output, session){
     cat(file = stderr(), "ggGrowth_CurveALData\n")
     growthcurve <- createPlotSliderCurveData()
     fishAgeLengthData <- gatherFishAgeLengthData()
+    lengthCol <- newLengthCol()
     
     p <- ggplot()
     p <- p +
@@ -484,8 +496,8 @@ server <- function(input, output, session){
     if(all(is.na(fishAgeLengthData[, "age"]))){
       if(nrow(fishAgeLengthData) > 400){
         fishAgeLengthDataSubSample <- 
-          rbind(fishAgeLengthData[fishAgeLengthData[ ,newLengthCol()] == min(fishAgeLengthData[ , newLengthCol()]),],
-            fishAgeLengthData[fishAgeLengthData[ ,newLengthCol()] == max(fishAgeLengthData[ , newLengthCol()]),],
+          rbind(fishAgeLengthData[fishAgeLengthData[ ,lengthCol] == min(fishAgeLengthData[ , lengthCol]),],
+            fishAgeLengthData[fishAgeLengthData[ ,lengthCol] == max(fishAgeLengthData[ , lengthCol]),],
             fishAgeLengthData[sampleLengthRecords(),])  
       } else {
         fishAgeLengthDataSubSample <- fishAgeLengthData
@@ -496,11 +508,11 @@ server <- function(input, output, session){
     } else {
       if("sex" %in% colnames(fishAgeLengthData)){
         p <- p + 
-          geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(newLengthCol()), 
+          geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(lengthCol), 
                                                              colour = sex), alpha = 0.5)
       } else {
         p <- p + 
-          geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(newLengthCol())), 
+          geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(lengthCol)), 
                      alpha = 0.5)
       }
     }
