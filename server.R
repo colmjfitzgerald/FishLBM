@@ -1178,12 +1178,32 @@ server <- function(input, output, session){
     isVulnerable <- (lengthMids >= input$MLL)
     
     # bin length data
-    if(length(year_col)==0L | input$lengthBasedAssessmentMethod == "LB-SPR"){
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       print("length_records")
       print(dim(length_records))
       print(is.numeric(length_records[, length_col]))
-      LF <- hist(length_records[, length_col], plot = FALSE, breaks = lengthBins, right = FALSE)
-      print(LF)
+      if(input$visualiseLengthComposition == 
+         paste0("each ", grep("year", colnames(length_records), ignore.case = TRUE, value = TRUE))) {
+        # "each year" only an option if year column present (length(year_col)>0)
+        length_records_by_year <- length_records[, c(year_col, length_col)] %>% na.omit() %>%
+          mutate(lengthBin = cut(!!ensym(length_col), breaks = lengthBins, 
+                                 right = FALSE),
+                 year = factor(!!ensym(year_col)))  %>% # lengthMids??
+          group_by(year, lengthBin) %>%
+          summarise(nFish = n())
+        LF <- xtabs(formula = nFish ~ year + lengthBin, data = length_records_by_year)
+        colnames(LF) <- as.character(lengthBins)[-1]
+        LFVul <- LF*outer(rep.int(1, nrow(LF)), isVulnerable)
+      } else if(input$visualiseLengthComposition == "all"){
+        # aggregate all years - see fitGTGLBSPR for how this approach is incorporated in the assessment 
+        # could also be implemented in this reactive and propagated??
+        LFhist <- hist(length_records[, length_col], plot = FALSE, breaks = lengthBins, right = FALSE)
+        LF <- matrix(LFhist$counts, nrow = 1, ncol = length(LFhist$counts), 
+                     dimnames = list("all", as.character(lengthBins)[-1]))
+        LFVul <- matrix(LFhist$counts*outer(rep.int(1, length(LFhist$counts)), isVulnerable), 
+                        nrow = 1, ncol = length(LFhist$counts), 
+                        dimnames = list("all", as.character(lengthBins)[-1]))
+      }
     } else {
       length_records_by_year <- length_records[, c(year_col, length_col)] %>% na.omit() %>%
         mutate(lengthBin = cut(!!ensym(length_col), breaks = lengthBins, 
@@ -1201,8 +1221,8 @@ server <- function(input, output, session){
     # binned counts
     list_out <- NULL
     if((input$lengthBasedAssessmentMethod == "LB-SPR")){
-      list_out <- list(LenDat = LF$counts,
-                    LenDatVul = LF$counts*isVulnerable)
+      list_out <- list(LenDat = LF,
+                    LenDatVul = LFVul)
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
       list_out <- list(LenDat = LFYear,
                     LenDatVul = LFVulYear)      
@@ -1355,13 +1375,22 @@ server <- function(input, output, session){
       LenMids <- createLengthBins()$LenMids
       LenDat <- binLengthData()$LenDat
       LenDatVul <- binLengthData()$LenDatVul
+      years <- rownames(LenDatVul)
       
+      NatL_LBSPR <- NULL
+      estModelFit <- NULL
+      nlminbOut <- vector("list", length = length(years))
+      
+      for (yearLBSPR in years){
 
+      LenDatIn <- LenDatVul[which(rownames(LenDatVul) == yearLBSPR),]  
+      
       # GTG-LBSPR optimisation
-      optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatVul, SizeBins, "GTG")#, input$selectSelectivityCurve)
+      optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")#, input$selectSelectivityCurve)
       # optGTG$Ests
       # optGTG$PredLen
-      # optGTG$nlminbOut
+      nlminbOut[[which(years == yearLBSPR)]] <- optGTG$nlminbOut
+      names(nlminbOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
 
       if(input$specifySelectivity == "Specify (user)"){
         optFleetPars <- list(FM = optGTG$Ests["FM"],
@@ -1399,33 +1428,46 @@ server <- function(input, output, session){
       }
       
       # numbers-at-length (midpoints) LBSPR
-      NatL_LBSPR <- data.frame(length_mid = prGTG$LenMids,
-                               catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
-                               catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
-                               selectivityF_at_length = VulLen2,
-                               popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
-                               popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished)) #standardised??
+      NatL_LBSPR <- rbind(NatL_LBSPR,
+                      data.frame(year = yearLBSPR,
+                                 length_mid = prGTG$LenMids,
+                                 catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
+                                 catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
+                                 selectivityF_at_length = VulLen2,
+                                 popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
+                                 popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished) #standardised??
+                      ))
       
-
-      estModelFit <- data.frame(Parameter = c("FM", "SL50", "SL95", "SPR"),
-                                Description = c("F/M: relative fishing mortality",
-                                                "Length at 50% selectivity",
-                                                "Length at 95% selectivity",
-                                                "Spawning Potential Ratio"),
-                                Estimate = c(unname(optFleetPars$FM), 
-                                             unname(optFleetPars$SL1), 
-                                             unname(optFleetPars$SL2),
-                                             prGTG$SPR))
+      print(data.frame(FM = unname(optFleetPars$FM), 
+                       SL50 = unname(optFleetPars$SL1), 
+                       SL95 = unname(optFleetPars$SL2),
+                       SPR = prGTG$SPR))
+      estModelFit <- rbind(estModelFit,
+                       data.frame(FM = unname(optFleetPars$FM), 
+                                  SL50 = unname(optFleetPars$SL1), 
+                                  SL95 = unname(optFleetPars$SL2),
+                                  SPR = prGTG$SPR, 
+                                  row.names = yearLBSPR)
+      )
+      # Parameter = c("FM", "SL50", "SL95", "SPR"),
+      # Description = c("F/M: relative fishing mortality",
+      #                 "Length at 50% selectivity",
+      #                 "Length at 95% selectivity",
+      #                 "Spawning Potential Ratio"),
+      
       #        opModelOut <- data.frame(Parameter = c("SPR", "YPR"),
       #                                 Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
-      #                                 Estimate = c(prGTG$SPR, prGTG$YPR))      
+      #                                 Estimate = c(prGTG$SPR, prGTG$YPR))
+      }
       if(input$specifySelectivity == "Specify (user)"){
-        estModelFit$Source <- c("Model fit", "User-specified", "User-specified", "Model")
+        #estModelFit$Source <- c("Model fit", "User-specified", "User-specified", "Model")
+        names(estModelFit)[names(estModelFit) == "SL50"] <- "SL50 (fixed)"  
+        names(estModelFit)[names(estModelFit) == "SL95"] <- "SL95 (fixed)"  
       }
       
       list(NatL_LBSPR = NatL_LBSPR,
            estModelFit = estModelFit,
-           nlminbOut = optGTG$nlminbOut
+           nlminbOut = nlminbOut
            #opModelOut = opModelOut
            )
     }
@@ -1580,8 +1622,10 @@ server <- function(input, output, session){
   # print text on LBSPR estimating model fit 
   output$tableLBAEstimates <- reactive(
     {
+      
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      fitGTGLBSPR()$estModelFit %>%
+      estModelFitLBSPR <- fitGTGLBSPR()$estModelFit
+      estModelFitLBSPR %>%
         knitr::kable("html", digits = 3) %>%
         kable_styling("striped", full_width = F, position = "float_left")
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
@@ -1606,29 +1650,35 @@ server <- function(input, output, session){
     # length data
     length_records <- lengthRecordsFilter()
     length_col <- newLengthCol()
-    length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
+    length_records$isVulnerable <- length_records[,length_col] >= input$MLL
+    year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+    
+    # is year column present?
+    if(is.null(year_col) | input$visualiseLengthComposition == "all"){
+      length_records <- length_records %>%
+        select(!!ensym(length_col), isVulnerable) %>%
+        mutate(year = "all")
+    } else {
+      #rename as year or facetting
+      names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)] <- "year"
+    }
     
     LenBins <- createLengthBins()$LenBins
     LenMids <- createLengthBins()$LenMids	
-    
     LenDat <- binLengthData()$LenDatVul # vulnerable to fishery only
-    # maxLenDat <- max(LenDat)
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
-      
-      # pivot_longer
-      NatL_long <- NatL_LBSPR %>%
-        pivot_longer(cols = ends_with("at_length"),
-                     names_to = "quantity",
-                     names_pattern = "(.*)_at_length",
-                     values_to = "numbers-per-recruit")
-      
+      maxLengthYearVector <- apply(LenDat, 1, "max")
+      maxLengthYear <- rep(maxLengthYearVector, each = dim(LenDat)[2])
+      NatL_LBSPR$catchFished_at_length_count <- NatL_LBSPR$catchFished_at_length*maxLengthYear
+      NatL_LBSPR$selectivityF_at_length_count <- NatL_LBSPR$selectivityF_at_length*maxLengthYear
       
       if(input$specifySelectivity == "Specify (user)"){
         titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (specified)"
       } else if (input$specifySelectivity == "Estimate (model fit)") {
         titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (estimated)"
       }
+      
       
       # create ggplot with data...
       pg <- ggplot(length_records %>% filter(isVulnerable) ) + 
@@ -1638,10 +1688,10 @@ server <- function(input, output, session){
       # ...and fit
       pg <- pg + 
         geom_area(data = NatL_LBSPR,
-                  mapping = aes(x = length_mid, y = max(LenDat)*catchFished_at_length), 
+                  mapping = aes(x = length_mid, y = catchFished_at_length_count), 
                   fill = "salmon", alpha = 0.5) +
         geom_line(data = NatL_LBSPR,
-                  mapping = aes(x = length_mid, y = max(LenDat)*selectivityF_at_length), 
+                  mapping = aes(x = length_mid, y = selectivityF_at_length_count), 
                   colour = "red", lwd = 1) + 
         labs(title = titleFitPlot,
              caption = paste("Data from", input$uploadFile[[1]], sep = " "))#+ 
@@ -1652,6 +1702,7 @@ server <- function(input, output, session){
       
       expr = ggplotly(pg +  
                         scale_x_continuous(name = length_col) +
+                        facet_wrap(vars(year)) + 
                         theme_bw())
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
       fitLIMEobj <- fitLIME()
@@ -1753,6 +1804,8 @@ server <- function(input, output, session){
                             )
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       lbsprFit <- fitGTGLBSPR()$estModelFit
+      print("lbsprFit")
+      print(str(lbsprFit))
       lbsprStockInput <- setLHPars()
       lbsprGearInput <- setFleetPars()
       FM <- lbsprFit[lbsprFit$Parameter == "FM",]$Estimate
