@@ -382,10 +382,10 @@ body <-   mainPanel(
                                                          value = 0.0,
                                                          min = 0.0),
                                             div(id = "aboveVisualiseRadioButtons", hr()),
-                                            radioButtons(inputId = "visualiseLengthComposition",
-                                                         label = "Assess...",
-                                                         choices = c("all"), #, "by year"),
-                                                         selected = "all"
+                                            radioButtons(inputId = "analyseLengthComposition",
+                                                         label = "Assessment - temporal basis",
+                                                         choices = c("all periods"), #, "by year"),
+                                                         selected = "all periods"
                                             )
                                             #uiOutput(outputId = "btnPlotLengthComposition")
                                      ),
@@ -398,7 +398,7 @@ body <-   mainPanel(
                                  ),
                                  div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
                                  fluidRow(
-                                   actionButton("fitLBA", "Assess stock", icon = icon("chart-line"),
+                                   actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
                                                 class = "btn-success"),
                                  )
                         ),

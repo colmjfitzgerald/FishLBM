@@ -1182,8 +1182,7 @@ server <- function(input, output, session){
       print("length_records")
       print(dim(length_records))
       print(is.numeric(length_records[, length_col]))
-      if(input$visualiseLengthComposition == 
-         paste0("each ", grep("year", colnames(length_records), ignore.case = TRUE, value = TRUE))) {
+      if(input$analyseLengthComposition == "annual") {
         # "each year" only an option if year column present (length(year_col)>0)
         length_records_by_year <- length_records[, c(year_col, length_col)] %>% na.omit() %>%
           mutate(lengthBin = cut(!!ensym(length_col), breaks = lengthBins, 
@@ -1194,7 +1193,7 @@ server <- function(input, output, session){
         LF <- xtabs(formula = nFish ~ year + lengthBin, data = length_records_by_year)
         colnames(LF) <- as.character(lengthBins)[-1]
         LFVul <- LF*outer(rep.int(1, nrow(LF)), isVulnerable)
-      } else if(input$visualiseLengthComposition == "all"){
+      } else if(input$analyseLengthComposition == "all periods"){
         # aggregate all years - see fitGTGLBSPR for how this approach is incorporated in the assessment 
         # could also be implemented in this reactive and propagated??
         LFhist <- hist(length_records[, length_col], plot = FALSE, breaks = lengthBins, right = FALSE)
@@ -1268,7 +1267,7 @@ server <- function(input, output, session){
   #                }
   #              }
   #              
-  #              updateRadioButtons(inputId = "visualiseLengthComposition",
+  #              updateRadioButtons(inputId = "analyseLengthComposition",
   #                                 label = "Visualise...",
   #                                 choices = rbChoices) 
   #              #, selected = "in aggregate")
@@ -1276,28 +1275,30 @@ server <- function(input, output, session){
   collateLengthChoice <- reactive({
     lengthRecordAttributes <- input$checkboxCatchData
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      collationChoice <- "all"
+      collationChoice <- "all periods"
       if(any(grepl("year", lengthRecordAttributes, ignore.case = TRUE))){
-        collationChoice <- c(collationChoice, 
-                             paste0("each ", grep("year", lengthRecordAttributes, ignore.case = TRUE, value = TRUE)))
+        collationChoice <- c(collationChoice, "annual")
       } 
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
       if(any(grepl("year", lengthRecordAttributes, ignore.case = TRUE))){
-        collationChoice <- paste0("each ", grep("year", lengthRecordAttributes, ignore.case = TRUE, value = TRUE))
+        collationChoice <- "annual"
       } else {
-        collationChoice <- "all"
+        collationChoice <- "all periods"
       }
     }
     collationChoice
   })
   
   observe({ 
-    updateRadioButtons(inputId = "visualiseLengthComposition",
-                       label = "Assess...",
+    updateRadioButtons(inputId = "analyseLengthComposition",
+                       label = "Assessment - temporal basis",
                        choices = collateLengthChoice())#, selected = defaultChoice)
   })
   
-  
+  observe({  
+    updateActionButton(inputId = "fitLBA",
+                        label = paste0("Apply ", input$lengthBasedAssessmentMethod))
+  })
   
   
   # plot length composition of filtered data - change with slider input
@@ -1322,11 +1323,9 @@ server <- function(input, output, session){
           theme_bw() + 
           theme(legend.position = "bottom")
       }
-      print("visualiseLengthComposition")
-      print(input$visualiseLengthComposition)
-      if(input$visualiseLengthComposition == 
-         paste0("each ", grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE, value = TRUE))
-         ){ # was observeEvent or eventReactive 
+      print("analyseLengthComposition")
+      print(input$analyseLengthComposition)
+      if(input$analyseLengthComposition == "annual"){ # was observeEvent or eventReactive 
         print(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
                           value = TRUE)," ~ ."))
         ggLengthComp <- ggLengthComp + 
@@ -1461,8 +1460,13 @@ server <- function(input, output, session){
       }
       if(input$specifySelectivity == "Specify (user)"){
         #estModelFit$Source <- c("Model fit", "User-specified", "User-specified", "Model")
-        names(estModelFit)[names(estModelFit) == "SL50"] <- "SL50 (fixed)"  
-        names(estModelFit)[names(estModelFit) == "SL95"] <- "SL95 (fixed)"  
+        if(input$selectSelectivityCurve == "Logistic"){
+          names(estModelFit)[names(estModelFit) == "SL50"] <- "SL50 (fixed)"
+          names(estModelFit)[names(estModelFit) == "SL95"] <- "SL95 (fixed)"
+        } else if(input$selectSelectivityCurve == "Dome-shaped"){
+          names(estModelFit)[names(estModelFit) == "SL50"] <- "SL1"
+          names(estModelFit)[names(estModelFit) == "SL95"] <- "SL2"
+        }
       }
       
       list(NatL_LBSPR = NatL_LBSPR,
@@ -1526,7 +1530,7 @@ server <- function(input, output, session){
                            nseasons=input$nseasons,
                            nfleets=1 # fleetParVals$nfleets
                            )
-      
+      print(lh)
       
       # length records
       length_records <- isolate(lengthRecordsFilter())
@@ -1654,10 +1658,10 @@ server <- function(input, output, session){
     year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
     
     # is year column present?
-    if(is.null(year_col) | input$visualiseLengthComposition == "all"){
+    if(is.null(year_col) | input$analyseLengthComposition == "all periods"){
       length_records <- length_records %>%
         select(!!ensym(length_col), isVulnerable) %>%
-        mutate(year = "all")
+        mutate(year = "all periods")
     } else {
       #rename as year or facetting
       names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)] <- "year"
@@ -1799,24 +1803,30 @@ server <- function(input, output, session){
                                             "Asymptotic length", "LVB growth constant", 
                                             "Length-at-50%-maturity", "Length-at-95%-maturity", 
                                             "Selectivity-at-length curve", "Selectivity-at-length parameter 1", "Selectivity-at-length parameter 2", 
-                                            "Minimum length limit", "Spawning potential ratio"),
-                            Estimate = NA
+                                            "Minimum length limit", "Spawning potential ratio")
                             )
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       lbsprFit <- fitGTGLBSPR()$estModelFit
-      print("lbsprFit")
-      print(str(lbsprFit))
       lbsprStockInput <- setLHPars()
       lbsprGearInput <- setFleetPars()
-      FM <- lbsprFit[lbsprFit$Parameter == "FM",]$Estimate
+      years <- row.names(lbsprFit)
       M <- lbsprStockInput$M
-      tableData$Estimate <- c(M, M*FM, M*(1 + FM), 
-                              lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
-                              lbsprGearInput$selexCurve,
-                              ifelse(is.null(lbsprGearInput$SL1), lbsprFit$Estimate[lbsprFit$Parameter=="SL50"], lbsprGearInput$SL1),
-                              ifelse(is.null(lbsprGearInput$SL2), lbsprFit$Estimate[lbsprFit$Parameter=="SL95"], lbsprGearInput$SL2),
-                              ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
-                              lbsprFit[lbsprFit$Parameter == "SPR",]$Estimate)
+      FM <- lbsprFit$FM
+      SL1 <- format(lbsprFit[,2], digits = 3)
+      SL2 <- format(lbsprFit[,3], digits = 3)
+      SPR <- format(lbsprFit$SPR, digits = 3)
+      for (iyear in seq_along(years)){
+        tableData[,paste0(years[iyear])] <- 
+          c(M, 
+            format(M*FM[iyear], digits =3), 
+            format(M*(1 + FM[iyear]), digits = 3), 
+            lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
+            lbsprGearInput$selexCurve,
+            ifelse(is.null(lbsprGearInput$SL1), SL1[iyear], lbsprGearInput$SL1),
+            ifelse(is.null(lbsprGearInput$SL2), SL2[iyear], lbsprGearInput$SL2),
+            ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
+            SPR[iyear])
+      }
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
       lime_data <- fitLIME()$lc_only
       print("lime_data$input$selex_type")
@@ -1835,7 +1845,8 @@ server <- function(input, output, session){
       pack_rows("Mortality", 1, 3) %>%
       pack_rows("Growth", 4, 5) %>%
       pack_rows("Maturity", 6, 7) %>%
-      pack_rows("Status", 8, 12)
+      pack_rows("Selectivity", 8, 11) %>% 
+      pack_rows("Status", 12, 12)
   })
   
   
