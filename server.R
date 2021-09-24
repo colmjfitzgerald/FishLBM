@@ -15,17 +15,47 @@ server <- function(input, output, session){
   })
   
   
-  observeEvent(input$uploadFile,
-               {updateVarSelectInput(session = getDefaultReactiveDomain(),
-                                     "lengthColSelect",
-                                     data = catchdata_read(),
-                                     selected = ifelse(any(grepl("length", colnames(catchdata_read()), ignore.case = TRUE)),
-                                                       grep("length", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE),
-                                                       NULL))})
+  # freezeReactiveValue https://mastering-shiny.org/action-dynamic.html?q=freeze#freezing-reactive-inputs
+  # This ensures that any reactives or outputs that use the input won’t be updated 
+  # until the next full round of invalidation...
+  # You might wonder when you should use freezeReactiveValue(): it’s actually good 
+  # practice to always use it when you dynamically change an input value. The actual 
+  # modification takes some time to flow to the browser then back to Shiny, and in 
+  # the interim any reads of the value are at best wasted, and at worst lead to errors. 
+  # Use freezeReactiveValue() to tell all downstream calculations that an input value 
+  # is stale and they should save their effort until it’s useful.
   
-  # updates checkboxCatchData
+  # update*Input functions
+  # the input updater functions send a message to the client, telling it to change 
+  # the settings of an input object
+  # the messages are collect and sent after all the observers (including outputs) have
+  # finished running
+  
+  # Put freezeReactiveValue() before update*Input() to prevent reactive expressions depending 
+  # on a reactive value re-evaluating before being updated.?
+  
+  # observer help... will automatically re-execute when those dependencies change
+  #              ... obseervers are only useful for their side effects
+  #              ... reactive expressions use lazy evaluation...wait until they are called by someone else
+  #              ... observers use eager evaluations; as soon as their dependencies change, they 
+  #              ... schedule themselves to re-execute
+  
+  #observeEvent(input$uploadFile,
+  observe(
+    { freezeReactiveValue(input, "lengthColSelect")
+      updateVarSelectInput(session = getDefaultReactiveDomain(),
+                           "lengthColSelect",
+                           data = catchdata_read(),
+                           selected = ifelse(any(grepl("length", colnames(catchdata_read()), ignore.case = TRUE)),
+                                             grep("length", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE),
+                                             NULL))
+      cat(file = stderr(), "after updateVarSelectInput\n")})
+  
+  # updates checkboxCatchData after lengthColSelect changes
   observeEvent(input$lengthColSelect,
-               {
+               { cat(file = stderr(), "before freezeReactiveValue(input, checkboxCatchData)\n")
+                 freezeReactiveValue(input, "checkboxCatchData")
+                 cat(file = stderr(), "after freezeReactiveValue(input, checkboxCatchData)\n")
                  updateCheckboxGroupInput(session = getDefaultReactiveDomain(),
                                           inputId = "checkboxCatchData",
                                           choices = setdiff(colnames(catchdata_read()),
@@ -38,7 +68,11 @@ server <- function(input, output, session){
                  # the observers (including outputs) have finished running
                })
   
-  # debug
+  observe({
+    cat(file=stderr(), "selected length column", input$lengthColSelect, "\n")
+    cat(file=stderr(), "number of rows selected", length(input$catchDataTable_rows_all), "\n")
+  })
+  
   observeEvent(input$selectCols,
                { print(paste0("choose length column"))
                  print(input$lengthColSelect)
@@ -61,16 +95,22 @@ server <- function(input, output, session){
   
   
   # catchdata element for plotting and LBSPR
-  catchdata_table <- eventReactive(
-    input$selectCols,
-    { catchdata <- catchdata_read()[, c(input$checkboxCatchData, paste0(input$lengthColSelect))]
+  catchdata_table <- eventReactive(input$checkboxCatchData,
+    { 
+      req(input$lengthColSelect)
+      cat(file = stderr(), "catchdata_table: new length col", input$lengthColSelect,"\n")
+      checkboxCols <- input$checkboxCatchData
+      cat(file = stderr(), "catchdata_table: first $checkboxCatchData", checkboxCols,"\n")
+      cat(file = stderr(), "catchdata_table: names(catchdata_read())", names(catchdata_read()),"\n")
+      catchdata <- catchdata_read()[, c(checkboxCols, paste0(input$lengthColSelect))]
       charCols <- which(sapply(catchdata, is.character))
       if(!(length(charCols) == 0 & is.integer(charCols))) {
         catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
       } else {
         catchdata <- data.frame(catchdata)
-        names(catchdata) <- c(input$checkboxCatchData, paste0(input$lengthColSelect))
+        names(catchdata) <- c(checkboxCols, paste0(input$lengthColSelect))
       }
+      cat(file = stderr(), "catchdata_table: second $checkboxCatchdata", checkboxCols,"\n")
       catchdata
     }
   )
@@ -79,37 +119,29 @@ server <- function(input, output, session){
   # catchdata_plot
   catchdata_plot <- eventReactive(
     input$selectCols,
-    { 
+    { # reactive "sources" and "conductors"
+      #reactive({
+      #freezeReactiveValue(input$uploadFile)
+      #catchDataCols <- isolate(input$checkboxCatchData)
+      #lengthCol <- isolate(input$lengthColSelect)
+      req(input$selectCols)
+      lengthCol <- input$lengthColSelect
+      catchDataCols <- input$checkboxCatchData
+      ggdata <- catchdata_table() # eventReactive(input$checkboxCatchData,...)
+      
       # identify columns for grid plotting
-      whichSexCol <- grepl("sex", input$checkboxCatchData, ignore.case = TRUE)
-      whichGearCol <- grepl("gear|method", input$checkboxCatchData, ignore.case = TRUE)
-      whichYearCol <- grepl("year", input$checkboxCatchData, ignore.case = TRUE)
-      whichSpeciesCol <- grepl("species", input$checkboxCatchData, ignore.case = TRUE)
+      whichSexCol <- grepl("sex", catchDataCols, ignore.case = TRUE)
+      whichGearCol <- grepl("gear|method", catchDataCols, ignore.case = TRUE)
+      whichYearCol <- grepl("year", catchDataCols, ignore.case = TRUE)
+      whichSpeciesCol <- grepl("species", catchDataCols, ignore.case = TRUE)
       
-      pg <- ggplot(catchdata_table())
-      # if(any(whichSexCol) & !any(whichGearCol) & !any(whichYearCol)){ # sex
-      #   
-      # } else if(any(whichSexCol) & !any(whichGearCol) & any(whichYearCol)) {  # sex + year
-      #   
-      # } else if(!any(whichSexCol) & !any(whichGearCol) & any(whichYearCol)){ # year
-      #   
-      # } else if(any(whichSexCol) & any(whichGearCol) & !any(whichYearCol)) { # sex + gear
-      #   
-      # } else if(!any(whichSexCol) & any(whichGearCol) & !any(whichYearCol)) { # gear + year
-      #   
-      # } else if(!any(whichSexCol) & any(whichGearCol) & !any(whichYearCol)) { # gear
-      #   
-      # } else if(any(whichSexCol) & any(whichGearCol) & any(whichYearCol)) { # sex + gear + year
-      #   
-      # } else {
-      #   
-      # }
-      
-      if(!is.null(input$checkboxCatchData)){
-      speciesCol <- input$checkboxCatchData[whichSpeciesCol]
-      gearCol <- input$checkboxCatchData[whichGearCol]
-      yearCol <- input$checkboxCatchData[whichYearCol]
-      sexCol <- input$checkboxCatchData[whichSexCol]
+      pg <- ggplot(ggdata)
+
+      if(!is.null(catchDataCols)){
+      speciesCol <- catchDataCols[whichSpeciesCol]
+      gearCol <- catchDataCols[whichGearCol]
+      yearCol <- catchDataCols[whichYearCol]
+      sexCol <- catchDataCols[whichSexCol]
       # facet by species (rows) if multispecies
       if(any(whichSpeciesCol)){
         # years as col, sex as colours
@@ -117,15 +149,15 @@ server <- function(input, output, session){
           # if gear and sex, use sex as colour category
           if(any(whichSexCol)){
             pg <- pg + 
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40)
           } else if (any(whichGearCol)){
             pg <- pg + 
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(gearCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(gearCol)),
                              closed = "left", boundary = 0, bins = 40)
           } else {
             pg <- pg + 
-              geom_histogram(aes_(x = input$lengthColSelect),
+              geom_histogram(aes_(x = lengthCol),
                              closed = "left", boundary = 0, bins = 40)
           }
           if(length(unique(catchdata_table()[, speciesCol])) <= 
@@ -141,24 +173,24 @@ server <- function(input, output, session){
         } else if(any(whichGearCol)){
           if(any(whichSexCol)){
             pg <- pg + 
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40)
           } else {
             pg <- pg + 
-              geom_histogram(aes_(x = input$lengthColSelect),
+              geom_histogram(aes_(x = lengthCol),
                              closed = "left", boundary = 0, bins = 40)
           }
           pg <- pg + facet_grid(rows = as.formula(paste0(speciesCol, " ~ ", gearCol)), scales = "free")
         } else if (any(whichSexCol)) {
           # species and sex 
           pg <- pg + 
-            geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)), closed = "left", boundary = 0, bins = 40) + 
+            geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)), closed = "left", boundary = 0, bins = 40) + 
             facet_grid(rows = ensym(speciesCol), scales = "free")
           
         } else{
           # species only
           pg <- pg + 
-            geom_histogram(aes_(x = input$lengthColSelect), closed = "left", boundary = 0, bins = 40) + 
+            geom_histogram(aes_(x = lengthCol), closed = "left", boundary = 0, bins = 40) + 
             facet_grid(rows = ensym(speciesCol), scales = "free")
         }
       } else {
@@ -166,21 +198,21 @@ server <- function(input, output, session){
         if(any(whichSexCol)){ 
           if(!any(whichGearCol) & !any(whichYearCol)){
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40)
           } else if(any(whichGearCol) & !any(whichYearCol)) {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(gearCol), scales = "free")
           } else if(!any(whichGearCol) & any(whichYearCol)) {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(yearCol),  scales = "free")
           } else {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect, fill = ensym(sexCol)),
+              geom_histogram(aes_(x = lengthCol, fill = ensym(sexCol)),
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(gearCol), cols = vars(yearCol), scales = "free")
           }
@@ -188,21 +220,21 @@ server <- function(input, output, session){
           # no species or sex
           if(!any(whichGearCol) & !any(whichYearCol)){
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+              geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40)
           } else if(any(whichGearCol) & !any(whichYearCol)) {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+              geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(gearCol), scales = "free")
           } else if(!any(whichGearCol) & any(whichYearCol)) {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+              geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = ensym(yearCol), scales = "free")
           } else {
             pg <- pg +
-              geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+              geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40) +
               facet_grid(rows = as.formula(paste0(yearCol, " ~ ", gearCol)), scales = "free")
           }
@@ -210,7 +242,7 @@ server <- function(input, output, session){
         
       }
       } else {
-        pg <- pg + geom_histogram(aes_(x = input$lengthColSelect), fill ="grey50",
+        pg <- pg + geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40)
       }
       pg + theme_bw() + theme(strip.text.x = element_text(margin = margin(0.125,0.25,0.25,0.25, "cm")))
@@ -259,14 +291,14 @@ server <- function(input, output, session){
     }
   )
   
-  lengthRecordsFilter <- reactive(
-    #   eventReactive(input$convertLengthUnits,
+  lengthRecordsFilter <- reactive(#   eventReactive(input$convertLengthUnits,
     { 
       lengthScale <- lengthRecordsScale()
-      #length_records <- catchdata_table() %>% select(input$lengthColSelect) %>% 
-      #  mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
+      cat(file = stderr(), paste0("number of rows = ", length(input$catchDataTable_rows_all)),"\n")
       length_records <- catchdata_table()[input$catchDataTable_rows_all,,drop = FALSE] %>% #select(input$lengthColSelect) %>% 
         mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
+      cat(file = stderr(), "lengthRecordsFilter\n")
+      length_records
     }
   )
   
@@ -308,7 +340,8 @@ server <- function(input, output, session){
   
   # visualise data ====
   output$lengthComposition <- renderPlotly({
-    expr = ggplotly(p = catchdata_plot())#, height = 800, width = 400)
+    # catchdata_plot() eventReactive on input$selectCols
+    expr = ggplotly(p = catchdata_plot())
   })
   
   
@@ -343,21 +376,25 @@ server <- function(input, output, session){
 
   gatherFishAgeLengthData <- reactive({
     # lengthRecordsFilter() dependence ***
+    cat(file = stderr(), "gatherFishAgeLengthData\n")
     lengthCol <- newLengthCol()
-    sexCol <- grep("sex", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
-    if(any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))){
-      ageCol <- grep("age", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
-      lengthAge <- data.frame(lengthRecordsFilter()[, c(newLengthCol())], 
-                              lengthRecordsFilter()[, ageCol],
-                              lengthRecordsFilter()[, sexCol])
-      colnames(lengthAge) <- c(newLengthCol(), ageCol, sexCol)
-      lengthAgeData <- lengthAge[!is.na(lengthAge[, ageCol]) & !is.na(lengthAge[, newLengthCol()]),]
+    filteredLengthRecords <- lengthRecordsFilter()
+    checkboxCatchCols <- input$checkboxCatchData
+    sexCol <- grep("sex", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
+    cat(file = stderr(), "gatherFishAgeLengthData lengthCol, sexCol\n")
+    if(any(grepl("age", checkboxCatchCols, ignore.case = TRUE))){
+      ageCol <- grep("age", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
+      lengthAge <- data.frame(filteredLengthRecords[, c(lengthCol)], 
+                              filteredLengthRecords[, ageCol],
+                              filteredLengthRecords[, sexCol])
+      colnames(lengthAge) <- c(lengthCol, ageCol, sexCol)
+      lengthAgeData <- lengthAge[!is.na(lengthAge[, ageCol]) & !is.na(lengthAge[, lengthCol]),]
     } else {
-      lengthAgeData <- data.frame(lengthRecordsFilter()[, c(newLengthCol())], 
+      lengthAgeData <- data.frame(filteredLengthRecords[, c(lengthCol)], 
                                   age = NA,
-                                  sex = lengthRecordsFilter()[, sexCol])
-      colnames(lengthAgeData) <- c(newLengthCol(), "age", sexCol)
-      lengthAgeData <- lengthAgeData[!is.na(lengthAgeData[, newLengthCol()]),]
+                                  sex = filteredLengthRecords[, sexCol])
+      colnames(lengthAgeData) <- c(lengthCol, "age", sexCol)
+      lengthAgeData <- lengthAgeData[!is.na(lengthAgeData[, lengthCol]),]
     }
     lengthAgeData
   })
@@ -445,8 +482,10 @@ server <- function(input, output, session){
   
   # reactive ggplot elements/geoms #### 
   ggGrowth_CurveALData <- reactive({
+    cat(file = stderr(), "ggGrowth_CurveALData\n")
     growthcurve <- createPlotSliderCurveData()
     fishAgeLengthData <- gatherFishAgeLengthData()
+    lengthCol <- newLengthCol()
     
     p <- ggplot()
     p <- p +
@@ -457,8 +496,8 @@ server <- function(input, output, session){
     if(all(is.na(fishAgeLengthData[, "age"]))){
       if(nrow(fishAgeLengthData) > 400){
         fishAgeLengthDataSubSample <- 
-          rbind(fishAgeLengthData[fishAgeLengthData[ ,newLengthCol()] == min(fishAgeLengthData[ , newLengthCol()]),],
-            fishAgeLengthData[fishAgeLengthData[ ,newLengthCol()] == max(fishAgeLengthData[ , newLengthCol()]),],
+          rbind(fishAgeLengthData[fishAgeLengthData[ ,lengthCol] == min(fishAgeLengthData[ , lengthCol]),],
+            fishAgeLengthData[fishAgeLengthData[ ,lengthCol] == max(fishAgeLengthData[ , lengthCol]),],
             fishAgeLengthData[sampleLengthRecords(),])  
       } else {
         fishAgeLengthDataSubSample <- fishAgeLengthData
@@ -469,11 +508,11 @@ server <- function(input, output, session){
     } else {
       if("sex" %in% colnames(fishAgeLengthData)){
         p <- p + 
-          geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(newLengthCol()), 
+          geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(lengthCol), 
                                                              colour = sex), alpha = 0.5)
       } else {
         p <- p + 
-          geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(newLengthCol())), 
+          geom_point(data = fishAgeLengthData, mapping = aes(x = age, y = !!sym(lengthCol)), 
                      alpha = 0.5)
       }
     }
@@ -482,6 +521,7 @@ server <- function(input, output, session){
   
   # sample from length data for geom_rug
   sampleLengthRecords <- reactive({
+    cat(file = stderr(), "sampleLengthRecords\n")
     fishAgeLengthData <- gatherFishAgeLengthData()
     sample(1:nrow(fishAgeLengthData), 398, replace = FALSE,)
   })
@@ -544,14 +584,14 @@ server <- function(input, output, session){
   # debug observe events
   observeEvent(input$fitGrowth,
                {print(input$checkboxCatchData)
-                 print(growthParChoices())
-                 print("debug observe event - print growthFrequentistFit(), growthFrequentistFitBoot()")
-                 print(growthFrequentistFit())
-                 print(growthFrequentistFitBoot())
-                 print("are ggplots?")
-                 print(is.ggplot(ggGrowthFitMean()))
-                 print(is.ggplot(ggGrowth_CurveALData()))
-                 print(tags$p("(/^weight/).test(input.checkboxCatchData)"))
+                 # print(growthParChoices())
+                 # print("debug observe event - print growthFrequentistFit(), growthFrequentistFitBoot()")
+                 # print(growthFrequentistFit())
+                 # print(growthFrequentistFitBoot())
+                 # print("are ggplots?")
+                 # print(is.ggplot(ggGrowthFitMean()))
+                 # print(is.ggplot(ggGrowth_CurveALData()))
+                 # print(tags$p("(/^weight/).test(input.checkboxCatchData)"))
                  #insertUI(selector = "#sectionGrowthFitSummary",
                 #          where = "beforeBegin",
                 #          ui = actionButton(inputId = "removeFit", label = "Remove fit"))
@@ -599,6 +639,18 @@ server <- function(input, output, session){
     }
     )
   
+  output$btnRadioMaturity <- 
+    renderUI({
+      withMathJax(
+        radioButtons(inputId= "maturityPars", label = "Length-at-50%-maturity",
+                     choices = c("User-specified" = "user", 
+                       "Beverton-Holt LHI ($Lm50 = 0.66 L_\\infty$)" = "bhlhi",
+                       "Binohlan, Froese (2009) $Lm50  = e^{-0.119} (L\\max)^{0.916}$" = "bf2009"), 
+                       selected = "bhlhi")
+      )
+    }
+    )
+  
   
   # numeric inputs for LBSPR ####
   # default to sliderInput values
@@ -621,6 +673,7 @@ server <- function(input, output, session){
                  value = 0.3)
   })
   
+  # nb value = initial value
   output$numLm50 <- renderUI({
     numericInput("Lm50", label = NULL, #"Linf", 
                  value = ifelse(grepl("fit", input$growthParOption), 
@@ -637,18 +690,33 @@ server <- function(input, output, session){
   })
   
   
-  observeEvent(input$natMortality, {
-    if(input$natMortality == "user"){
-      updateNumericInput(session, "M", value = 0.3)      
-    } else if(input$natMortality == "pauly") {
-      updateNumericInput(session, "M", value = round(4.118*input$kLvb^0.73*input$Linf^(-0.33), 3))
-    } else if(input$natMortality == "twoK"){
-      updateNumericInput(session, "M", value = round(0.098 + 1.55*input$kLvb, 3))
-    } else if(input$natMortality == "hoenig") {
-      updateNumericInput(session, "M", value = round(4.899*max(gatherFishAgeLengthData()$age, na.rm = FALSE)^-0.916, 3))
+  observe({
+    updateNumericInput(session, "M", value = updateMortality())
+    updateNumericInput(session, "Lm50", value = updateMaturity()) # update Lm95
+  })
+  
+  updateMaturity <- reactive({
+    if(input$maturityPars == "user" || is.null(input$maturityPars)){
+      expr = round(0.66*input$Linf,1)
+    } else if(input$maturityPars == "bhlhi") {
+      expr = round(0.66*input$Linf,1)
+    } else if(input$maturityPars == "bf2009") {
+      expr = round(exp(-0.1189 + 0.9157*log(max(isolate(gatherFishAgeLengthData())[, newLengthCol()]))),1)
     }
-      #if(is.na(max(gatherFishAgeLengthData()$age, na.rm = FALSE)))
-      #if(is.na(tmax)) { NA } else { round(4.899*tmax^-0.916, 3) }
+  })
+  
+  updateMortality <- reactive({
+    #if(is.na(max(gatherFishAgeLengthData()$age, na.rm = FALSE)))
+    #if(is.na(tmax)) { NA } else { round(4.899*tmax^-0.916, 3) }
+    if(input$natMortality == "user" || is.null(input$natMortality)){
+      expr = 0.3
+    } else if(input$natMortality == "pauly") {
+      expr = round(4.118*input$kLvb^0.73*input$Linf^(-0.33), 3)
+    } else if(input$natMortality == "twoK") {
+      expr = round(0.098 + 1.55*input$kLvb, 3)        
+    } else if(input$natMortality == "hoenig") {
+      expr = round(4.899*max(isolate(gatherFishAgeLengthData())$age, na.rm = FALSE)^-0.916, 3) 
+    }
   })
   
   
@@ -1093,6 +1161,9 @@ server <- function(input, output, session){
     length_records <- lengthRecordsFilter()
     print(str(length_records))
     
+    # length column
+    length_col <- newLengthCol()
+    
     # check for year attribute
     year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
     if(any(grepl("year", names(length_records), ignore.case = TRUE))){
@@ -1101,18 +1172,37 @@ server <- function(input, output, session){
     }
 
     # length_col (+ optional year_col): exclude NAs
-    length_col <- newLengthCol()
-    length_records <- na.omit(lengthRecordsFilter()[, c(year_col,length_col)])
+    length_records <- na.omit(length_records[, c(year_col,length_col), drop = FALSE])
     
     # vulnerable to fishery 
     isVulnerable <- (lengthMids >= input$MLL)
     
     # bin length data
-    if(length(year_col)==0L | input$lengthBasedAssessmentMethod == "LB-SPR"){
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       print("length_records")
+      print(dim(length_records))
       print(is.numeric(length_records[, length_col]))
-      LF <- hist(length_records[, length_col], plot = FALSE, breaks = lengthBins, right = FALSE)
-      print(LF)
+      if(input$analyseLengthComposition == "annual") {
+        # "each year" only an option if year column present (length(year_col)>0)
+        length_records_by_year <- length_records[, c(year_col, length_col)] %>% na.omit() %>%
+          mutate(lengthBin = cut(!!ensym(length_col), breaks = lengthBins, 
+                                 right = FALSE),
+                 year = factor(!!ensym(year_col)))  %>% # lengthMids??
+          group_by(year, lengthBin) %>%
+          summarise(nFish = n())
+        LF <- xtabs(formula = nFish ~ year + lengthBin, data = length_records_by_year)
+        colnames(LF) <- as.character(lengthBins)[-1]
+        LFVul <- LF*outer(rep.int(1, nrow(LF)), isVulnerable)
+      } else if(input$analyseLengthComposition == "all periods"){
+        # aggregate all years - see fitGTGLBSPR for how this approach is incorporated in the assessment 
+        # could also be implemented in this reactive and propagated??
+        LFhist <- hist(length_records[, length_col], plot = FALSE, breaks = lengthBins, right = FALSE)
+        LF <- matrix(LFhist$counts, nrow = 1, ncol = length(LFhist$counts), 
+                     dimnames = list("all", as.character(lengthBins)[-1]))
+        LFVul <- matrix(LFhist$counts*outer(rep.int(1, length(LFhist$counts)), isVulnerable), 
+                        nrow = 1, ncol = length(LFhist$counts), 
+                        dimnames = list("all", as.character(lengthBins)[-1]))
+      }
     } else {
       length_records_by_year <- length_records[, c(year_col, length_col)] %>% na.omit() %>%
         mutate(lengthBin = cut(!!ensym(length_col), breaks = lengthBins, 
@@ -1130,8 +1220,8 @@ server <- function(input, output, session){
     # binned counts
     list_out <- NULL
     if((input$lengthBasedAssessmentMethod == "LB-SPR")){
-      list_out <- list(LenDat = LF$counts,
-                    LenDatVul = LF$counts*isVulnerable)
+      list_out <- list(LenDat = LF,
+                    LenDatVul = LFVul)
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
       list_out <- list(LenDat = LFYear,
                     LenDatVul = LFVulYear)      
@@ -1140,6 +1230,14 @@ server <- function(input, output, session){
   })
   
   # app navigation
+  
+  # after button clicks
+  observeEvent(input$convertLengthUnits,
+               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLHP"))  
+  
+  observeEvent(input$btnFixedFleetPars,
+               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBSPR"))  
+  
   # btnStockPars causes move to next tab
   observeEvent(input$btnStockPars, {
     print(setLHPars())
@@ -1148,7 +1246,8 @@ server <- function(input, output, session){
   
   # btnTechnicalStockPars 
   observeEvent(input$btnTechnicalStockPars,
-               {length_records <- lengthRecordsFilter()[, newLengthCol()]
+               { cat(file = stderr(), "input$btnTechnicalStockPars\n")
+                 length_records <- lengthRecordsFilter()[, newLengthCol()]
                  print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])
                })
   
@@ -1168,7 +1267,7 @@ server <- function(input, output, session){
   #                }
   #              }
   #              
-  #              updateRadioButtons(inputId = "visualiseLengthComposition",
+  #              updateRadioButtons(inputId = "analyseLengthComposition",
   #                                 label = "Visualise...",
   #                                 choices = rbChoices) 
   #              #, selected = "in aggregate")
@@ -1176,28 +1275,30 @@ server <- function(input, output, session){
   collateLengthChoice <- reactive({
     lengthRecordAttributes <- input$checkboxCatchData
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      collationChoice <- "all"
+      collationChoice <- "all periods"
       if(any(grepl("year", lengthRecordAttributes, ignore.case = TRUE))){
-        collationChoice <- c(collationChoice, 
-                             paste0("each ", grep("year", lengthRecordAttributes, ignore.case = TRUE, value = TRUE)))
+        collationChoice <- c(collationChoice, "annual")
       } 
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
       if(any(grepl("year", lengthRecordAttributes, ignore.case = TRUE))){
-        collationChoice <- paste0("each ", grep("year", lengthRecordAttributes, ignore.case = TRUE, value = TRUE))
+        collationChoice <- "annual"
       } else {
-        collationChoice <- "all"
+        collationChoice <- "all periods"
       }
     }
     collationChoice
   })
   
   observe({ 
-    updateRadioButtons(inputId = "visualiseLengthComposition",
-                       label = "Assess...",
+    updateRadioButtons(inputId = "analyseLengthComposition",
+                       label = "Assessment - temporal basis",
                        choices = collateLengthChoice())#, selected = defaultChoice)
   })
   
-  
+  observe({  
+    updateActionButton(inputId = "fitLBA",
+                        label = paste0("Apply ", input$lengthBasedAssessmentMethod))
+  })
   
   
   # plot length composition of filtered data - change with slider input
@@ -1222,11 +1323,9 @@ server <- function(input, output, session){
           theme_bw() + 
           theme(legend.position = "bottom")
       }
-      print("visualiseLengthComposition")
-      print(input$visualiseLengthComposition)
-      if(input$visualiseLengthComposition == 
-         paste0("each ", grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE, value = TRUE))
-         ){ # was observeEvent or eventReactive 
+      print("analyseLengthComposition")
+      print(input$analyseLengthComposition)
+      if(input$analyseLengthComposition == "annual"){ # was observeEvent or eventReactive 
         print(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
                           value = TRUE)," ~ ."))
         ggLengthComp <- ggLengthComp + 
@@ -1275,13 +1374,22 @@ server <- function(input, output, session){
       LenMids <- createLengthBins()$LenMids
       LenDat <- binLengthData()$LenDat
       LenDatVul <- binLengthData()$LenDatVul
+      years <- rownames(LenDatVul)
       
+      NatL_LBSPR <- NULL
+      estModelFit <- NULL
+      nlminbOut <- vector("list", length = length(years))
+      
+      for (yearLBSPR in years){
 
+      LenDatIn <- LenDatVul[which(rownames(LenDatVul) == yearLBSPR),]  
+      
       # GTG-LBSPR optimisation
-      optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatVul, SizeBins, "GTG")#, input$selectSelectivityCurve)
+      optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")#, input$selectSelectivityCurve)
       # optGTG$Ests
       # optGTG$PredLen
-      # optGTG$nlminbOut
+      nlminbOut[[which(years == yearLBSPR)]] <- optGTG$nlminbOut
+      names(nlminbOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
 
       if(input$specifySelectivity == "Specify (user)"){
         optFleetPars <- list(FM = optGTG$Ests["FM"],
@@ -1319,33 +1427,51 @@ server <- function(input, output, session){
       }
       
       # numbers-at-length (midpoints) LBSPR
-      NatL_LBSPR <- data.frame(length_mid = prGTG$LenMids,
-                               catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
-                               catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
-                               selectivityF_at_length = VulLen2,
-                               popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
-                               popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished)) #standardised??
+      NatL_LBSPR <- rbind(NatL_LBSPR,
+                      data.frame(year = yearLBSPR,
+                                 length_mid = prGTG$LenMids,
+                                 catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
+                                 catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
+                                 selectivityF_at_length = VulLen2,
+                                 popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
+                                 popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished) #standardised??
+                      ))
       
-
-      estModelFit <- data.frame(Parameter = c("FM", "SL50", "SL95", "SPR"),
-                                Description = c("F/M: relative fishing mortality",
-                                                "Length at 50% selectivity",
-                                                "Length at 95% selectivity",
-                                                "Spawning Potential Ratio"),
-                                Estimate = c(unname(optFleetPars$FM), 
-                                             unname(optFleetPars$SL1), 
-                                             unname(optFleetPars$SL2),
-                                             prGTG$SPR))
+      print(data.frame(FM = unname(optFleetPars$FM), 
+                       SL50 = unname(optFleetPars$SL1), 
+                       SL95 = unname(optFleetPars$SL2),
+                       SPR = prGTG$SPR))
+      estModelFit <- rbind(estModelFit,
+                       data.frame(FM = unname(optFleetPars$FM), 
+                                  SL50 = unname(optFleetPars$SL1), 
+                                  SL95 = unname(optFleetPars$SL2),
+                                  SPR = prGTG$SPR, 
+                                  row.names = yearLBSPR)
+      )
+      # Parameter = c("FM", "SL50", "SL95", "SPR"),
+      # Description = c("F/M: relative fishing mortality",
+      #                 "Length at 50% selectivity",
+      #                 "Length at 95% selectivity",
+      #                 "Spawning Potential Ratio"),
+      
       #        opModelOut <- data.frame(Parameter = c("SPR", "YPR"),
       #                                 Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
-      #                                 Estimate = c(prGTG$SPR, prGTG$YPR))      
+      #                                 Estimate = c(prGTG$SPR, prGTG$YPR))
+      }
       if(input$specifySelectivity == "Specify (user)"){
-        estModelFit$Source <- c("Model fit", "User-specified", "User-specified", "Model")
+        #estModelFit$Source <- c("Model fit", "User-specified", "User-specified", "Model")
+        if(input$selectSelectivityCurve == "Logistic"){
+          names(estModelFit)[names(estModelFit) == "SL50"] <- "SL50 (fixed)"
+          names(estModelFit)[names(estModelFit) == "SL95"] <- "SL95 (fixed)"
+        } else if(input$selectSelectivityCurve == "Dome-shaped"){
+          names(estModelFit)[names(estModelFit) == "SL50"] <- "SL1"
+          names(estModelFit)[names(estModelFit) == "SL95"] <- "SL2"
+        }
       }
       
       list(NatL_LBSPR = NatL_LBSPR,
            estModelFit = estModelFit,
-           nlminbOut = optGTG$nlminbOut
+           nlminbOut = nlminbOut
            #opModelOut = opModelOut
            )
     }
@@ -1404,7 +1530,7 @@ server <- function(input, output, session){
                            nseasons=input$nseasons,
                            nfleets=1 # fleetParVals$nfleets
                            )
-      
+      print(lh)
       
       # length records
       length_records <- isolate(lengthRecordsFilter())
@@ -1500,8 +1626,10 @@ server <- function(input, output, session){
   # print text on LBSPR estimating model fit 
   output$tableLBAEstimates <- reactive(
     {
+      
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      fitGTGLBSPR()$estModelFit %>%
+      estModelFitLBSPR <- fitGTGLBSPR()$estModelFit
+      estModelFitLBSPR %>%
         knitr::kable("html", digits = 3) %>%
         kable_styling("striped", full_width = F, position = "float_left")
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
@@ -1526,27 +1654,35 @@ server <- function(input, output, session){
     # length data
     length_records <- lengthRecordsFilter()
     length_col <- newLengthCol()
-    length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
+    length_records$isVulnerable <- length_records[,length_col] >= input$MLL
+    year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+    
+    # is year column present?
+    if(is.null(year_col) | input$analyseLengthComposition == "all periods"){
+      length_records <- length_records %>%
+        select(!!ensym(length_col), isVulnerable) %>%
+        mutate(year = "all periods")
+    } else {
+      #rename as year or facetting
+      names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)] <- "year"
+    }
     
     LenBins <- createLengthBins()$LenBins
+    LenMids <- createLengthBins()$LenMids	
     LenDat <- binLengthData()$LenDatVul # vulnerable to fishery only
-    # maxLenDat <- max(LenDat)
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
-      
-      # pivot_longer
-      NatL_long <- NatL_LBSPR %>%
-        pivot_longer(cols = ends_with("at_length"),
-                     names_to = "quantity",
-                     names_pattern = "(.*)_at_length",
-                     values_to = "numbers-per-recruit")
-      
+      maxLengthYearVector <- apply(LenDat, 1, "max")
+      maxLengthYear <- rep(maxLengthYearVector, each = dim(LenDat)[2])
+      NatL_LBSPR$catchFished_at_length_count <- NatL_LBSPR$catchFished_at_length*maxLengthYear
+      NatL_LBSPR$selectivityF_at_length_count <- NatL_LBSPR$selectivityF_at_length*maxLengthYear
       
       if(input$specifySelectivity == "Specify (user)"){
         titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (specified)"
       } else if (input$specifySelectivity == "Estimate (model fit)") {
         titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (estimated)"
       }
+      
       
       # create ggplot with data...
       pg <- ggplot(length_records %>% filter(isVulnerable) ) + 
@@ -1556,13 +1692,13 @@ server <- function(input, output, session){
       # ...and fit
       pg <- pg + 
         geom_area(data = NatL_LBSPR,
-                  mapping = aes(x = length_mid, y = max(LenDat)*catchFished_at_length), 
+                  mapping = aes(x = length_mid, y = catchFished_at_length_count), 
                   fill = "salmon", alpha = 0.5) +
         geom_line(data = NatL_LBSPR,
-                  mapping = aes(x = length_mid, y = max(LenDat)*selectivityF_at_length), 
+                  mapping = aes(x = length_mid, y = selectivityF_at_length_count), 
                   colour = "red", lwd = 1) + 
         labs(title = titleFitPlot,
-             caption = paste("Data from", input$uploadFile, sep = " "))#+ 
+             caption = paste("Data from", input$uploadFile[[1]], sep = " "))#+ 
       #scale_y_continuous(sec.axis = sec_axis(~  . /maxLenDat, name = "selectivity",
       #breaks = c(0, 1),
       #labels = c("0", "1")
@@ -1570,6 +1706,7 @@ server <- function(input, output, session){
       
       expr = ggplotly(pg +  
                         scale_x_continuous(name = length_col) +
+                        facet_wrap(vars(year)) + 
                         theme_bw())
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
       fitLIMEobj <- fitLIME()
@@ -1577,6 +1714,7 @@ server <- function(input, output, session){
       # length data and year attribute
       length_records <- fitLIMEobj$length_data_raw
       year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+      length_records$isVulnerable <- length_records[, length_col] >= input$MLL
 
       # predictions - code extracted from https://github.com/merrillrudd/LIME/blob/master/R/plot_LCfits.R
       Inputs <- fitLIMEobj$lc_only$Inputs
@@ -1607,11 +1745,13 @@ server <- function(input, output, session){
       
       # plot_LCfits adaption
       pg <- ggplot(length_records) + 
-        geom_histogram(aes_string(x = length_col, y = "..density.."), breaks = LenBins, closed = "right") + 
+        geom_histogram(aes_string(x = length_col, y = "..density..", fill = "isVulnerable"), breaks = LenBins, closed = "right") + 
+        scale_fill_manual(name = "fishery \n vulnerable", breaks = waiver(), values = c("grey20", "grey80"),
+                          guide = NULL) +
         geom_line(data=pred_df2 %>% filter(Type=="Predicted"), 
                   aes(x=!!ensym(length_col), y=proportion, color=Model), lwd=1.2) +
-        facet_wrap(as.formula(paste0(year_col," ~ ."))) + 
-        scale_color_brewer(palette="Set1", direction=-1)
+        scale_color_brewer(palette="Set1", direction=-1) + 
+        facet_wrap(as.formula(paste0(year_col," ~ .")))
       
       #      pg <- plot_LCfits_cf(Inputs=fitLIMEobj$lc_only$Inputs,
       #                        Report=fitLIMEobj$lc_only$Report, plot_type = "counts")
@@ -1663,22 +1803,30 @@ server <- function(input, output, session){
                                             "Asymptotic length", "LVB growth constant", 
                                             "Length-at-50%-maturity", "Length-at-95%-maturity", 
                                             "Selectivity-at-length curve", "Selectivity-at-length parameter 1", "Selectivity-at-length parameter 2", 
-                                            "Minimum length limit", "Spawning potential ratio"),
-                            Estimate = NA
+                                            "Minimum length limit", "Spawning potential ratio")
                             )
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       lbsprFit <- fitGTGLBSPR()$estModelFit
       lbsprStockInput <- setLHPars()
       lbsprGearInput <- setFleetPars()
-      FM <- lbsprFit[lbsprFit$Parameter == "FM",]$Estimate
+      years <- row.names(lbsprFit)
       M <- lbsprStockInput$M
-      tableData$Esimtate <- c(M, M*FM, M*(1 + FM), 
-                              lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
-                              lbsprGearInput$selexCurve,
-                              ifelse(is.null(lbsprGearInput$SL1), lbsprFit$Estimate[lbsprFit$Parameter=="SL50"], lbsprGearInput$SL1),
-                              ifelse(is.null(lbsprGearInput$SL2), lbsprFit$Estimate[lbsprFit$Parameter=="SL95"], lbsprGearInput$SL2),
-                              ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
-                              lbsprFit[lbsprFit$Parameter == "SPR",]$Estimate)
+      FM <- lbsprFit$FM
+      SL1 <- format(lbsprFit[,2], digits = 3)
+      SL2 <- format(lbsprFit[,3], digits = 3)
+      SPR <- format(lbsprFit$SPR, digits = 3)
+      for (iyear in seq_along(years)){
+        tableData[,paste0(years[iyear])] <- 
+          c(M, 
+            format(M*FM[iyear], digits =3), 
+            format(M*(1 + FM[iyear]), digits = 3), 
+            lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
+            lbsprGearInput$selexCurve,
+            ifelse(is.null(lbsprGearInput$SL1), SL1[iyear], lbsprGearInput$SL1),
+            ifelse(is.null(lbsprGearInput$SL2), SL2[iyear], lbsprGearInput$SL2),
+            ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
+            SPR[iyear])
+      }
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
       lime_data <- fitLIME()$lc_only
       print("lime_data$input$selex_type")
@@ -1697,7 +1845,8 @@ server <- function(input, output, session){
       pack_rows("Mortality", 1, 3) %>%
       pack_rows("Growth", 4, 5) %>%
       pack_rows("Maturity", 6, 7) %>%
-      pack_rows("Status", 8, 12)
+      pack_rows("Selectivity", 8, 11) %>% 
+      pack_rows("Status", 12, 12)
   })
   
   
