@@ -1197,11 +1197,12 @@ server <- function(input, output, session){
         # aggregate all years - see fitGTGLBSPR for how this approach is incorporated in the assessment 
         # could also be implemented in this reactive and propagated??
         LFhist <- hist(length_records[, length_col], plot = FALSE, breaks = lengthBins, right = FALSE)
+
         LF <- matrix(LFhist$counts, nrow = 1, ncol = length(LFhist$counts), 
-                     dimnames = list("all", as.character(lengthBins)[-1]))
-        LFVul <- matrix(LFhist$counts*outer(rep.int(1, length(LFhist$counts)), isVulnerable), 
+                     dimnames = list("all periods", as.character(lengthBins)[-1]))
+        LFVul <- matrix(LFhist$counts*isVulnerable, 
                         nrow = 1, ncol = length(LFhist$counts), 
-                        dimnames = list("all", as.character(lengthBins)[-1]))
+                        dimnames = list("all periods", as.character(lengthBins)[-1]))
       }
     } else {
       length_records_by_year <- length_records[, c(year_col, length_col)] %>% na.omit() %>%
@@ -1383,7 +1384,7 @@ server <- function(input, output, session){
       for (yearLBSPR in years){
 
       LenDatIn <- LenDatVul[which(rownames(LenDatVul) == yearLBSPR),]  
-      
+
       # GTG-LBSPR optimisation
       optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")#, input$selectSelectivityCurve)
       # optGTG$Ests
