@@ -1237,7 +1237,7 @@ server <- function(input, output, session){
                updateTabsetPanel(session, inputId = "tabMain", selected = "tabLHP"))  
   
   observeEvent(input$btnFixedFleetPars,
-               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBSPR"))  
+               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBA"))
   
   # btnStockPars causes move to next tab
   observeEvent(input$btnStockPars, {
@@ -1621,8 +1621,6 @@ server <- function(input, output, session){
   observeEvent(input$fitLBA,
                {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")})
   
-  observeEvent(input$btnFixedFleetPars,
-               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBSPR"))
   
   # print text on LBSPR estimating model fit 
   output$tableLBAEstimates <- reactive(
