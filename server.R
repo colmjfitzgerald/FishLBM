@@ -1884,7 +1884,7 @@ server <- function(input, output, session){
   })
   
   
-  output$plotLIMEOutput <- renderPlot({
+  output$plotFishingEstimateOutput <- renderPlot({
     if(input$lengthBasedAssessmentMethod == "LIME"){
       lc_only <- fitLIME()$lc_only
       lh <- fitLIME()$lh
@@ -1897,6 +1897,79 @@ server <- function(input, output, session){
                   set_ylim=list("Fish"=c(0,mean(lc_only$Report$F_t)*2),"SPR"=c(0,1)))
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       p <- plot.new()
+      estModelFit <- fitGTGLBSPR()$estModelFit
+      NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+      StockPars <- setLHPars()
+      
+      FishM <- estModelFit$FM*StockPars$M # unscaled fishing mortality
+      # extract years
+      estModelFit$year <- row.names(estModelFit)
+      row.names(estModelFit) <- NULL
+      
+      cat(paste0("estModelFit$year = ", estModelFit$year, "\n"))
+      cat(paste0("estModelFit$FM = ", estModelFit$FM, "\n"))
+      cat(paste0("estModelFit$SPR= ", estModelFit$SPR, "\n"))
+      
+      par(mgp = c(3,1,0), mar = c(4,5,2,2)+0.1)
+      layout(matrix(c(1,2,3,3),2,2, byrow = TRUE), c(1,1), c(1,1), TRUE)
+      if(input$analyseLengthComposition == "all periods"){
+        yearsLBA <- estModelFit$year
+        
+        # fishing mortality
+        barplot(FishM, width = 0.6, names.arg = yearsLBA, 
+                cex.axis = 2, cex.names = 2, cex.lab = 2, axes = TRUE, axisnames = TRUE,
+                ylab = "Fishing mortality", ylim = c(0, 1.5*max(FishM)), space = 0.4)
+        abline(h = StockPars$M, col = "red", lty = 2, lwd = 2)
+        
+        # SPR
+        barplot(estModelFit$SPR, width = 0.6, names.arg = yearsLBA, 
+                cex.axis = 2, cex.names = 2, cex.lab = 2, axes = TRUE, axisnames = TRUE,
+                ylab = "SPR", ylim = c(0,1), space = 0.4)
+        abline(h = 0.4, col = "red", lty = 2, lwd = 2)
+        
+        # selectivity-at-length
+        plot(x=1, y=1, type="n", xlim = range(NatL_LBSPR$length_mid), ylim = c(0,1),
+             xlab = "length", ylab = "selectivity", col = "black", main = yearsLBA,
+             lwd = 2, cex = 2, cex.axis = 2, cex.lab = 2, cex.lab=2 )
+        lengthMid_year <- NatL_LBSPR$length_mid
+        selectivityF_year <- NatL_LBSPR$selectivityF_at_length
+        lines(lengthMid_year, selectivityF_year, lwd = 2)
+        points(lengthMid_year, selectivityF_year, lwd = 2, pch = 1)
+        
+      } else {
+        estModelFit$year <- as.integer(estModelFit$year)
+        yearsLBA <- estModelFit$year
+        
+        # fishing mortality
+        plot(yearsLBA, FishM, 
+             type = "p", lwd = 1.5, pch = 19, cex = 2, cex.axis = 2, cex.lab = 2,
+             xlab = "year", ylab = "F/M", ylim = c(0, max(FishM)))
+        lines(yearsLBA, FishM, lwd = 1, lty = 1)
+        abline(h = StockPars$M, col = "red", lty = 2, lwd = 2)
+        
+        # SPR
+        plot(yearsLBA, estModelFit$SPR, 
+             type = "p", lwd = 1.5, pch = 19, cex = 2, cex.axis = 2, cex.lab = 2,
+             xlab = "year", ylab = "SPR", ylim = c(0,1))
+        lines(yearsLBA, estModelFit$SPR, lwd = 1, lty = 1)
+        abline(h = 0.4, col = "red", lty = 2, lwd = 2)
+
+        # selectivity-at-length
+        plot(x=1, y=1, type="n", xlim = range(NatL_LBSPR$length_mid), ylim = c(0,1),
+             xlab = "length", ylab = "selectivity", col = "black", 
+             lwd = 2, cex = 2, cex.axis = 2, cex.lab = 2, cex.lab=2 )
+        for (year_plot in yearsLBA){
+          lengthMid_year <- NatL_LBSPR$length_mid[NatL_LBSPR$year == year_plot]
+          selectivityF_year <- NatL_LBSPR$selectivityF_at_length[NatL_LBSPR$year == year_plot]
+          lines(lengthMid_year, selectivityF_year, lwd = 2)
+          points(lengthMid_year, selectivityF_year, lwd = 2, pch = 1)
+          i_sl50 <- which.min(abs(selectivityF_year-0.5))[1]
+          x_plot <- lengthMid_year[i_sl50]
+          y_plot <- selectivityF_year[i_sl50]
+          print(paste(x_plot, y_plot, sep = ", "))
+          text(x_plot, y_plot, labels = as.character(year_plot), cex = 1.5, col = "red")
+        }
+      }
     }
     p
   })

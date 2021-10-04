@@ -403,7 +403,7 @@ body <-   mainPanel(
                                  )
                         ),
                         navbarMenu("Model fit", 
-                                   tabPanel("Graphical", value = "tabModelFit",
+                                   tabPanel("Length composition", value = "tabModelFit",
                                             fluidPage(
                                               fluidRow(
                                                 column(width = 12,
@@ -414,7 +414,17 @@ body <-   mainPanel(
                                               )
                                             )
                                    ),
-                                   tabPanel("Optimisation output",
+                                   tabPanel("Fishing estimates",
+                                            fluidPage(
+                                              fluidRow(
+                                                column(width = 12,
+                                                       plotOutput(outputId = "plotFishingEstimateOutput",
+                                                                  width = "100%", height = "600px")
+                                                )
+                                              )
+                                            )
+                                   ),
+                                   tabPanel("Optimisation details",
                                             fluidPage(
                                               fluidRow(
                                                 column(width = 6,
@@ -441,7 +451,6 @@ body <-   mainPanel(
                                                      #tags$hr(),
                                                      #tags$h3("Expected catch-at-length - per recruit theory"),
                                                      plotlyOutput(outputId = "plotCatchLBSPR"),
-                                                     plotOutput(outputId = "plotLIMEOutput")
                                               )
                                             )
                                    ),
