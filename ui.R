@@ -465,6 +465,16 @@ body <-   mainPanel(
                                               )
                                             )
                                    )
+                        ),
+                        navbarMenu("Diagnostics",
+                                   tabPanel("Graphical",
+                                            fluidRow(
+                                              column(width = 12,
+                                                     plotOutput(outputId = "plotPITresiduals"),
+                                              )
+                                            )
+                                   ),
+                                   icon = icon("tasks")
                         )
               ),
              icon = icon("list-ui")
