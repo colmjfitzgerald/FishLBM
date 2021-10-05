@@ -424,22 +424,6 @@ body <-   mainPanel(
                                               )
                                             )
                                    ),
-                                   tabPanel("Optimisation details",
-                                            fluidPage(
-                                              fluidRow(
-                                                column(width = 6,
-                                                       tags$h4("Optimisation output"),
-                                                       verbatimTextOutput(outputId = "textLBAModelFit")#
-                                                       #DTOutput(outputId = "gtgLBSPREstModel"),
-                                                       #DTOutput(outputId = "gtgLBSPROpModel"),
-                                                ),
-                                                column(width = 6, 
-                                                       tags$h4("Assessment estimates"),
-                                                       tableOutput(outputId = "tableLBAEstimates")
-                                                )
-                                              )
-                                            ),
-                                   ),
                                    icon = icon("chart-line")
                         ),
                         navbarMenu("Interpretation",
@@ -473,6 +457,20 @@ body <-   mainPanel(
                                                      plotOutput(outputId = "plotPITresiduals"),
                                               )
                                             )
+                                   ),
+                                   tabPanel("Optimisation details",
+                                            fluidPage(
+                                              fluidRow(
+                                                column(width = 6,
+                                                       tags$h4("Optimisation output"),
+                                                       verbatimTextOutput(outputId = "textLBAModelFit")
+                                                ),
+                                                column(width = 6, 
+                                                       tags$h4("Assessment estimates"),
+                                                       tableOutput(outputId = "tableLBAEstimates")
+                                                )
+                                              )
+                                            ),
                                    ),
                                    icon = icon("tasks")
                         )
