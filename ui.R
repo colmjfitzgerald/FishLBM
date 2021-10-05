@@ -417,9 +417,13 @@ body <-   mainPanel(
                                    tabPanel("Fishing estimates",
                                             fluidPage(
                                               fluidRow(
-                                                column(width = 12,
+                                                column(width = 8,
                                                        plotOutput(outputId = "plotFishingEstimateOutput",
                                                                   width = "100%", height = "600px")
+                                                ),
+                                                column(width = 4, 
+                                                       tags$h4("Assessment estimates"),
+                                                       tableOutput(outputId = "tableLBAEstimates")
                                                 )
                                               )
                                             )
@@ -430,8 +434,6 @@ body <-   mainPanel(
                                    tabPanel("Graphical",
                                             fluidRow(
                                               column(width = 12,
-                                                     #tags$h3("Population length composition"),
-                                                     #plotOutput(outputId = "plotPopLBSPR"),
                                                      #tags$hr(),
                                                      #tags$h3("Expected catch-at-length - per recruit theory"),
                                                      plotlyOutput(outputId = "plotCatchLBSPR"),
@@ -461,13 +463,9 @@ body <-   mainPanel(
                                    tabPanel("Optimisation details",
                                             fluidPage(
                                               fluidRow(
-                                                column(width = 6,
+                                                column(width = 12,
                                                        tags$h4("Optimisation output"),
                                                        verbatimTextOutput(outputId = "textLBAModelFit")
-                                                ),
-                                                column(width = 6, 
-                                                       tags$h4("Assessment estimates"),
-                                                       tableOutput(outputId = "tableLBAEstimates")
                                                 )
                                               )
                                             ),
