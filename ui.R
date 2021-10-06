@@ -417,14 +417,21 @@ body <-   mainPanel(
                                    tabPanel("Fishing estimates",
                                             fluidPage(
                                               fluidRow(
-                                                column(width = 8,
+                                                column(width = 12,
                                                        plotOutput(outputId = "plotFishingEstimateOutput",
                                                                   width = "100%", height = "600px")
-                                                ),
-                                                column(width = 4, 
-                                                       tags$h4("Estimated quantities"),
-                                                       tableOutput(outputId = "tableLBAEstimates")
                                                 )
+                                              )
+                                            )
+                                   ),
+                                   tabPanel("Assessment summary",
+                                            fluidRow(
+                                              column(width = 12,
+                                                     tags$h3("Stock parameters and status"),
+                                                     tableOutput(outputId = "stockPopParameters")
+                                                     #plotlyOutput(outputId = "plotOpLBSPR",
+                                                     #              width = "100%",
+                                                     #             height = "400px"
                                               )
                                             )
                                    ),
@@ -437,17 +444,6 @@ body <-   mainPanel(
                                                      #tags$hr(),
                                                      #tags$h3("Expected catch-at-length - per recruit theory"),
                                                      plotlyOutput(outputId = "plotCatchLBSPR"),
-                                              )
-                                            )
-                                   ),
-                                   tabPanel("Tabular",
-                                            fluidRow(
-                                              column(width = 12,
-                                                     tags$h3("Stock parameters and status"),
-                                                     tableOutput(outputId = "stockPopParameters")
-                                                     #plotlyOutput(outputId = "plotOpLBSPR",
-                                                     #              width = "100%",
-                                                     #             height = "400px"
                                               )
                                             )
                                    )
@@ -463,9 +459,13 @@ body <-   mainPanel(
                                    tabPanel("Optimisation details",
                                             fluidPage(
                                               fluidRow(
-                                                column(width = 12,
+                                                column(width = 6,
                                                        tags$h4("Optimisation output"),
                                                        verbatimTextOutput(outputId = "textLBAModelFit")
+                                                ),
+                                                column(width = 6, 
+                                                       tags$h4("Estimated quantities"),
+                                                       tableOutput(outputId = "tableLBAEstimates")
                                                 )
                                               )
                                             ),
