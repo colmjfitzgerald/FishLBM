@@ -422,7 +422,7 @@ body <-   mainPanel(
                                                                   width = "100%", height = "600px")
                                                 ),
                                                 column(width = 4, 
-                                                       tags$h4("Assessment estimates"),
+                                                       tags$h4("Estimated quantities"),
                                                        tableOutput(outputId = "tableLBAEstimates")
                                                 )
                                               )

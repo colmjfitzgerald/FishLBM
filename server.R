@@ -1379,6 +1379,7 @@ server <- function(input, output, session){
       
       NatL_LBSPR <- NULL
       estModelFit <- NULL
+      optPars <- NULL
       nlminbOut <- vector("list", length = length(years))
       
       for (yearLBSPR in years){
@@ -1389,6 +1390,7 @@ server <- function(input, output, session){
       optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")#, input$selectSelectivityCurve)
       # optGTG$Ests
       # optGTG$PredLen
+      # optGTG$opt_par
       nlminbOut[[which(years == yearLBSPR)]] <- optGTG$nlminbOut
       names(nlminbOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
 
@@ -1449,6 +1451,7 @@ server <- function(input, output, session){
                                   SPR = prGTG$SPR, 
                                   row.names = yearLBSPR)
       )
+      optPars <- rbind(optPars, optGTG$opt_par)
       # Parameter = c("FM", "SL50", "SL95", "SPR"),
       # Description = c("F/M: relative fishing mortality",
       #                 "Length at 50% selectivity",
@@ -1470,9 +1473,18 @@ server <- function(input, output, session){
         }
       }
       
+      optPars <- data.frame(optPars)
+      if(dim(optPars)[2] == 3) {
+        colnames(optPars) <- c("FM", "log_SL50", "log_SLdelta")
+      } else {
+        colnames(optPars) <- c("FM")
+      }
+      optPars <- cbind(year = years, optPars)
+      
       list(NatL_LBSPR = NatL_LBSPR,
            estModelFit = estModelFit,
-           nlminbOut = nlminbOut
+           nlminbOut = nlminbOut,
+           optPars = optPars
            #opModelOut = opModelOut
            )
     }
@@ -1628,14 +1640,42 @@ server <- function(input, output, session){
       
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       estModelFitLBSPR <- fitGTGLBSPR()$estModelFit
-      estModelFitLBSPR %>%
+      optParsLBSPR <- fitGTGLBSPR()$optPars
+      # three significant figures
+      optParsLBSPR[sapply(optParsLBSPR, is.numeric)] <- signif(optParsLBSPR[sapply(optParsLBSPR, is.numeric)], 3)
+      #estModelFitLBSPR[ ,colnames(estModelFitLBSPR)!= "SPR"] %>%
+      optParsLBSPR %>%
         knitr::kable("html", digits = 3) %>%
         kable_styling("striped", full_width = F, position = "float_left")
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
-      NULL
-      # fitLIME()$Report %>%
-      #   knitr::kable("html", digits = 3) %>%
-      #   kable_styling("striped", full_width = F, position = "float_left")
+      fitLIMEout <- fitLIME()$lc_only
+      yearsLIME <- row.names(fitLIME()$LF)
+      print(yearsLIME)
+      
+      # fishing mortality
+      log_fishing <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="lF_y"),]
+      
+      # selectivity parameter
+      log_S50_f <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_S50_f"), ]
+      log_Sdelta_f <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_Sdelta_f"),]
+      
+      # recruitment parameter
+      log_sigma_R <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_sigma_R"),]
+      
+      # Dirichlet-multinomial parameter
+      log_theta <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_theta"),]
+      
+      dfLIME <- data.frame(year = c(yearsLIME, rep("all",4)),
+                           quantity = c(rep("logF", length(yearsLIME)), "log_S50_f", "log_Sdelta_f", "log_sigma_R", "log_theta"),
+                           estimate = c(log_fishing[ ,"Estimate"], log_S50_f["Estimate"], log_Sdelta_f["Estimate"],
+                                        log_sigma_R["Estimate"], log_theta["Estimate"]),
+                           std_error = c(log_fishing[ ,"Std. Error"], log_S50_f["Std. Error"], log_Sdelta_f["Std. Error"],
+                                         log_sigma_R["Std. Error"], log_theta["Std. Error"])
+                           )
+      
+      dfLIME %>%
+         knitr::kable("html", digits = 3) %>%
+         kable_styling("striped", full_width = F, position = "float_left")
     }
     }
   )
