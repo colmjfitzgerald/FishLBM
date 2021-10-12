@@ -426,13 +426,13 @@ body <-   mainPanel(
                                    ),
                                    tabPanel("Assessment summary",
                                             fluidRow(
-                                              column(width = 12,
-                                                     tags$h3("Stock parameters and status"),
-                                                     tableOutput(outputId = "stockPopParameters")
-                                                     #plotlyOutput(outputId = "plotOpLBSPR",
-                                                     #              width = "100%",
-                                                     #             height = "400px"
-                                              )
+                                              column(width = 8,
+                                                     tags$h3("Model estimates"),
+                                                     tableOutput(outputId = "tableLBASummary")
+                                              ),
+                                              column(width = 4,
+                                                     tags$h3("Model inputs"),
+                                                     tableOutput(outputId = "tableStockParameters"))
                                             )
                                    ),
                                    icon = icon("chart-line")

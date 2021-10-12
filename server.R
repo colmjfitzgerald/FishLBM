@@ -1835,57 +1835,129 @@ server <- function(input, output, session){
     
   })
   
-  # stock paramater summary
-  output$stockPopParameters <- reactive({
-    tableData <- data.frame(Notation = c("M", "F", "Z", "Linf", "K", "Lm50", "Lm95", "SLCurve", "SL1", "SL2", "SLMin", "SPR"),
-                            Description = c("Natural mortality", "Fishing mortality", "Total mortality",
-                                            "Asymptotic length", "LVB growth constant", 
-                                            "Length-at-50%-maturity", "Length-at-95%-maturity", 
-                                            "Selectivity-at-length curve", "Selectivity-at-length parameter 1", "Selectivity-at-length parameter 2", 
-                                            "Minimum length limit", "Spawning potential ratio")
-                            )
+  
+  # table - exploitation parameter summary
+  output$tableLBASummary <- reactive({
+    
+    if(input$specifySelectivity == "Specify (user)"){
+      tableData <- data.frame(Notation = c("M", "F", "Z", "SPR"),
+                              Description = c("Natural mortality", "Fishing mortality", "Total mortality",
+                                              "Spawning potential ratio")
+      )
+    } else {
+      tableData <- data.frame(Notation = c("M", "F", "Z", "SL1", "SL2", "SPR"),
+                              Description = c("Natural mortality", "Fishing mortality", "Total mortality",
+                                              "Length-at-50%-selectivity", "Length-at-95%-selectivity", 
+                                              "Spawning potential ratio")
+      )
+    }
+
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       lbsprFit <- fitGTGLBSPR()$estModelFit
       lbsprStockInput <- setLHPars()
       lbsprGearInput <- setFleetPars()
-      years <- row.names(lbsprFit)
+      yearsLBA <- row.names(lbsprFit)
       M <- lbsprStockInput$M
       FM <- lbsprFit$FM
       SL1 <- format(lbsprFit[,2], digits = 3)
       SL2 <- format(lbsprFit[,3], digits = 3)
       SPR <- format(lbsprFit$SPR, digits = 3)
-      for (iyear in seq_along(years)){
-        tableData[,paste0(years[iyear])] <- 
+      for (iyear in seq_along(yearsLBA)){
+        if(input$specifySelectivity == "Specify (user)"){
+          sel_pars <- NULL
+        } else {
+          sel_pars <- c(SL1[iyear], SL2[iyear])        
+        }
+        tableData[,paste0(yearsLBA[iyear])] <- 
           c(M, 
             format(M*FM[iyear], digits =3), 
             format(M*(1 + FM[iyear]), digits = 3), 
-            lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
-            lbsprGearInput$selexCurve,
-            ifelse(is.null(lbsprGearInput$SL1), SL1[iyear], lbsprGearInput$SL1),
-            ifelse(is.null(lbsprGearInput$SL2), SL2[iyear], lbsprGearInput$SL2),
-            ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
+            sel_pars,
             SPR[iyear])
       }
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
       lime_data <- fitLIME()$lc_only
-      print("lime_data$input$selex_type")
-      print(lime_data$input$selex_type)
-      tableData$Estimate = c(lime_data$input$M, mean(lime_data$Report$F_t), mean(lime_data$Report$F_t)+lime_data$input$M, 
-                             lime_data$input$linf, lime_data$input$vbk, 
-                             lime_data$input$ML50, lime_data$input$ML95, 
-                             as.character(lime_data$input$selex_type),
-                             lime_data$Report$S50_f,lime_data$Report$S95_f,
-                             input$MLL, 
-                             mean(lime_data$Report$SPR_t))
+      # lime_data$input$selex_type, lime_data$Report$F_t, yearsLBA = row.names(fitLIME()$LF)
+      # ML95/M95 "length" calculated in create_lh_list() if not specified
+      yearsLBA <- row.names(fitLIME()$LF) # could we obtain from lime_data??
+      nYears <- length(yearsLBA)
+      tableData[, yearsLBA] = rbind(rep(lime_data$input$M, nYears), 
+                                 signif(lime_data$Report$F_t, 3),
+                                 format(lime_data$Report$F_t + lime_data$input$M, digits = 3),
+                                 rep(signif(lime_data$Report$S50_f, 3), nYears),
+                                 rep(signif(lime_data$Report$S95_f, 3), nYears),
+                                 rep(input$MLL, nYears),
+                                 signif(lime_data$Report$SPR_t, 3))
     }
+    
+    if(input$lengthBasedAssessmentMethod == "LIME"){
+      tableData %>% kable("html") %>% 
+        kable_styling("striped", full_width = F, position = "float_left") %>%
+        pack_rows("Mortality", 1, 3) %>% 
+        pack_rows("Selectivity", 4, 5) %>%
+        pack_rows("Status", 6, 6)
+    } else if(input$lengthBasedAssessmentMethod == "LB-SPR") {
+      if(input$specifySelectivity == "Specify (user)"){
+        tableData %>% kable("html") %>% 
+          kable_styling("striped", full_width = F, position = "float_left") %>%
+          pack_rows("Mortality", 1, 3) %>% 
+          pack_rows("Status", 4, 4)
+      } else {
+        tableData %>% kable("html") %>% 
+          kable_styling("striped", full_width = F, position = "float_left") %>%
+          pack_rows("Mortality", 1, 3) %>% 
+          pack_rows("Selectivity", 4, 5) %>%
+          pack_rows("Status", 6, 6)
+      }
+    }
+    
+  })  
+  
+  output$tableStockParameters <- reactive({
+    
+    # length-at-95%-maturity can be unspecified in LIME
+    Lm95 <- as.numeric(ifelse(input$lengthBasedAssessmentMethod == "LB-SPR", input$Lm95, fitLIME()$lc_only$input$ML95))
+    tableData <- data.frame(Notation = c("M", "Linf", "K", "Lm50", "Lm95", "SLCurve", "MLL"),
+                            Description = c("Natural mortality", "Asymptotic length", "LVB growth constant", 
+                                            "Length-at-50%-maturity", "Length-at-95%-maturity", 
+                                            "Selectivity-at-length curve", "Minimum length limit"),
+                            Value = c(as.numeric(input$M), as.numeric(input$Linf), as.numeric(input$kLvb), 
+                                      as.numeric(input$Lm50), signif(Lm95, 3), tolower(input$selectSelectivityCurve),
+                                      NA)
+                            )
+    
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      lbsprGearInput <- setFleetPars() # SLMin
+      tableData[tableData$Notation == "MLL",]$Value <- format(ifelse(is.null(lbsprGearInput$SLMin), input$MLL, lbsprGearInput$SLMin), 
+                                                              digits = 3)
+    } else if(input$lengthBasedAssessmentMethod == "LIME") {
+      lime_data <- fitLIME()$lc_only
+      tableData[tableData$Notation == "MLL",]$Value <- signif(input$MLL, digits = 3)
+    }
+    
+    # if selectivity is also an input to stock assessment
+    if(input$specifySelectivity == "Specify (user)"){
+      if(input$selectSelectivityCurve == "Logistic"){
+        descript_select <- c("Length-at-50%-selectivity", "Length-at-95%-selectivity")
+      } else {
+        descript_select <- c("Length-at-max-selectivity", "Selectivity curve spread (sd)")
+      }
+      tableDataSelectivity <- data.frame(
+        Notation = c("SL1", "SL2"), 
+        Description = descript_select,
+        Value = c(signif(input$SL1, digits = 3), 
+                  signif(input$SL2, digits = 3))
+      )
+      tableData <- rbind(tableData, tableDataSelectivity)
+    }
+    
     tableData %>%
-      kable("html", digits = c(3,3,3,1,3,2,2,NA,3,3,3,3)) %>%
+      kable("html", digits = c(3,3,3,3,3, NA, rep(3,dim(tableData)[1] - 6))) %>%
       kable_styling("striped", full_width = F, position = "float_left") %>%
-      pack_rows("Mortality", 1, 3) %>%
-      pack_rows("Growth", 4, 5) %>%
-      pack_rows("Maturity", 6, 7) %>%
-      pack_rows("Selectivity", 8, 11) %>% 
-      pack_rows("Status", 12, 12)
+      pack_rows("Mortality", 1, 1) %>%
+      pack_rows("Growth", 2, 3) %>%
+      pack_rows("Maturity", 4, 5) %>%
+      pack_rows("Selectivity", 6, dim(tableData)[1]) 
   })
   
   
