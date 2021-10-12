@@ -1237,7 +1237,7 @@ server <- function(input, output, session){
                updateTabsetPanel(session, inputId = "tabMain", selected = "tabLHP"))  
   
   observeEvent(input$btnFixedFleetPars,
-               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBSPR"))  
+               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBA"))
   
   # btnStockPars causes move to next tab
   observeEvent(input$btnStockPars, {
@@ -1379,6 +1379,7 @@ server <- function(input, output, session){
       
       NatL_LBSPR <- NULL
       estModelFit <- NULL
+      optPars <- NULL
       nlminbOut <- vector("list", length = length(years))
       
       for (yearLBSPR in years){
@@ -1389,6 +1390,7 @@ server <- function(input, output, session){
       optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")#, input$selectSelectivityCurve)
       # optGTG$Ests
       # optGTG$PredLen
+      # optGTG$opt_par
       nlminbOut[[which(years == yearLBSPR)]] <- optGTG$nlminbOut
       names(nlminbOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
 
@@ -1449,6 +1451,7 @@ server <- function(input, output, session){
                                   SPR = prGTG$SPR, 
                                   row.names = yearLBSPR)
       )
+      optPars <- rbind(optPars, optGTG$opt_par)
       # Parameter = c("FM", "SL50", "SL95", "SPR"),
       # Description = c("F/M: relative fishing mortality",
       #                 "Length at 50% selectivity",
@@ -1470,9 +1473,18 @@ server <- function(input, output, session){
         }
       }
       
+      optPars <- data.frame(optPars)
+      if(dim(optPars)[2] == 3) {
+        colnames(optPars) <- c("FM", "log_SL50", "log_SLdelta")
+      } else {
+        colnames(optPars) <- c("FM")
+      }
+      optPars <- cbind(year = years, optPars)
+      
       list(NatL_LBSPR = NatL_LBSPR,
            estModelFit = estModelFit,
-           nlminbOut = nlminbOut
+           nlminbOut = nlminbOut,
+           optPars = optPars
            #opModelOut = opModelOut
            )
     }
@@ -1621,8 +1633,6 @@ server <- function(input, output, session){
   observeEvent(input$fitLBA,
                {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")})
   
-  observeEvent(input$btnFixedFleetPars,
-               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBSPR"))
   
   # print text on LBSPR estimating model fit 
   output$tableLBAEstimates <- reactive(
@@ -1630,14 +1640,42 @@ server <- function(input, output, session){
       
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       estModelFitLBSPR <- fitGTGLBSPR()$estModelFit
-      estModelFitLBSPR %>%
+      optParsLBSPR <- fitGTGLBSPR()$optPars
+      # three significant figures
+      optParsLBSPR[sapply(optParsLBSPR, is.numeric)] <- signif(optParsLBSPR[sapply(optParsLBSPR, is.numeric)], 3)
+      #estModelFitLBSPR[ ,colnames(estModelFitLBSPR)!= "SPR"] %>%
+      optParsLBSPR %>%
         knitr::kable("html", digits = 3) %>%
         kable_styling("striped", full_width = F, position = "float_left")
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
-      NULL
-      # fitLIME()$Report %>%
-      #   knitr::kable("html", digits = 3) %>%
-      #   kable_styling("striped", full_width = F, position = "float_left")
+      fitLIMEout <- fitLIME()$lc_only
+      yearsLIME <- row.names(fitLIME()$LF)
+      print(yearsLIME)
+      
+      # fishing mortality
+      log_fishing <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="lF_y"),]
+      
+      # selectivity parameter
+      log_S50_f <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_S50_f"), ]
+      log_Sdelta_f <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_Sdelta_f"),]
+      
+      # recruitment parameter
+      log_sigma_R <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_sigma_R"),]
+      
+      # Dirichlet-multinomial parameter
+      log_theta <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_theta"),]
+      
+      dfLIME <- data.frame(year = c(yearsLIME, rep("all",4)),
+                           quantity = c(rep("logF", length(yearsLIME)), "log_S50_f", "log_Sdelta_f", "log_sigma_R", "log_theta"),
+                           estimate = c(log_fishing[ ,"Estimate"], log_S50_f["Estimate"], log_Sdelta_f["Estimate"],
+                                        log_sigma_R["Estimate"], log_theta["Estimate"]),
+                           std_error = c(log_fishing[ ,"Std. Error"], log_S50_f["Std. Error"], log_Sdelta_f["Std. Error"],
+                                         log_sigma_R["Std. Error"], log_theta["Std. Error"])
+                           )
+      
+      dfLIME %>%
+         knitr::kable("html", digits = 3) %>%
+         kable_styling("striped", full_width = F, position = "float_left")
     }
     }
   )
@@ -1797,57 +1835,129 @@ server <- function(input, output, session){
     
   })
   
-  # stock paramater summary
-  output$stockPopParameters <- reactive({
-    tableData <- data.frame(Notation = c("M", "F", "Z", "Linf", "K", "Lm50", "Lm95", "SLCurve", "SL1", "SL2", "SLMin", "SPR"),
-                            Description = c("Natural mortality", "Fishing mortality", "Total mortality",
-                                            "Asymptotic length", "LVB growth constant", 
-                                            "Length-at-50%-maturity", "Length-at-95%-maturity", 
-                                            "Selectivity-at-length curve", "Selectivity-at-length parameter 1", "Selectivity-at-length parameter 2", 
-                                            "Minimum length limit", "Spawning potential ratio")
-                            )
+  
+  # table - exploitation parameter summary
+  output$tableLBASummary <- reactive({
+    
+    if(input$specifySelectivity == "Specify (user)"){
+      tableData <- data.frame(Notation = c("M", "F", "Z", "SPR"),
+                              Description = c("Natural mortality", "Fishing mortality", "Total mortality",
+                                              "Spawning potential ratio")
+      )
+    } else {
+      tableData <- data.frame(Notation = c("M", "F", "Z", "SL1", "SL2", "SPR"),
+                              Description = c("Natural mortality", "Fishing mortality", "Total mortality",
+                                              "Length-at-50%-selectivity", "Length-at-95%-selectivity", 
+                                              "Spawning potential ratio")
+      )
+    }
+
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       lbsprFit <- fitGTGLBSPR()$estModelFit
       lbsprStockInput <- setLHPars()
       lbsprGearInput <- setFleetPars()
-      years <- row.names(lbsprFit)
+      yearsLBA <- row.names(lbsprFit)
       M <- lbsprStockInput$M
       FM <- lbsprFit$FM
       SL1 <- format(lbsprFit[,2], digits = 3)
       SL2 <- format(lbsprFit[,3], digits = 3)
       SPR <- format(lbsprFit$SPR, digits = 3)
-      for (iyear in seq_along(years)){
-        tableData[,paste0(years[iyear])] <- 
+      for (iyear in seq_along(yearsLBA)){
+        if(input$specifySelectivity == "Specify (user)"){
+          sel_pars <- NULL
+        } else {
+          sel_pars <- c(SL1[iyear], SL2[iyear])        
+        }
+        tableData[,paste0(yearsLBA[iyear])] <- 
           c(M, 
             format(M*FM[iyear], digits =3), 
             format(M*(1 + FM[iyear]), digits = 3), 
-            lbsprStockInput$Linf, lbsprStockInput$K, lbsprStockInput$L50, lbsprStockInput$L95, 
-            lbsprGearInput$selexCurve,
-            ifelse(is.null(lbsprGearInput$SL1), SL1[iyear], lbsprGearInput$SL1),
-            ifelse(is.null(lbsprGearInput$SL2), SL2[iyear], lbsprGearInput$SL2),
-            ifelse(is.null(lbsprGearInput$SLMin), NA, lbsprGearInput$SLMin),  
+            sel_pars,
             SPR[iyear])
       }
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
       lime_data <- fitLIME()$lc_only
-      print("lime_data$input$selex_type")
-      print(lime_data$input$selex_type)
-      tableData$Estimate = c(lime_data$input$M, mean(lime_data$Report$F_t), mean(lime_data$Report$F_t)+lime_data$input$M, 
-                             lime_data$input$linf, lime_data$input$vbk, 
-                             lime_data$input$ML50, lime_data$input$ML95, 
-                             as.character(lime_data$input$selex_type),
-                             lime_data$Report$S50_f,lime_data$Report$S95_f,
-                             input$MLL, 
-                             mean(lime_data$Report$SPR_t))
+      # lime_data$input$selex_type, lime_data$Report$F_t, yearsLBA = row.names(fitLIME()$LF)
+      # ML95/M95 "length" calculated in create_lh_list() if not specified
+      yearsLBA <- row.names(fitLIME()$LF) # could we obtain from lime_data??
+      nYears <- length(yearsLBA)
+      tableData[, yearsLBA] = rbind(rep(lime_data$input$M, nYears), 
+                                 signif(lime_data$Report$F_t, 3),
+                                 format(lime_data$Report$F_t + lime_data$input$M, digits = 3),
+                                 rep(signif(lime_data$Report$S50_f, 3), nYears),
+                                 rep(signif(lime_data$Report$S95_f, 3), nYears),
+                                 rep(input$MLL, nYears),
+                                 signif(lime_data$Report$SPR_t, 3))
     }
+    
+    if(input$lengthBasedAssessmentMethod == "LIME"){
+      tableData %>% kable("html") %>% 
+        kable_styling("striped", full_width = F, position = "float_left") %>%
+        pack_rows("Mortality", 1, 3) %>% 
+        pack_rows("Selectivity", 4, 5) %>%
+        pack_rows("Status", 6, 6)
+    } else if(input$lengthBasedAssessmentMethod == "LB-SPR") {
+      if(input$specifySelectivity == "Specify (user)"){
+        tableData %>% kable("html") %>% 
+          kable_styling("striped", full_width = F, position = "float_left") %>%
+          pack_rows("Mortality", 1, 3) %>% 
+          pack_rows("Status", 4, 4)
+      } else {
+        tableData %>% kable("html") %>% 
+          kable_styling("striped", full_width = F, position = "float_left") %>%
+          pack_rows("Mortality", 1, 3) %>% 
+          pack_rows("Selectivity", 4, 5) %>%
+          pack_rows("Status", 6, 6)
+      }
+    }
+    
+  })  
+  
+  output$tableStockParameters <- reactive({
+    
+    # length-at-95%-maturity can be unspecified in LIME
+    Lm95 <- as.numeric(ifelse(input$lengthBasedAssessmentMethod == "LB-SPR", input$Lm95, fitLIME()$lc_only$input$ML95))
+    tableData <- data.frame(Notation = c("M", "Linf", "K", "Lm50", "Lm95", "SLCurve", "MLL"),
+                            Description = c("Natural mortality", "Asymptotic length", "LVB growth constant", 
+                                            "Length-at-50%-maturity", "Length-at-95%-maturity", 
+                                            "Selectivity-at-length curve", "Minimum length limit"),
+                            Value = c(as.numeric(input$M), as.numeric(input$Linf), as.numeric(input$kLvb), 
+                                      as.numeric(input$Lm50), signif(Lm95, 3), tolower(input$selectSelectivityCurve),
+                                      NA)
+                            )
+    
+    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      lbsprGearInput <- setFleetPars() # SLMin
+      tableData[tableData$Notation == "MLL",]$Value <- format(ifelse(is.null(lbsprGearInput$SLMin), input$MLL, lbsprGearInput$SLMin), 
+                                                              digits = 3)
+    } else if(input$lengthBasedAssessmentMethod == "LIME") {
+      lime_data <- fitLIME()$lc_only
+      tableData[tableData$Notation == "MLL",]$Value <- signif(input$MLL, digits = 3)
+    }
+    
+    # if selectivity is also an input to stock assessment
+    if(input$specifySelectivity == "Specify (user)"){
+      if(input$selectSelectivityCurve == "Logistic"){
+        descript_select <- c("Length-at-50%-selectivity", "Length-at-95%-selectivity")
+      } else {
+        descript_select <- c("Length-at-max-selectivity", "Selectivity curve spread (sd)")
+      }
+      tableDataSelectivity <- data.frame(
+        Notation = c("SL1", "SL2"), 
+        Description = descript_select,
+        Value = c(signif(input$SL1, digits = 3), 
+                  signif(input$SL2, digits = 3))
+      )
+      tableData <- rbind(tableData, tableDataSelectivity)
+    }
+    
     tableData %>%
-      kable("html", digits = c(3,3,3,1,3,2,2,NA,3,3,3,3)) %>%
+      kable("html", digits = c(3,3,3,3,3, NA, rep(3,dim(tableData)[1] - 6))) %>%
       kable_styling("striped", full_width = F, position = "float_left") %>%
-      pack_rows("Mortality", 1, 3) %>%
-      pack_rows("Growth", 4, 5) %>%
-      pack_rows("Maturity", 6, 7) %>%
-      pack_rows("Selectivity", 8, 11) %>% 
-      pack_rows("Status", 12, 12)
+      pack_rows("Mortality", 1, 1) %>%
+      pack_rows("Growth", 2, 3) %>%
+      pack_rows("Maturity", 4, 5) %>%
+      pack_rows("Selectivity", 6, dim(tableData)[1]) 
   })
   
   
@@ -1886,7 +1996,7 @@ server <- function(input, output, session){
   })
   
   
-  output$plotLIMEOutput <- renderPlot({
+  output$plotFishingEstimateOutput <- renderPlot({
     if(input$lengthBasedAssessmentMethod == "LIME"){
       lc_only <- fitLIME()$lc_only
       lh <- fitLIME()$lh
@@ -1899,6 +2009,79 @@ server <- function(input, output, session){
                   set_ylim=list("Fish"=c(0,mean(lc_only$Report$F_t)*2),"SPR"=c(0,1)))
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       p <- plot.new()
+      estModelFit <- fitGTGLBSPR()$estModelFit
+      NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+      StockPars <- setLHPars()
+      
+      FishM <- estModelFit$FM*StockPars$M # unscaled fishing mortality
+      # extract years
+      estModelFit$year <- row.names(estModelFit)
+      row.names(estModelFit) <- NULL
+      
+      cat(paste0("estModelFit$year = ", estModelFit$year, "\n"))
+      cat(paste0("estModelFit$FM = ", estModelFit$FM, "\n"))
+      cat(paste0("estModelFit$SPR= ", estModelFit$SPR, "\n"))
+      
+      par(mgp = c(3,1,0), mar = c(4,5,2,2)+0.1)
+      layout(matrix(c(1,2,3,3),2,2, byrow = TRUE), c(1,1), c(1,1), TRUE)
+      if(input$analyseLengthComposition == "all periods"){
+        yearsLBA <- estModelFit$year
+        
+        # fishing mortality
+        barplot(FishM, width = 0.6, names.arg = yearsLBA, 
+                cex.axis = 2, cex.names = 2, cex.lab = 2, axes = TRUE, axisnames = TRUE,
+                ylab = "Fishing mortality", ylim = c(0, 1.5*max(FishM)), space = 0.4)
+        abline(h = StockPars$M, col = "red", lty = 2, lwd = 2)
+        
+        # SPR
+        barplot(estModelFit$SPR, width = 0.6, names.arg = yearsLBA, 
+                cex.axis = 2, cex.names = 2, cex.lab = 2, axes = TRUE, axisnames = TRUE,
+                ylab = "SPR", ylim = c(0,1), space = 0.4)
+        abline(h = 0.4, col = "red", lty = 2, lwd = 2)
+        
+        # selectivity-at-length
+        plot(x=1, y=1, type="n", xlim = range(NatL_LBSPR$length_mid), ylim = c(0,1),
+             xlab = "length", ylab = "selectivity", col = "black", main = yearsLBA,
+             lwd = 2, cex = 2, cex.axis = 2, cex.lab = 2, cex.lab=2 )
+        lengthMid_year <- NatL_LBSPR$length_mid
+        selectivityF_year <- NatL_LBSPR$selectivityF_at_length
+        lines(lengthMid_year, selectivityF_year, lwd = 2)
+        points(lengthMid_year, selectivityF_year, lwd = 2, pch = 1)
+        
+      } else {
+        estModelFit$year <- as.integer(estModelFit$year)
+        yearsLBA <- estModelFit$year
+        
+        # fishing mortality
+        plot(yearsLBA, FishM, 
+             type = "p", lwd = 1.5, pch = 19, cex = 2, cex.axis = 2, cex.lab = 2,
+             xlab = "year", ylab = "F/M", ylim = c(0, max(FishM)))
+        lines(yearsLBA, FishM, lwd = 1, lty = 1)
+        abline(h = StockPars$M, col = "red", lty = 2, lwd = 2)
+        
+        # SPR
+        plot(yearsLBA, estModelFit$SPR, 
+             type = "p", lwd = 1.5, pch = 19, cex = 2, cex.axis = 2, cex.lab = 2,
+             xlab = "year", ylab = "SPR", ylim = c(0,1))
+        lines(yearsLBA, estModelFit$SPR, lwd = 1, lty = 1)
+        abline(h = 0.4, col = "red", lty = 2, lwd = 2)
+
+        # selectivity-at-length
+        plot(x=1, y=1, type="n", xlim = range(NatL_LBSPR$length_mid), ylim = c(0,1),
+             xlab = "length", ylab = "selectivity", col = "black", 
+             lwd = 2, cex = 2, cex.axis = 2, cex.lab = 2, cex.lab=2 )
+        for (year_plot in yearsLBA){
+          lengthMid_year <- NatL_LBSPR$length_mid[NatL_LBSPR$year == year_plot]
+          selectivityF_year <- NatL_LBSPR$selectivityF_at_length[NatL_LBSPR$year == year_plot]
+          lines(lengthMid_year, selectivityF_year, lwd = 2)
+          points(lengthMid_year, selectivityF_year, lwd = 2, pch = 1)
+          i_sl50 <- which.min(abs(selectivityF_year-0.5))[1]
+          x_plot <- lengthMid_year[i_sl50]
+          y_plot <- selectivityF_year[i_sl50]
+          print(paste(x_plot, y_plot, sep = ", "))
+          text(x_plot, y_plot, labels = as.character(year_plot), cex = 1.5, col = "red")
+        }
+      }
     }
     p
   })

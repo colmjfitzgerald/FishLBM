@@ -337,7 +337,7 @@ body <-   mainPanel(
                       plotlyOutput(outputId = "plotSelectivityPattern"))
              )
     ),
-    tabPanel("Length-based assessment", value = "tabLBSPR",
+    tabPanel("Length-based assessment", value = "tabLBA",
              #         plotlyOutput(outputId = "lengthAge",
              #                      width = "90%"),
              navbarPage(title = "Assessment steps",
@@ -402,42 +402,77 @@ body <-   mainPanel(
                                                 class = "btn-success"),
                                  )
                         ),
-                        tabPanel("Model fit", value = "tabModelFit",
-                                 fluidRow(
-                                   column(width = 8,
-                                          plotlyOutput(outputId = "plotLBAModelFit",
-                                                       width = "100%",
-                                                       height = "600px")
+                        navbarMenu("Model fit", 
+                                   tabPanel("Length composition", value = "tabModelFit",
+                                            fluidPage(
+                                              fluidRow(
+                                                column(width = 12,
+                                                       plotlyOutput(outputId = "plotLBAModelFit",
+                                                                    width = "100%",
+                                                                    height = "600px")
+                                                )
+                                              )
+                                            )
                                    ),
-                                   column(width = 3, offset = 1, #tags$h3("LB-SPR estimates"),
-                                          tableOutput(outputId = "tableLBAEstimates"),
-                                          tags$h4("nlminb() output"),
-                                          verbatimTextOutput(outputId = "textLBAModelFit")#
-                                          #DTOutput(outputId = "gtgLBSPREstModel"),
-                                          #DTOutput(outputId = "gtgLBSPROpModel"),
-                                   )
-                                 ),
-                                 icon = icon("chart-line")
+                                   tabPanel("Fishing estimates",
+                                            fluidPage(
+                                              fluidRow(
+                                                column(width = 12,
+                                                       plotOutput(outputId = "plotFishingEstimateOutput",
+                                                                  width = "100%", height = "600px")
+                                                )
+                                              )
+                                            )
+                                   ),
+                                   tabPanel("Assessment summary",
+                                            fluidRow(
+                                              column(width = 8,
+                                                     tags$h3("Model estimates"),
+                                                     tableOutput(outputId = "tableLBASummary")
+                                              ),
+                                              column(width = 4,
+                                                     tags$h3("Model inputs"),
+                                                     tableOutput(outputId = "tableStockParameters"))
+                                            )
+                                   ),
+                                   icon = icon("chart-line")
                         ),
-                        tabPanel("Interpretation",
-                                 fluidRow(
-                                   column(width = 8,
-                                          #tags$h3("Population length composition"),
-                                          #plotOutput(outputId = "plotPopLBSPR"),
-                                          #tags$hr(),
-                                          #tags$h3("Expected catch-at-length - per recruit theory"),
-                                          plotlyOutput(outputId = "plotCatchLBSPR"),
-                                          plotOutput(outputId = "plotLIMEOutput")
-                                   ), 
-                                   column(width = 4,
-                                          tags$h3("Stock parameters and status"),
-                                          tableOutput(outputId = "stockPopParameters")
-                                          #plotlyOutput(outputId = "plotOpLBSPR",
-                                          #              width = "100%",
-                                          #             height = "400px"
+                        navbarMenu("Interpretation",
+                                   tabPanel("Graphical",
+                                            fluidRow(
+                                              column(width = 12,
+                                                     #tags$hr(),
+                                                     #tags$h3("Expected catch-at-length - per recruit theory"),
+                                                     plotlyOutput(outputId = "plotCatchLBSPR"),
+                                              )
+                                            )
                                    )
-                                 )
-                        )),
+                        ),
+                        navbarMenu("Diagnostics",
+                                   tabPanel("Graphical",
+                                            fluidRow(
+                                              column(width = 12,
+                                                     plotOutput(outputId = "plotPITresiduals"),
+                                              )
+                                            )
+                                   ),
+                                   tabPanel("Optimisation details",
+                                            fluidPage(
+                                              fluidRow(
+                                                column(width = 6,
+                                                       tags$h4("Optimisation output"),
+                                                       verbatimTextOutput(outputId = "textLBAModelFit")
+                                                ),
+                                                column(width = 6, 
+                                                       tags$h4("Estimated quantities"),
+                                                       tableOutput(outputId = "tableLBAEstimates")
+                                                )
+                                              )
+                                            ),
+                                   ),
+                                   icon = icon("tasks")
+                        )
+              ),
              icon = icon("list-ui")
     )#,
     # tabPanel("Other length-based methods",
