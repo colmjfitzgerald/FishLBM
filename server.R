@@ -826,9 +826,9 @@ server <- function(input, output, session){
   selectParameterSpecification <- reactive({
     #if(input$selectSelectivityCurve == "Logistic" && !is.null(input$selectSelectivityCurve)){ # or input$chooseSelectivityPattern
     if(input$chooseSelectivityPattern == "Asymptotic" && !is.null(input$chooseSelectivityPattern)){
-      x <- c("Estimate (model fit)", "Specify (user)")
+      x <- c("Initial estimate", "Fixed value")
     } else {
-      x <- c("Specify (user)")
+      x <- c("Fixed value")
     }
   })
 
@@ -891,7 +891,7 @@ server <- function(input, output, session){
   # selectivity parameters
   # numeric inputs
   selectivityParsNumInp <- reactive({
-    if(input$specifySelectivity == "Specify (user)" & !is.null(input$specifySelectivity)){
+    if(input$specifySelectivity == "Fixed value" & !is.null(input$specifySelectivity)){
       if(input$selectSelectivityCurve == "Knife-edged" & !is.null(input$selectSelectivityCurve)){
         tagList(
           numericInput(inputId = "SLKnife", label = "MLL",
@@ -942,53 +942,59 @@ server <- function(input, output, session){
                       min = 0.0, max = input$Linf,  step = 1)
         )
       }
-    } else if (input$specifySelectivity == "Estimate (model fit)" & !is.null(input$specifySelectivity)) {
+    } else if (input$specifySelectivity == "Initial estimate" & !is.null(input$specifySelectivity)) {
       tagList(tags$p("Estimate selectivity parameters in model fitting process"))
     }
   })
   
   # slider controls
   selectivityParsSliderInp <- reactive({
-    if(input$specifySelectivity == "Specify (user)" & !is.null(input$specifySelectivity)){
-      
-      if(input$selectSelectivityCurve == "Knife-edged" & !is.null(input$selectSelectivityCurve)){
-        tList <- tagList(
-          sliderInput(inputId = "SLKnife", label = "MLL",
-                      value = round(input$Linf*0.50, digits = 2),
-                      min = 0.0, max = input$Linf, step = 1)
-        )
-      } else if(input$selectSelectivityCurve == "Logistic" & !is.null(input$selectSelectivityCurve)) {
-        tList <- tagList(
-          sliderInput(inputId = "SL1", label = "Length at 50% selectivity",
-                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2),
-          sliderInput(inputId = "SL2", label = "Length at 95% selectivity",
-                      value = round(input$Linf*0.80, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2)
-        )
-      } else if(input$selectSelectivityCurve %in% c("Normal.sca", "Normal.loc") &
-                !is.null(input$selectSelectivityCurve)) {
-        tList <- tagList(
-          sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
-                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = 1),
-          sliderInput(inputId = "SL2", label = "SD (spread) of dome-shaped selectivity curve",
-                      value = round(input$Linf*0.10, digits = 2), min = 0, max = input$Linf, step = 1),
-          sliderInput(inputId = "SLKnife", label = "MLL",
-                      value = round(input$Linf*0.0, digits = 2),
-                      min = 0.0, max = input$Linf,  step = 1)
-        )
-      } else if(input$selectSelectivityCurve %in% c("logNorm") & !is.null(input$selectSelectivityCurve)) {
-        tList <- tagList(
-          sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
-                      value = round(input$Linf*0.70, digits = 2), min = 0, max = input$Linf, step = 1),
-          sliderInput(inputId = "SL2", label = "Log-normal SD/spread of dome-shaped selectivity curve",
-                      value = round(0.50, digits = 2), min = 1e-3, max = 2, step = 0.01),
-          sliderInput(inputId = "SLKnife", label = "MLL",
-                      value = round(input$Linf*0.0, digits = 2),
-                      min = 0.0, max = input$Linf,  step = 1)
-        )
-      }
-    } else if (input$specifySelectivity == "Estimate (model fit)" & !is.null(input$specifySelectivity)) {
-      tList <- tagList(tags$p("Estimate selectivity parameters in model fitting process"))
+    # Starting guesses
+    SizeBins <- list(Linc = 1)
+    SizeBins$ToSize <- input$Linf * (1 + 2*input$CVLinf)
+    lengthBins <- seq(from=0, to=SizeBins$ToSize, by = SizeBins$Linc)
+    lengthMids <- seq(from=0.5*SizeBins$Linc, by = 1, length.out=(length(lengthBins)-1))
+    
+    LenDat1 <- hist(lengthRecordsFilter()[,newLengthCol()], plot = FALSE, breaks = lengthBins, right = FALSE)
+    sSL50 <- lengthMids[which.max(LenDat1$count)] # LenMids[which.max(LenDat)]/input$Linf
+    sDel <- 0.2*sSL50 # LenMids[which.max(LenDat)]/input$Linf
+    sSL95 <- ifelse(sSL50+sDel < input$Linf, sSL50+sDel, sSL50 + 0.1(input$Linf-sSL50)  )
+    
+    if(req(input$selectSelectivityCurve) == "Knife-edged"){
+      tList <- tagList(
+        sliderInput(inputId = "SLKnife", label = "MLL",
+                    value = round(input$Linf*0.50, digits = 2),
+                    min = 0.0, max = input$Linf, step = 1)
+      )
+    } else if(req(input$selectSelectivityCurve) == "Logistic") {
+      tList <- tagList(
+        sliderInput(inputId = "SL1", label = "Length at 50% selectivity",
+                    value = round(sSL50, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2),
+        sliderInput(inputId = "SL2", label = "Length at 95% selectivity",
+                    value = round(sSL95, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2)
+      )
+    } else if(req(input$selectSelectivityCurve) %in% c("Normal.sca", "Normal.loc")) {
+      tList <- tagList(
+        sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
+                    value = round(sSL50, digits = 2), min = 0, max = input$Linf, step = 1),
+        sliderInput(inputId = "SL2", label = "SD (spread) of dome-shaped selectivity curve",
+                    value = round(sDel, digits = 2), min = 0, max = input$Linf, step = 1),
+        sliderInput(inputId = "SLKnife", label = "MLL",
+                    value = round(input$Linf*0.0, digits = 2),
+                    min = 0.0, max = input$Linf,  step = 1)
+      )
+    } else if(req(input$selectSelectivityCurve) %in% c("logNorm")) {
+      tList <- tagList(
+        sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
+                    value = round(sSL50, digits = 2), min = 0, max = input$Linf, step = 1),
+        sliderInput(inputId = "SL2", label = "Log-normal SD/spread of dome-shaped selectivity curve",
+                    value = round(0.50, digits = 2), min = 1e-3, max = 2, step = 0.01),
+        sliderInput(inputId = "SLKnife", label = "MLL",
+                    value = round(input$Linf*0.0, digits = 2),
+                    min = 0.0, max = input$Linf,  step = 1)
+      )
     }
+    
     # add action button to submit selectivity parameters
     tagList(tList, 
             actionButton(inputId = "btnFixedFleetPars", 
@@ -999,7 +1005,7 @@ server <- function(input, output, session){
   
   # render reactive expression with tagList
   output$selectivityParameters <- renderUI({  
-     selectivityParsSliderInp()
+    selectivityParsSliderInp()
     #selectivityParsNumInp()
     #  tags$p("Text here")
     })
@@ -1011,25 +1017,39 @@ server <- function(input, output, session){
                     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
                     if(input$chooseSelectivityPattern == "Dome-shaped"){
                       list(SL1 = input$SL1, SL2 = input$SL2, SLMin = input$SLKnife, 
-                        SLmesh = 1, selexCurve = input$selectSelectivityCurve)
+                        SLmesh = 1, selexCurve = input$selectSelectivityCurve,
+                        selexParsEstimate = FALSE)
                     } else {
                       if(input$selectSelectivityCurve == "Logistic") {
-                        if(input$specifySelectivity == "Specify (user)"){
+                        if(input$specifySelectivity == "Fixed value"){
                           list(SL1 = input$SL1, SL2 = input$SL2, 
-                               selexCurve = input$selectSelectivityCurve)
-                        } else if(input$specifySelectivity == "Estimate (model fit)") {
-                          list(selexCurve = input$selectSelectivityCurve)  
+                               selexCurve = input$selectSelectivityCurve,
+                               selexParsEstimate = FALSE)
+                        } else if(input$specifySelectivity == "Initial estimate") {
+                          list(selexCurve = input$selectSelectivityCurve,
+                               selexParsEstimate = TRUE)  
                         }
                       } else if(input$selectSelectivityCurve == "Knife") {
-                        list(SLKnife = input$SLKnife, selexCurve = input$selectSelectivityCurve)
+                        list(SLKnife = input$SLKnife, selexCurve = input$selectSelectivityCurve,
+                             selexParsEstimate = FALSE)
                       } 
                     }
                     } else if(input$lengthBasedAssessmentMethod == "LIME"){
-                      list(S50 = input$SL1, S95 = input$SL2,
-                           selexBy = "length",
-                           selexCurve = tolower(input$selectSelectivityCurve),
-                           nfleets = 1 # where is the best place for this?
-                           )
+                      if(input$specifySelectivity == "Fixed value"){
+                        list(S50 = input$SL1, S95 = input$SL2,
+                             selexBy = "length",
+                             selexCurve = tolower(input$selectSelectivityCurve),
+                             nfleets = 1, # where is the best place for this?
+                             est_selex_f = FALSE
+                        )
+                      } else if(input$specifySelectivity == "Initial estimate") {
+                        list(S50 = input$SL1, S95 = input$SL2,
+                             selexBy = "length",
+                             selexCurve = tolower(input$selectSelectivityCurve),
+                             nfleets = 1, # where is the best place for this?
+                             est_selex_f = TRUE
+                        )
+                      }
                     }
     })
 
@@ -1037,41 +1057,43 @@ server <- function(input, output, session){
   # selectivity curve data frame - reactive or reactiveValues?
   selectionCurves <- reactive({
     # nb handle SLKnife, SLMLL dependent on selectivityCurve value (logistic, knife-edged etc.)?
-    if(input$specifySelectivity == "Specify (user)" & 
-       !(is.null(input$SL1) | is.null(input$SL2)) ){
-      isolate(dSC <- data.frame(
-        length = seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), input$Linf, length.out = 51),
-        size = 1, quantity = "selectivity"))
-      SLmesh <- 1
-      if(input$selectSelectivityCurve == "Logistic"){
-        dSC$proportion <- 1.0/(1+exp(-log(19)*(dSC$length-input$SL1)/(input$SL2-input$SL1)))
-      } else if(input$selectSelectivityCurve == "Normal.loc") {
-        dSC$proportion <- exp(-0.5*((dSC$length-((input$SL1)*SLmesh))/(input$SL2))^2)
-        dSC$proportion[dSC$length < input$SLKnife] <- 0
-      } else if(input$selectSelectivityCurve == "Normal.sca") {
-        dSC$proportion <- exp(-0.5*((dSC$length-((input$SL1)*SLmesh))/((input$SL2^0.5)*SLmesh)^2))
-        dSC$proportion[dSC$length < input$SLKnife] <- 0
-      } else if(input$selectSelectivityCurve == "logNorm") {
-        dSC$proportion <- exp(-0.5*((log(dSC$length)-log((input$SL1)*SLmesh))/(input$SL2))^2)
-        dSC$proportion[dSC$length < input$SLKnife] <- 0
-      }
-    } else {
-      dSC <- NULL
+    dSC <- isolate(data.frame(
+      length = seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), input$Linf, length.out = 51),
+      size = 1, quantity = "selectivity"))
+    SLmesh <- 1
+    req(input$SL1, input$SL2)
+    if(req(input$selectSelectivityCurve) == "Logistic"){
+      dSC$proportion <- 1.0/(1+exp(-log(19)*(dSC$length-input$SL1)/(input$SL2-input$SL1)))
+    } else if(req(input$selectSelectivityCurve) == "Normal.loc") {
+      dSC$proportion <- exp(-0.5*((dSC$length-((input$SL1)*SLmesh))/(input$SL2))^2)
+      dSC$proportion[dSC$length < req(input$SLKnife)] <- 0
+    } else if(req(input$selectSelectivityCurve) == "Normal.sca") {
+      dSC$proportion <- exp(-0.5*((dSC$length-((input$SL1)*SLmesh))/((input$SL2^0.5)*SLmesh)^2))
+      dSC$proportion[dSC$length < req(input$SLKnife)] <- 0
+    } else if(req(input$selectSelectivityCurve) == "logNorm") {
+      dSC$proportion <- exp(-0.5*((log(dSC$length)-log((input$SL1)*SLmesh))/(input$SL2))^2)
+      dSC$proportion[dSC$length < req(input$SLKnife)] <- 0
     }
     dSC
   })
   
   
-  # plot selectivity pattern provided input$specifySelectivity == "Specify (user)"
+  # plot selectivity pattern
 
   #observeEvent(
   #  input$btnFixedFleetPars, {
       output$plotSelectivityPattern <- renderPlotly({
-        print("before isolate")
+        print("before isolate in output$plotSelectivityPattern")
         print(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE))
         isolate(length_vals <- seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), 
                            input$Linf, length.out = 201))
-        
+        if(req(input$specifySelectivity) == "Initial estimate" ){
+          gg_line_types <- c(1,2)
+          gg_titleplot <- "Maturity and selectivity (initial estimate)"
+        } else if(input$specifySelectivity == "Fixed value") {
+          gg_line_types <- c(1,1)
+          gg_titleplot <- "Maturity and selectivity (fixed)"
+        }
         ggdata <- rbind(selectionCurves(),
                         data.frame(length = length_vals, 
                                    proportion = 1.0/(1+exp(-log(19)*(length_vals-input$Lm50)/(input$Lm95-input$Lm50))),
@@ -1079,10 +1101,12 @@ server <- function(input, output, session){
                                    quantity = "maturity")
         )
         expr = ggplotly(ggplot(ggdata) + 
-                          geom_line(aes( x = length, y = proportion, colour = quantity, size = size), ) +
+                          geom_line(aes( x = length, y = proportion, colour = quantity, size = size,
+                                         linetype = quantity)) +
                           scale_colour_manual(values = c("red", "black")) +
+                          scale_linetype_manual(values = gg_line_types) +
                           scale_size_identity() + 
-                          labs(title = "User-specified maturity and selectivity") + # could have reactive
+                          labs(title = gg_titleplot) + # could have reactive?
                           theme_bw())
       })
       
@@ -1351,12 +1375,26 @@ server <- function(input, output, session){
       StockPars$MK <- StockPars$M/StockPars$K
       
       fixedFleetPars <- NULL
+      allFleetPars <- setFleetPars()
+      if(input$specifySelectivity == "Fixed value" & !allFleetPars$selexParsEstimate){
+        titleFitPlot <- "User-specified selectivity parameters"
+        fixedFleetPars <- allFleetPars[names(allFleetPars) != "selexParsEstimate"]
+        cat(paste0("fixedFleetPars = ", fixedFleetPars, "\n")) 
+      } else if(input$specifySelectivity == "Initial estimate" & allFleetPars$selexParsEstimate) {
+        titleFitPlot <- "User-specified selectivity parameters"
+        fixedFleetPars <- allFleetPars[names(allFleetPars) != "selexParsEstimate"]
+        initialFleetPars <- list(SL1 = allFleetPars$SL1, SL2 = allFleetPars$SL2)
+        cat(paste0("initialFleetPars = ", initialFleetPars, "\n"))
+      }
+      
+      fixedFleetPars
+      names(fixedFleetPars)[names(fixedFleetPars) == "selexCurve"] <- "selectivityCurve"
+      
       titleFitPlot <- "Model-estimated selectivity parameters"
-      if(input$specifySelectivity == "Specify (user)"){
+      if(input$specifySelectivity == "Fixed value"){
         titleFitPlot <- "User-specified selectivity parameters"
       }
-      fixedFleetPars <- setFleetPars()
-      names(fixedFleetPars)[names(fixedFleetPars) == "selexCurve"] <- "selectivityCurve"
+
       #SizeBins <- list(Linc = input$Linc, ToSize = NULL)
       #SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
       # 
@@ -1394,14 +1432,14 @@ server <- function(input, output, session){
       nlminbOut[[which(years == yearLBSPR)]] <- optGTG$nlminbOut
       names(nlminbOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
 
-      if(input$specifySelectivity == "Specify (user)"){
+      if(input$specifySelectivity == "Fixed value"){
         optFleetPars <- list(FM = optGTG$Ests["FM"],
                              selectivityCurve = optGTG$SelectivityCurve,
                              SL1 = fixedFleetPars$SL1, 
                              SL2 = fixedFleetPars$SL2,
                              SLMin = fixedFleetPars$SLMin,
                              SLmesh = fixedFleetPars$SLmesh)
-      } else if(input$specifySelectivity == "Estimate (model fit)") {
+      } else if(input$specifySelectivity == "Initial estimate") {
         optFleetPars <- list(FM = optGTG$Ests["FM"], 
                              selectivityCurve = optGTG$SelectivityCurve,
                              SL1 = optGTG$Ests["SL1"], 
@@ -1462,7 +1500,7 @@ server <- function(input, output, session){
       #                                 Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
       #                                 Estimate = c(prGTG$SPR, prGTG$YPR))
       }
-      if(input$specifySelectivity == "Specify (user)"){
+      if(input$specifySelectivity == "Fixed value"){
         #estModelFit$Source <- c("Model fit", "User-specified", "User-specified", "Model")
         if(input$selectSelectivityCurve == "Logistic"){
           names(estModelFit)[names(estModelFit) == "SL50"] <- "SL50 (fixed)"
@@ -1496,23 +1534,20 @@ server <- function(input, output, session){
       lhParVals <- isolate(setLHPars()) # only evaluated if fitLIME called
       fleetParVals <- isolate(setFleetPars()) 
       binwidth <- isolate(input$Linc)
-      print("fleet par vals")
+      print("fleetParVals LIME")
       print(fleetParVals)
       # selectivity parameters fitted or estimated
       titleFitPlot <- "Model-estimated selectivity parameters"
-      if(input$specifySelectivity == "Specify (user)"){
+      if(input$specifySelectivity == "Fixed value"){
         titleFitPlot <- "User-specified selectivity parameters"
       }
       
       # how to handle specifying/estimating SL50/SL95 for logistic
       if(tolower(fleetParVals$selexCurve) == "logistic"){
-        if(input$specifySelectivity == "Estimate (model fit)"){
-          S50 <- 0.66*lhParVals$Linf  # initial estimate of selectivity-at-length 50%
-          S95 <- 0.80*lhParVals$Linf
-        } else if(input$specifySelectivity == "Specify (user)") {
-          S50=fleetParVals$SL1 # initial estimate of selectivity-at-length 50%
-          S95=fleetParVals$SL2
-        }
+          S50 <- fleetParVals$S50  # initial estimate of selectivity-at-length 50%
+          S95 <- fleetParVals$S95
+      } else {
+        cat("no app support for dome-shaped LIME as of yet - see LIME package or LIME shiny app for dome-shaped support")   
       }
       lh <- create_lh_list(vbk= lhParVals$K,    # vb growth coefficient
                            linf= lhParVals$Linf,  # vbg Linf
@@ -1615,7 +1650,8 @@ server <- function(input, output, session){
       
       lc_only <- run_LIME(modpath=NULL, 
                           input=inputs_all,
-                          data_avail="LC")
+                          data_avail="LC", 
+                          est_selex_f = fleetParVals$est_selex_f)
       end <- Sys.time() - start
       print(end)
       print(lc_only$input)
@@ -1655,23 +1691,31 @@ server <- function(input, output, session){
       # fishing mortality
       log_fishing <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="lF_y"),]
       
-      # selectivity parameter
-      log_S50_f <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_S50_f"), ]
-      log_Sdelta_f <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_Sdelta_f"),]
-      
       # recruitment parameter
       log_sigma_R <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_sigma_R"),]
       
       # Dirichlet-multinomial parameter
       log_theta <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_theta"),]
       
-      dfLIME <- data.frame(year = c(yearsLIME, rep("all",4)),
-                           quantity = c(rep("logF", length(yearsLIME)), "log_S50_f", "log_Sdelta_f", "log_sigma_R", "log_theta"),
-                           estimate = c(log_fishing[ ,"Estimate"], log_S50_f["Estimate"], log_Sdelta_f["Estimate"],
-                                        log_sigma_R["Estimate"], log_theta["Estimate"]),
-                           std_error = c(log_fishing[ ,"Std. Error"], log_S50_f["Std. Error"], log_Sdelta_f["Std. Error"],
-                                         log_sigma_R["Std. Error"], log_theta["Std. Error"])
-                           )
+      # length-at-selectivity parameters
+      if(input$specifySelectivity == "Initial estimate"){
+        log_S50_f <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_S50_f"), ]
+        log_Sdelta_f <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_Sdelta_f"),]
+        
+        dfLIME <- data.frame(year = c(yearsLIME, rep("all",4)),
+                             quantity = c(rep("logF", length(yearsLIME)), "log_S50_f", "log_Sdelta_f", "log_sigma_R", "log_theta"),
+                             estimate = c(log_fishing[ ,"Estimate"], log_S50_f["Estimate"], log_Sdelta_f["Estimate"],
+                                          log_sigma_R["Estimate"], log_theta["Estimate"]),
+                             std_error = c(log_fishing[ ,"Std. Error"], log_S50_f["Std. Error"], log_Sdelta_f["Std. Error"],
+                                           log_sigma_R["Std. Error"], log_theta["Std. Error"])
+        )
+      } else if(input$specifySelectivity == "Fixed value") {
+        dfLIME <- data.frame(year = c(yearsLIME, rep("all",2)),
+                             quantity = c(rep("logF", length(yearsLIME)), "log_sigma_R", "log_theta"),
+                             estimate = c(log_fishing[ ,"Estimate"], log_sigma_R["Estimate"], log_theta["Estimate"]),
+                             std_error = c(log_fishing[ ,"Std. Error"], log_sigma_R["Std. Error"], log_theta["Std. Error"])
+        )
+      }
       
       dfLIME %>%
          knitr::kable("html", digits = 3) %>%
@@ -1716,9 +1760,9 @@ server <- function(input, output, session){
       NatL_LBSPR$catchFished_at_length_count <- NatL_LBSPR$catchFished_at_length*maxLengthYear
       NatL_LBSPR$selectivityF_at_length_count <- NatL_LBSPR$selectivityF_at_length*maxLengthYear
       
-      if(input$specifySelectivity == "Specify (user)"){
+      if(input$specifySelectivity == "Fixed value"){
         titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (specified)"
-      } else if (input$specifySelectivity == "Estimate (model fit)") {
+      } else if (input$specifySelectivity == "Initial estimate") {
         titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (estimated)"
       }
       
@@ -1838,8 +1882,11 @@ server <- function(input, output, session){
   
   # table - exploitation parameter summary
   output$tableLBASummary <- reactive({
+    # isolate reactive elements that may cause LIME re-evaluation
+    specifySelectivity <- isolate(input$specifySelectivity)
+    lbaMethod <- isolate(input$lengthBasedAssessmentMethod)
     
-    if(input$specifySelectivity == "Specify (user)"){
+    if(specifySelectivity == "Fixed value"){
       tableData <- data.frame(Notation = c("M", "F", "Z", "SPR"),
                               Description = c("Natural mortality", "Fishing mortality", "Total mortality",
                                               "Spawning potential ratio")
@@ -1852,7 +1899,7 @@ server <- function(input, output, session){
       )
     }
 
-    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+    if(lbaMethod == "LB-SPR"){
       lbsprFit <- fitGTGLBSPR()$estModelFit
       lbsprStockInput <- setLHPars()
       lbsprGearInput <- setFleetPars()
@@ -1863,7 +1910,7 @@ server <- function(input, output, session){
       SL2 <- format(lbsprFit[,3], digits = 3)
       SPR <- format(lbsprFit$SPR, digits = 3)
       for (iyear in seq_along(yearsLBA)){
-        if(input$specifySelectivity == "Specify (user)"){
+        if(specifySelectivity == "Fixed value"){
           sel_pars <- NULL
         } else {
           sel_pars <- c(SL1[iyear], SL2[iyear])        
@@ -1875,41 +1922,40 @@ server <- function(input, output, session){
             sel_pars,
             SPR[iyear])
       }
-    } else if(input$lengthBasedAssessmentMethod == "LIME") {
+    } else if(lbaMethod == "LIME") {
       lime_data <- fitLIME()$lc_only
       # lime_data$input$selex_type, lime_data$Report$F_t, yearsLBA = row.names(fitLIME()$LF)
       # ML95/M95 "length" calculated in create_lh_list() if not specified
       yearsLBA <- row.names(fitLIME()$LF) # could we obtain from lime_data??
       nYears <- length(yearsLBA)
-      tableData[, yearsLBA] = rbind(rep(lime_data$input$M, nYears), 
-                                 signif(lime_data$Report$F_t, 3),
-                                 format(lime_data$Report$F_t + lime_data$input$M, digits = 3),
-                                 rep(signif(lime_data$Report$S50_f, 3), nYears),
-                                 rep(signif(lime_data$Report$S95_f, 3), nYears),
-                                 rep(input$MLL, nYears),
-                                 signif(lime_data$Report$SPR_t, 3))
+      if(specifySelectivity == "Fixed value"){
+        tableData[, yearsLBA] = rbind(rep(lime_data$input$M, nYears), 
+                                      signif(lime_data$Report$F_t, 3),
+                                      format(lime_data$Report$F_t + lime_data$input$M, digits = 3),
+                                      signif(lime_data$Report$SPR_t, 3))
+      } else {
+        tableData[, yearsLBA] = rbind(rep(lime_data$input$M, nYears), 
+                                      signif(lime_data$Report$F_t, 3),
+                                      format(lime_data$Report$F_t + lime_data$input$M, digits = 3),
+                                      rep(signif(lime_data$Report$S50_f, 3), nYears),
+                                      rep(signif(lime_data$Report$S95_f, 3), nYears),
+                                      signif(lime_data$Report$SPR_t, 3))
+      }
     }
     
-    if(input$lengthBasedAssessmentMethod == "LIME"){
-      tableData %>% kable("html") %>% 
-        kable_styling("striped", full_width = F, position = "float_left") %>%
-        pack_rows("Mortality", 1, 3) %>% 
-        pack_rows("Selectivity", 4, 5) %>%
-        pack_rows("Status", 6, 6)
-    } else if(input$lengthBasedAssessmentMethod == "LB-SPR") {
-      if(input$specifySelectivity == "Specify (user)"){
+    if(specifySelectivity == "Fixed value"){
         tableData %>% kable("html") %>% 
           kable_styling("striped", full_width = F, position = "float_left") %>%
           pack_rows("Mortality", 1, 3) %>% 
           pack_rows("Status", 4, 4)
-      } else {
+    } else {
         tableData %>% kable("html") %>% 
           kable_styling("striped", full_width = F, position = "float_left") %>%
           pack_rows("Mortality", 1, 3) %>% 
           pack_rows("Selectivity", 4, 5) %>%
           pack_rows("Status", 6, 6)
-      }
     }
+    
     
   })  
   
@@ -1936,7 +1982,7 @@ server <- function(input, output, session){
     }
     
     # if selectivity is also an input to stock assessment
-    if(input$specifySelectivity == "Specify (user)"){
+    if(input$specifySelectivity == "Fixed value"){
       if(input$selectSelectivityCurve == "Logistic"){
         descript_select <- c("Length-at-50%-selectivity", "Length-at-95%-selectivity")
       } else {
