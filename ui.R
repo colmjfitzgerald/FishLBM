@@ -312,13 +312,7 @@ body <-   mainPanel(
                                    selected = c("Estimate (model fit)")),
                       uiOutput(outputId = "chooseSelectivityCurve"),
                       #tags$div(id = "meshSizes"),  # for insertUI, removeUI
-                      conditionalPanel(
-                        "input.specifySelectivity == 'Specify (user)' && !input.specifySelectivity && 
-                                              input.chooseSelectivityPattern == 'Dome-shaped && !input.chooseSelectivityPattern'",
-                        uiOutput(outputId = "gearMeshSizes")),
-                      #actionButton(inputId = "btnSelectivity",
-                      #             label = "Input selectivity choices",
-                      #              class = "btn-success")
+                      uiOutput(outputId = "gearMeshSizes"),
                ),
                column(width = 8,
                       div(id = "specifySelectivityParameters", 
