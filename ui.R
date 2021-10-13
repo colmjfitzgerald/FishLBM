@@ -159,17 +159,17 @@ body <-   mainPanel(
                                    )
                                  ),
                         ),
-                        tabPanel("Maturity",
-                                 fluidRow(
-                                   column(width = 12,
-                                          NULL)
-                                 )
-                        ),
+                        # tabPanel("Maturity",
+                        #          fluidRow(
+                        #            column(width = 12,
+                        #                   NULL)
+                        #          )
+                        # ),
                         tabPanel("Life history parameters",
                                  withMathJax(),
                                  fluidPage(
                                    fluidRow(
-                                     column(width = 4,
+                                     column(width = 5,
                                             h3("Growth"),
                                             uiOutput(outputId = "growthParRadioBtn"),
                                             h3("Natural mortality"),
@@ -177,7 +177,7 @@ body <-   mainPanel(
                                             h3("Maturity"),
                                             uiOutput(outputId= "btnRadioMaturity")
                                      ),
-                                     column(width = 8,
+                                     column(width = 7,
                                             #                                          box(status = "primary", width = NULL,
                                             #                                          ),
                                             tags$table(id = "tableLHP",
