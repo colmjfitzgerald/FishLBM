@@ -433,12 +433,17 @@ body <-   mainPanel(
                         ),
                         navbarMenu("Interpretation",
                                    tabPanel("Graphical",
+                                            fluidPage(
                                             fluidRow(
                                               column(width = 12,
-                                                     #tags$hr(),
-                                                     #tags$h3("Expected catch-at-length - per recruit theory"),
-                                                     plotlyOutput(outputId = "plotCatchLBSPR"),
+                                                     plotlyOutput(outputId = "plotCatchFishedUnfished"),
                                               )
+                                            ),
+                                            fluidRow(
+                                            column(width = 12,
+                                                   plotlyOutput(outputId = "plotPopFishedUnfished"),
+                                            )
+                                            )
                                             )
                                    )
                         ),
