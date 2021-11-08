@@ -380,21 +380,21 @@ body <-   mainPanel(
                                                          label = "Assessment - temporal basis",
                                                          choices = c("all periods"), #, "by year"),
                                                          selected = "all periods"
-                                            )
+                                            ),
                                             #uiOutput(outputId = "btnPlotLengthComposition")
+                                            div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
+                                            fluidRow(
+                                              actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
+                                                           class = "btn-success"),
+                                            )
                                      ),
                                      column(width = 9,
                                             plotlyOutput(outputId = "plotResponsiveLengthComposition",
                                                          width = "100%",
-                                                         height = "400px")
+                                                         height = "600px")
                                      )
                                    ),
                                  ),
-                                 div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
-                                 fluidRow(
-                                   actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
-                                                class = "btn-success"),
-                                 )
                         ),
                         navbarMenu("Model fit", 
                                    tabPanel("Length composition", value = "tabModelFit",
