@@ -1667,7 +1667,14 @@ server <- function(input, output, session){
                updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabLengthComposition"))
   
   observeEvent(input$fitLBA,
-               {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")})
+               {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")
+                 showModal(modalDialog(
+                   title = "TMBhelper convergence check",
+                   fitLIME()$lc_only$opt$Convergence_check,
+                   easyClose = TRUE,
+                   size = "m"
+                 ),
+                 session)})
   
   
   # print text on LBSPR estimating model fit 
@@ -1873,7 +1880,7 @@ server <- function(input, output, session){
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       expr <- print(fitGTGLBSPR()$nlminbOut)  
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
-      expr <- print(fitLIME()$lc_only$Sdreport)
+      expr <- print(fitLIME()$lc_only$opt)
     }
     
     
