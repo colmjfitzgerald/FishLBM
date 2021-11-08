@@ -450,10 +450,38 @@ body <-   mainPanel(
                         navbarMenu("Diagnostics",
                                    tabPanel("Graphical",
                                             fluidRow(
-                                              column(width = 12,
-                                                     plotOutput(outputId = "plotPITresiduals"),
+                                              column(width = 9,
+#                                                     h3("Parameter estimates, confidence intervals, bounds"),
+                                                     plotlyOutput(outputId = "diagnosticParameterFits",
+                                                                  width = "100%",
+                                                                  height = "500px"),
+                                              ),
+                                              column(width = 3,
+                                                     box(
+                                                       title = "Parameter estimate plot - interpretation",
+                                                       width = NULL, # for column-based layouts
+                                                       status = "info",
+                                                       tags$body(
+                                                         tags$p(
+                                                           tags$ul(
+                                                             tags$li("Maximum likelihood (ML) optimization parameter domains are shaded light green."),
+                                                             tags$li("Initial parameter estimates for ML optimization are shown with a black circle."),
+                                                             tags$li("ML estimates and 95% confidence intervals are indicated with a large black dot and error bars."),
+                                                           ),
+                                                           tags$p("Possible model fit issues if:"),
+                                                           tags$ul(
+                                                             tags$li("any estimates are at parameter domain boundary;"),
+                                                             tags$li("confidence intervals around an estimate are very large;"),
+                                                             tags$li("final gradient at MLE is very large.")
+                                                           ),
+                                                         )                                                       ,
+                                                         collapsible = TRUE,
+                                                         collapsed = FALSE
+                                                       )
+                                                     )
                                               )
-                                            )
+                                            ),
+                                            fluidRow(plotOutput(outputId = "plotPITresiduals"))
                                    ),
                                    tabPanel("Optimisation details",
                                             fluidPage(

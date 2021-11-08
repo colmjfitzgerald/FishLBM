@@ -2359,4 +2359,65 @@ server <- function(input, output, session){
     
   })
   
+  
+  output$diagnosticParameterFits <- renderPlotly({
+    if(input$lengthBasedAssessmentMethod == "LIME") {
+      
+      # LIME - life history and model fit data
+      fitLIMEout <- fitLIME()
+      #lh_fit <- fitLIMEout$lh
+      limeFit <- fitLIMEout$lc_only
+      years_lime <- limeFit$input$years
+      
+      diagnosticLIME <- as.data.frame(limeFit$opt$diagnostics)
+      # fishing mortality by year -  use two digits...for proper ordering of years
+      diagnosticLIME$Param[diagnosticLIME$Param == "log_F_ft"] <- sprintf(fmt = "%s.%02d", "log_F_ft", years_lime)
+
+      
+      # parameter constraints
+      parConstraintsLIME <- diagnosticLIME %>% select(Param, Lower, Upper, final_gradient) %>%
+        mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
+               Upper = ifelse(is.finite(Upper), Upper, 100),
+               Domain = "lightgreen")
+      
+      # parameter estimates
+      diagnosticEstimatesLIME <- diagnosticLIME %>%
+        rename(InitialEstimate = starting_value, MaximumLikelihoodEstimate = MLE) %>% 
+        pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+        select(Param, Estimate, Value)
+      
+      # estimate confidence intervals from standard error from covariance matrix
+      ciEstimatesLIME <- data.frame(Param = diagnosticLIME$Param,
+                                    MLE = limeFit$Sdreport$par.fixed,
+                                    LowerCI = limeFit$Sdreport$par.fixed -1.96*sqrt(diag(limeFit$Sdreport$cov.fixed)),
+                                    UpperCI = limeFit$Sdreport$par.fixed +1.96*sqrt(diag(limeFit$Sdreport$cov.fixed)))
+
+      # x-axis range
+      x_min <- floor(min(diagnosticLIME$Lower[is.finite(diagnosticLIME$Lower)], 
+                         diagnosticLIME$starting_value, diagnosticLIME$starting_value,
+                         diagnosticLIME$MLE))
+      x_max <- ceiling(max(diagnosticLIME$Upper[is.finite(diagnosticLIME$Upper)], 
+                           diagnosticLIME$starting_value,
+                           diagnosticLIME$MLE))
+
+      # order of fixed effects is important
+      pg <- ggplot() + 
+        geom_segment(data = parConstraintsLIME,
+                     aes(y = Param, yend = Param, x = Lower, xend = Upper), size = 5, lineend = "butt",
+                     colour = "lightgreen") +
+        geom_point(data = diagnosticEstimatesLIME,
+                   aes(y = Param, x = Value, shape = Estimate), size = 5, colour = "black") +
+        geom_errorbarh(data = ciEstimatesLIME, 
+                       aes(y = Param, xmin = LowerCI, xmax = UpperCI), height = 0.8) +
+        scale_x_continuous(name = "Value") +
+        scale_y_discrete(name = "Fixed effect parameters") +
+        scale_shape_manual(values = c(1, 16)) + #scale_colour_manual(name = waiver(), values = "lightgreen", breaks = "lightgreen", labels = NULL) +
+        coord_cartesian(xlim = c(x_min, x_max)) +
+        theme_bw() + 
+        theme(axis.text = element_text(size = 12),
+              axis.title = element_text(size = 12))
+      
+      ggplotly(p = pg)
+    }
+  })
 }
