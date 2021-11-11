@@ -1387,7 +1387,6 @@ server <- function(input, output, session){
         initialFleetPars <- list(SL1 = allFleetPars$SL1, SL2 = allFleetPars$SL2)
         cat(paste0("initialFleetPars = ", initialFleetPars, "\n"))
       }
-      
       fixedFleetPars
       names(fixedFleetPars)[names(fixedFleetPars) == "selexCurve"] <- "selectivityCurve"
       
@@ -1669,13 +1668,14 @@ server <- function(input, output, session){
   
   observeEvent(input$fitLBA,
                {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")
-                 showModal(modalDialog(
-                   title = "TMBhelper convergence check",
-                   fitLIME()$lc_only$opt$Convergence_check,
-                   easyClose = TRUE,
-                   size = "m"
-                 ),
-                 session)})
+                 if(input$lengthBasedAssessmentMethod == "LIME") {
+                   showModal(modalDialog(
+                     title = "TMBhelper convergence check",
+                     fitLIME()$lc_only$opt$Convergence_check,
+                     easyClose = TRUE,
+                     size = "m"), session)
+                 }
+               })
   
   
   # print text on LBSPR estimating model fit 
