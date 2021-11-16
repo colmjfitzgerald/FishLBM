@@ -1218,7 +1218,7 @@ server <- function(input, output, session){
         colnames(LF) <- as.character(lengthBins)[-1]
         LFVul <- LF*outer(rep.int(1, nrow(LF)), isVulnerable)
       } else if(input$analyseLengthComposition == "all periods"){
-        # aggregate all years - see fitGTGLBSPR for how this approach is incorporated in the assessment 
+        # aggregate all years - see fitLBSPR for how this approach is incorporated in the assessment 
         # could also be implemented in this reactive and propagated??
         LFhist <- hist(length_records[, length_col], plot = FALSE, breaks = lengthBins, right = FALSE)
 
@@ -1363,7 +1363,7 @@ server <- function(input, output, session){
   
 
   # Fit LBA ####
-  fitGTGLBSPR <- eventReactive(
+  fitLBSPR <- eventReactive(
     input$fitLBA,
     {
       # as.name
@@ -1416,8 +1416,8 @@ server <- function(input, output, session){
       years <- rownames(LenDatVul)
       
       NatL_LBSPR <- NULL
-      estModelFit <- NULL
-      optPars <- NULL
+      lbsprPars <- NULL
+      mlePars <- NULL
       optimOut <- vector("list", length = length(years))
       
       for (yearLBSPR in years){
@@ -1425,29 +1425,27 @@ server <- function(input, output, session){
       LenDatIn <- LenDatVul[which(rownames(LenDatVul) == yearLBSPR),]  
 
       # GTG-LBSPR optimisation
-      optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")#, input$selectSelectivityCurve)
-      # optGTG$Ests
-      # optGTG$PredLen
-      # optGTG$opt_par
+      optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")
+
       optimOut[[which(years == yearLBSPR)]] <- optGTG$optimOut
       names(optimOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
 
       if(input$specifySelectivity == "Fixed value"){
-        optFleetPars <- list(FM = optGTG$Ests["FM"],
-                             selectivityCurve = optGTG$SelectivityCurve,
+        optFleetPars <- list(FM = optGTG$lbPars[["F/M"]],
+                             selectivityCurve = optGTG$fixedFleetPars$selectivityCurve,
                              SL1 = fixedFleetPars$SL1, 
                              SL2 = fixedFleetPars$SL2,
                              SLMin = fixedFleetPars$SLMin,
                              SLmesh = fixedFleetPars$SLmesh)
       } else if(input$specifySelectivity == "Initial estimate") {
-        optFleetPars <- list(FM = optGTG$Ests["FM"], 
-                             selectivityCurve = optGTG$SelectivityCurve,
-                             SL1 = optGTG$Ests["SL1"], 
-                             SL2 = optGTG$Ests["SL2"])
+        optFleetPars <- list(FM = optGTG$lbPars[["F/M"]], 
+                             selectivityCurve = optGTG$fixedFleetPars$selectivityCurve,
+                             SL1 = optGTG$lbPars[["SL50"]], 
+                             SL2 = optGTG$lbPars[["SL95"]])
       }
 
-      # per recruit theory
-      prGTG <- GTGDomeLBSPRSim(StockPars, optFleetPars, SizeBins)#, input$selectSelectivityCurve)
+      # per recruit theory simulation - called in DoOptDome also
+      prGTG <- GTGDomeLBSPRSim(StockPars, optFleetPars, SizeBins)
 
       # configure outputs
       # ifelse statement depending on selectivity curve
@@ -1482,14 +1480,14 @@ server <- function(input, output, session){
                        SL50 = unname(optFleetPars$SL1), 
                        SL95 = unname(optFleetPars$SL2),
                        SPR = prGTG$SPR))
-      estModelFit <- rbind(estModelFit,
+      lbsprPars <- rbind(lbsprPars,
                        data.frame(FM = unname(optFleetPars$FM), 
                                   SL50 = unname(optFleetPars$SL1), 
                                   SL95 = unname(optFleetPars$SL2),
                                   SPR = prGTG$SPR, 
                                   row.names = yearLBSPR)
       )
-      optPars <- rbind(optPars, optGTG$opt_par)
+      mlePars <- rbind(mlePars, optGTG$optimOut$par)
       # Parameter = c("FM", "SL50", "SL95", "SPR"),
       # Description = c("F/M: relative fishing mortality",
       #                 "Length at 50% selectivity",
@@ -1501,28 +1499,28 @@ server <- function(input, output, session){
       #                                 Estimate = c(prGTG$SPR, prGTG$YPR))
       }
       if(input$specifySelectivity == "Fixed value"){
-        #estModelFit$Source <- c("Model fit", "User-specified", "User-specified", "Model")
+        #lbsprPars$Source <- c("Model fit", "User-specified", "User-specified", "Model")
         if(input$selectSelectivityCurve == "Logistic"){
-          names(estModelFit)[names(estModelFit) == "SL50"] <- "SL50 (fixed)"
-          names(estModelFit)[names(estModelFit) == "SL95"] <- "SL95 (fixed)"
+          names(lbsprPars)[names(lbsprPars) == "SL50"] <- "SL50 (fixed)"
+          names(lbsprPars)[names(lbsprPars) == "SL95"] <- "SL95 (fixed)"
         } else if(input$selectSelectivityCurve == "Dome-shaped"){
-          names(estModelFit)[names(estModelFit) == "SL50"] <- "SL1"
-          names(estModelFit)[names(estModelFit) == "SL95"] <- "SL2"
+          names(lbsprPars)[names(lbsprPars) == "SL50"] <- "SL1"
+          names(lbsprPars)[names(lbsprPars) == "SL95"] <- "SL2"
         }
       }
       
-      optPars <- data.frame(optPars)
-      if(dim(optPars)[2] == 3) {
-        colnames(optPars) <- c("FM", "log_SL50", "log_SLdelta")
+      mlePars <- data.frame(mlePars)
+      if(dim(mlePars)[2] == 3) {
+        colnames(mlePars) <- c("FM", "log_SL50", "log_SLdelta")
       } else {
-        colnames(optPars) <- c("FM")
+        colnames(mlePars) <- c("FM")
       }
-      optPars <- cbind(year = years, optPars)
+      mlePars <- cbind(year = years, mlePars)
       
       list(NatL_LBSPR = NatL_LBSPR,
-           estModelFit = estModelFit,
+           lbsprPars = lbsprPars,
            optimOut = optimOut,
-           optPars = optPars,
+           mlePars = mlePars,
            MLE = optGTG$MLE
            )
     }
@@ -1683,12 +1681,12 @@ server <- function(input, output, session){
     {
       
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      estModelFitLBSPR <- fitGTGLBSPR()$estModelFit
-      optParsLBSPR <- fitGTGLBSPR()$optPars
+      lbsprPars <- fitLBSPR()$lbsprPars
+      mlePars <- fitLBSPR()$mlePars
       # three significant figures
-      optParsLBSPR[sapply(optParsLBSPR, is.numeric)] <- signif(optParsLBSPR[sapply(optParsLBSPR, is.numeric)], 3)
-      #estModelFitLBSPR[ ,colnames(estModelFitLBSPR)!= "SPR"] %>%
-      optParsLBSPR %>%
+      mlePars[sapply(mlePars, is.numeric)] <- signif(mlePars[sapply(mlePars, is.numeric)], 3)
+      #lbsprPars[ ,colnames(lbsprPars)!= "SPR"] %>%
+      mlePars %>%
         knitr::kable("html", digits = 3) %>%
         kable_styling("striped", full_width = F, position = "float_left")
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
@@ -1733,12 +1731,12 @@ server <- function(input, output, session){
   )
     
   #renderPrint({
-  #  expr = print(fitGTGLBSPR()$estModelFit)
+  #  expr = print(fitLBSPR()$lbsprPars)
   #})
   
   # # print text on LBSPR operating model output
   # output$textLBSPROpOut <- renderPrint({
-  #   expr = print(fitGTGLBSPR()$opModelOut)
+  #   expr = print(fitLBSPR()$opModelOut)
   # })
   
   output$plotLBAModelFit <- renderPlotly({
@@ -1762,7 +1760,7 @@ server <- function(input, output, session){
     LenMids <- createLengthBins()$LenMids	
     LenDat <- binLengthData()$LenDatVul # vulnerable to fishery only
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+      NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
       maxLengthYearVector <- apply(LenDat, 1, "max")
       maxLengthYear <- rep(maxLengthYearVector, each = dim(LenDat)[2])
       NatL_LBSPR$catchFished_at_length_count <- NatL_LBSPR$catchFished_at_length*maxLengthYear
@@ -1855,7 +1853,7 @@ server <- function(input, output, session){
   
   # output$plotOpLBSPR <- renderPlotly({
   #   # operating model output based on estimating model fit
-  #   NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+  #   NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
   #   
   #   # pivot_longer
   #   NatL_long <- NatL_LBSPR %>%
@@ -1879,7 +1877,7 @@ server <- function(input, output, session){
   # multinomial log likelihood)
   output$textLBAModelFit <- renderPrint({
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      expr <- print(fitGTGLBSPR()$optimOut)  
+      expr <- print(fitLBSPR()$optimOut)  
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
       expr <- print(fitLIME()$lc_only$opt)
     }
@@ -1908,7 +1906,7 @@ server <- function(input, output, session){
     }
 
     if(lbaMethod == "LB-SPR"){
-      lbsprFit <- fitGTGLBSPR()$estModelFit
+      lbsprFit <- fitLBSPR()$lbsprPars
       lbsprStockInput <- setLHPars()
       lbsprGearInput <- setFleetPars()
       yearsLBA <- row.names(lbsprFit)
@@ -2026,7 +2024,7 @@ server <- function(input, output, session){
       length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
       
       # theory
-      NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+      NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
       
       
       # plotly
@@ -2145,7 +2143,7 @@ server <- function(input, output, session){
       length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
       
       # theory
-      NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+      NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
       head(NatL_LBSPR)
       
       # plotly
@@ -2252,23 +2250,23 @@ server <- function(input, output, session){
                   set_ylim=list("Fish"=c(0,mean(lc_only$Report$F_t)*2),"SPR"=c(0,1)))
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       p <- plot.new()
-      estModelFit <- fitGTGLBSPR()$estModelFit
-      NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+      lbsprPars <- fitLBSPR()$lbsprPars
+      NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
       StockPars <- setLHPars()
       
-      FishM <- estModelFit$FM*StockPars$M # unscaled fishing mortality
+      FishM <- lbsprPars$FM*StockPars$M # unscaled fishing mortality
       # extract years
-      estModelFit$year <- row.names(estModelFit)
-      row.names(estModelFit) <- NULL
+      lbsprPars$year <- row.names(lbsprPars)
+      row.names(lbsprPars) <- NULL
       
-      cat(paste0("estModelFit$year = ", estModelFit$year, "\n"))
-      cat(paste0("estModelFit$FM = ", estModelFit$FM, "\n"))
-      cat(paste0("estModelFit$SPR= ", estModelFit$SPR, "\n"))
+      cat(paste0("lbsprPars$year = ", lbsprPars$year, "\n"))
+      cat(paste0("lbsprPars$FM = ", lbsprPars$FM, "\n"))
+      cat(paste0("lbsprPars$SPR= ", lbsprPars$SPR, "\n"))
       
       par(mgp = c(3,1,0), mar = c(4,5,2,2)+0.1)
       layout(matrix(c(1,2,3,3),2,2, byrow = TRUE), c(1,1), c(1,1), TRUE)
       if(input$analyseLengthComposition == "all periods"){
-        yearsLBA <- estModelFit$year
+        yearsLBA <- lbsprPars$year
         
         # fishing mortality
         barplot(FishM, width = 0.6, names.arg = yearsLBA, 
@@ -2277,7 +2275,7 @@ server <- function(input, output, session){
         abline(h = StockPars$M, col = "red", lty = 2, lwd = 2)
         
         # SPR
-        barplot(estModelFit$SPR, width = 0.6, names.arg = yearsLBA, 
+        barplot(lbsprPars$SPR, width = 0.6, names.arg = yearsLBA, 
                 cex.axis = 2, cex.names = 2, cex.lab = 2, axes = TRUE, axisnames = TRUE,
                 ylab = "SPR", ylim = c(0,1), space = 0.4)
         abline(h = 0.4, col = "red", lty = 2, lwd = 2)
@@ -2292,8 +2290,8 @@ server <- function(input, output, session){
         points(lengthMid_year, selectivityF_year, lwd = 2, pch = 1)
         
       } else {
-        estModelFit$year <- as.integer(estModelFit$year)
-        yearsLBA <- estModelFit$year
+        lbsprPars$year <- as.integer(lbsprPars$year)
+        yearsLBA <- lbsprPars$year
         
         # fishing mortality
         plot(yearsLBA, FishM, 
@@ -2303,10 +2301,10 @@ server <- function(input, output, session){
         abline(h = StockPars$M, col = "red", lty = 2, lwd = 2)
         
         # SPR
-        plot(yearsLBA, estModelFit$SPR, 
+        plot(yearsLBA, lbsprPars$SPR, 
              type = "p", lwd = 1.5, pch = 19, cex = 2, cex.axis = 2, cex.lab = 2,
              xlab = "year", ylab = "SPR", ylim = c(0,1))
-        lines(yearsLBA, estModelFit$SPR, lwd = 1, lty = 1)
+        lines(yearsLBA, lbsprPars$SPR, lwd = 1, lty = 1)
         abline(h = 0.4, col = "red", lty = 2, lwd = 2)
 
         # selectivity-at-length
@@ -2331,15 +2329,15 @@ server <- function(input, output, session){
   
   
   output$plotPopLBSPR <- renderPlot({
-    NatL_LBSPR <- fitGTGLBSPR()$NatL_LBSPR
+    NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
     LPopUnfished <- NatL_LBSPR$popUnfished_at_length
     LPopFished <- NatL_LBSPR$popFished_at_length
     LenMids <- NatL_LBSPR$length_mid
     print(max(LenMids))
     
-    estModelFit <- fitGTGLBSPR()$estModelFit  
-    SL50 <- estModelFit$Estimate[estModelFit$Parameter == "SL1"]
-    SL95 <- estModelFit$Estimate[estModelFit$Parameter == "SL2"]
+    lbsprPars <- fitLBSPR()$lbsprPars  
+    SL50 <- lbsprPars$Estimate[lbsprPars$Parameter == "SL1"]
+    SL95 <- lbsprPars$Estimate[lbsprPars$Parameter == "SL2"]
     SLmin <- SL50 - (SL95-SL50)
     
     par(mfrow = c(2,1), mgp = c(2,1,0), mar = c(4,3,3,1), cex = 1.15)
@@ -2427,7 +2425,7 @@ server <- function(input, output, session){
       
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR" &&
               input$analyseLengthComposition == "all periods") {
-      fitLBSPR <- fitGTGLBSPR()
+      fitLBSPR <- fitLBSPR()
       # initial estimates, MLEs, confidence intervals
       parConstraintsLBSPR <- 
         data.frame(Parameter = fitLBSPR$MLE$Parameter,
