@@ -1418,7 +1418,7 @@ server <- function(input, output, session){
       NatL_LBSPR <- NULL
       estModelFit <- NULL
       optPars <- NULL
-      nlminbOut <- vector("list", length = length(years))
+      optimOut <- vector("list", length = length(years))
       
       for (yearLBSPR in years){
 
@@ -1429,8 +1429,8 @@ server <- function(input, output, session){
       # optGTG$Ests
       # optGTG$PredLen
       # optGTG$opt_par
-      nlminbOut[[which(years == yearLBSPR)]] <- optGTG$nlminbOut
-      names(nlminbOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
+      optimOut[[which(years == yearLBSPR)]] <- optGTG$optimOut
+      names(optimOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
 
       if(input$specifySelectivity == "Fixed value"){
         optFleetPars <- list(FM = optGTG$Ests["FM"],
@@ -1521,9 +1521,9 @@ server <- function(input, output, session){
       
       list(NatL_LBSPR = NatL_LBSPR,
            estModelFit = estModelFit,
-           nlminbOut = nlminbOut,
-           optPars = optPars
-           #opModelOut = opModelOut
+           optimOut = optimOut,
+           optPars = optPars,
+           MLE = optGTG$MLE
            )
     }
   )
@@ -1879,7 +1879,7 @@ server <- function(input, output, session){
   # multinomial log likelihood)
   output$textLBAModelFit <- renderPrint({
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      expr <- print(fitGTGLBSPR()$nlminbOut)  
+      expr <- print(fitGTGLBSPR()$optimOut)  
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
       expr <- print(fitLIME()$lc_only$opt)
     }
@@ -2425,7 +2425,54 @@ server <- function(input, output, session){
         theme(axis.text = element_text(size = 12),
               axis.title = element_text(size = 12))
       
-      ggplotly(p = pg)
+    } else if(input$lengthBasedAssessmentMethod == "LB-SPR" &&
+              input$analyseLengthComposition == "all periods") {
+      fitLBSPR <- fitGTGLBSPR()
+      # initial estimates, MLEs, confidence intervals
+      parConstraintsLBSPR <- 
+        data.frame(Parameter = fitLBSPR$MLE$Parameter,
+                   Lower = rep(-Inf, dim(fitLBSPR$MLE)[1]),
+                   Upper = rep(0, dim(fitLBSPR$MLE)[1])) 
+      parConstraintsLBSPR$Upper[parConstraintsLBSPR$Parameter == "log(F/M)"] <- Inf   
+      parConstraintsLBSPR <- parConstraintsLBSPR %>% 
+        mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
+                Upper = ifelse(is.finite(Upper), Upper, 100),
+                Domain = "lightgreen")
+      
+      diagnosticEstimatesLBSPR <- fitLBSPR$MLE %>%
+        rename(InitialEstimate = Initial, MaximumLikelihoodEstimate = Estimate) %>% 
+        pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+        select(Parameter, Estimate, Value)
+      
+      
+      # standard error from covariance matrix
+      ciEstimatesLBSPR <- data.frame(Parameter = fitLBSPR$MLE$Parameter,
+                                     MLE = fitLBSPR$MLE$Estimate,
+                                     LowerCI = fitLBSPR$MLE$Estimate-1.96*fitLBSPR$MLE$`Std. Error`,
+                                     UpperCI = fitLBSPR$MLE$Estimate +1.96*fitLBSPR$MLE$`Std. Error`)
+      
+      # x-axis range
+      x_min <- floor(min(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, ciEstimatesLBSPR$LowerCI))
+      x_max <- ceiling(max(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, ciEstimatesLBSPR$UpperCI))
+
+      pg <- ggplot() +
+        geom_segment(data = parConstraintsLBSPR,
+                     aes(y = Parameter, yend = Parameter, x = Lower, xend = Upper), size = 5, lineend = "butt",
+                     colour = "lightgreen") +
+        geom_point(data = diagnosticEstimatesLBSPR,
+                   aes(y = Parameter, x = Value, shape = Estimate), size = 5, colour = "black") +
+        geom_errorbarh(data = ciEstimatesLBSPR,
+                       aes(y = Parameter, xmin = LowerCI, xmax = UpperCI), height = 0.5) +
+        scale_x_continuous(name = "Value", breaks = seq(x_min,x_max,1)) +
+        scale_y_discrete(name = "MLE parameters") +
+        scale_shape_manual(values = c(1, 16)) + #scale_colour_manual(name = waiver(), values = "lightgreen", breaks = "lightgreen", labels = NULL) +
+        coord_cartesian(xlim = c(x_min, x_max)) +
+        theme_bw() +
+        theme(axis.text = element_text(size = 12),
+              axis.title = element_text(size = 12))
+      pg
+      
     }
+    ggplotly(p = pg) %>% highlight("plotly_selected")
   })
 }
