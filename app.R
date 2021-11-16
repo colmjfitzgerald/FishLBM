@@ -3,10 +3,8 @@ if(!require(shinyBS)){install.packages("shinyBS", dependencies = TRUE); require(
 if(!require(shinyWidgets)){install.packages("shinyWidgets", dependencies = TRUE); require(shinyWidgets)}
 if(!require(shinydashboard)){install.packages("shinydashboard", dependencies = TRUE); require(shinydashboard)}
 if(!require(openxlsx)){install.packages("openxlsx", dependencies = TRUE); require(openxlsx)}
-if(!require(ggplot2)){install.packages("ggplot2", dependencies = TRUE); require(ggplot2)}
 if(!require(plotly)){install.packages("plotly", dependencies = TRUE); require(plotly)}
-if(!require(dplyr)){install.packages("dplyr", dependencies = TRUE); require(dplyr)}
-if(!require(tidyr)){install.packages("tidyr", dependencies = TRUE); require(tidyr)}
+if(!require(tidyverse)){install.packages("tidyverse", dependencies = TRUE); require(tidyverse)}
 if(!require(knitr)){install.packages("knitr", dependencies = TRUE); require(knitr)}
 if(!require(kableExtra)){install.packages("kableExtra", dependencies = TRUE); require(kableExtra)}
 if(!require(DT)){install.packages("DT", dependencies = TRUE); require(DT)}
@@ -15,11 +13,11 @@ devtools::install_github("merrillrudd/LIME", dependencies=TRUE)
 require(LIME)
 
 #library(htmltools)
-options(shiny.maxRequestSize = 5*1024^2)
-source("../GTG-LBSPR_DomeShaped/GTGLBSPR_Dome.R")
 #source("./LIME/create_lh_list.R")
 #source("./LIME/plot_LCfits_cf.R")
 #source_url("https://github.com/AdrianHordyk/GTG_LBSPR/blob/master/GTG_LBSPR.r")
+options(shiny.maxRequestSize = 5*1024^2)
+source("../GTG-LBSPR_DomeShaped/GTGLBSPR_Dome.R")
 source("./ui.R")
 source("./server.R")
 
