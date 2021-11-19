@@ -1465,6 +1465,14 @@ server <- function(input, output, session){
         VulLen2[LenMids < optFleetPars$SLMin] <- 0
       }
       
+      # calculate variance in selectivity-at-length
+      if(input$specifySelectivity == "Initial estimate") {
+        optVarcov <- solve(optGTG$optimOut$hessian)
+        deltaSLF <- varFishingAtLength(optGTG$optimOut$par, optVarcov, optFleetPars, StockPars, LenMids)
+      }
+      
+      #print(paste0("difference between meanSLF and VulLen2 = ", sum(deltaSLF$meanSLF-VulLen2)))
+      
       # numbers-at-length (midpoints) LBSPR
       NatL_LBSPR <- rbind(NatL_LBSPR,
                       data.frame(year = yearLBSPR,
@@ -1472,14 +1480,11 @@ server <- function(input, output, session){
                                  catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
                                  catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
                                  selectivityF_at_length = VulLen2,
+                                 varSelectivityF_at_length = deltaSLF$varSLF,
                                  popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
                                  popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished) #standardised??
                       ))
       
-      print(data.frame(FM = unname(optFleetPars$FM), 
-                       SL50 = unname(optFleetPars$SL1), 
-                       SL95 = unname(optFleetPars$SL2),
-                       SPR = prGTG$SPR))
       lbsprPars <- rbind(lbsprPars,
                        data.frame(FM = unname(optFleetPars$FM), 
                                   SL50 = unname(optFleetPars$SL1), 
@@ -1521,7 +1526,8 @@ server <- function(input, output, session){
            lbsprPars = lbsprPars,
            optimOut = optimOut,
            mlePars = mlePars,
-           MLE = optGTG$MLE
+           MLE = optGTG$MLE,
+           fixedFleetPars = fixedFleetPars
            )
     }
   )
@@ -2249,11 +2255,11 @@ server <- function(input, output, session){
                   plot=c("Fish","Rec","SPR","ML","SB","Selex"),
                   set_ylim=list("Fish"=c(0,mean(lc_only$Report$F_t)*2),"SPR"=c(0,1)))
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      p <- plot.new()
       lbsprPars <- fitLBSPR()$lbsprPars
       NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
       StockPars <- setLHPars()
       
+
       FishM <- lbsprPars$FM*StockPars$M # unscaled fishing mortality
       # extract years
       lbsprPars$year <- row.names(lbsprPars)
@@ -2263,10 +2269,14 @@ server <- function(input, output, session){
       cat(paste0("lbsprPars$FM = ", lbsprPars$FM, "\n"))
       cat(paste0("lbsprPars$SPR= ", lbsprPars$SPR, "\n"))
       
-      par(mgp = c(3,1,0), mar = c(4,5,2,2)+0.1)
-      layout(matrix(c(1,2,3,3),2,2, byrow = TRUE), c(1,1), c(1,1), TRUE)
+      p <- plot.new()
+      par(mfrow = c(1,3), mgp = c(3,1,0), mar = c(4,5,2,2)+0.1)
       if(input$analyseLengthComposition == "all periods"){
+        #layout(matrix(c(1,2,3,3),2,2, byrow = TRUE), c(1,1), c(1,1), TRUE)
+        
         yearsLBA <- lbsprPars$year
+        
+        #LenMids <- isolate(createLengthBins())$LenMids
         
         # fishing mortality
         barplot(FishM, width = 0.6, names.arg = yearsLBA, 
@@ -2281,13 +2291,26 @@ server <- function(input, output, session){
         abline(h = 0.4, col = "red", lty = 2, lwd = 2)
         
         # selectivity-at-length
-        plot(x=1, y=1, type="n", xlim = range(NatL_LBSPR$length_mid), ylim = c(0,1),
-             xlab = "length", ylab = "selectivity", col = "black", main = yearsLBA,
+        lengthMid <- NatL_LBSPR$length_mid
+        plot(x=1, y=1, type="n", xlim = c(StockPars$Linf*0.1, StockPars$Linf*0.9), ylim = c(0,1),
+             xlab = "length", ylab = "selectivity", col = "black", #main = yearsLBA,
              lwd = 2, cex = 2, cex.axis = 2, cex.lab = 2, cex.lab=2 )
-        lengthMid_year <- NatL_LBSPR$length_mid
         selectivityF_year <- NatL_LBSPR$selectivityF_at_length
-        lines(lengthMid_year, selectivityF_year, lwd = 2)
-        points(lengthMid_year, selectivityF_year, lwd = 2, pch = 1)
+        lines(lengthMid, selectivityF_year, lwd = 2)
+        points(lengthMid, selectivityF_year, lwd = 2, pch = 1)
+        
+        # calculate selectivity variance
+        # "logistic" in if statement also
+        if(input$specifySelectivity == "Initial estimate" & !is.null(input$specifySelectivity)){
+          # calculate variance, derive lower and upper (95%) confidence intervals
+          selAtL <- data.frame(lengthMid = lengthMid,
+                               meanSFL = NatL_LBSPR$selectivityF_at_length,
+                               sderrSFL = sqrt(NatL_LBSPR$varSelectivityF_at_length))
+          selAtL$lowerciSF <- pmax(selAtL$meanSFL - 1.96*selAtL$sderrSFL, 0.0)
+          selAtL$upperciSF <- pmin(selAtL$meanSFL + 1.96*selAtL$sderrSFL, 1.0)
+          polygon(x = c(lengthMid, rev(lengthMid)), y = c(selAtL$lowerciSF, rev(selAtL$upperciSF)),
+                  col = "#228B2240", border = NULL)
+        }
         
       } else {
         lbsprPars$year <- as.integer(lbsprPars$year)

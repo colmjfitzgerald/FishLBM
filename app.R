@@ -18,6 +18,7 @@ require(LIME)
 #source_url("https://github.com/AdrianHordyk/GTG_LBSPR/blob/master/GTG_LBSPR.r")
 options(shiny.maxRequestSize = 5*1024^2)
 source("../GTG-LBSPR_DomeShaped/GTGLBSPR_Dome.R")
+source("../GTG-LBSPR_DomeShaped/varFishingAtLength.R")
 source("./ui.R")
 source("./server.R")
 
