@@ -1794,7 +1794,7 @@ server <- function(input, output, session){
       
       
       # create ggplot with data...
-      pg <- ggplot(length_records %>% filter(isVulnerable) ) + 
+      pg <- ggplot(length_records %>% filter(isVulnerable)) + 
         geom_histogram(mapping = aes_string(x = length_col), breaks = LenBins, 
                        closed = "left", colour = "black", fill = "grey75")
       
@@ -1853,12 +1853,12 @@ server <- function(input, output, session){
       pred_df2 <- pred_df %>% mutate("Type"="Predicted") %>% mutate("Model"="LIME")
       
       # plot_LCfits adaption
-      pg <- ggplot(length_records) + 
-        geom_histogram(aes_string(x = length_col, y = "..density..", fill = "isVulnerable"), breaks = LenBins, closed = "right") + 
-        scale_fill_manual(name = "fishery \n vulnerable", breaks = waiver(), values = c("grey20", "grey80"),
-                          guide = NULL) +
+      pg <- ggplot(length_records %>% filter(isVulnerable)) + 
+        geom_histogram(aes_string(x = length_col, y = "..density..", fill = "isVulnerable"),
+                       colour = "black", size = 0.25, breaks = LenBins, closed = "left") + 
         geom_line(data=pred_df2 %>% filter(Type=="Predicted"), 
-                  aes(x=!!ensym(length_col), y=proportion, color=Model), lwd=1.2) +
+                  aes(x=!!ensym(length_col), y=proportion, color=Model), alpha = 0.5, lwd=1.2) +
+        scale_fill_manual(name = "observed \n data", values = c("grey75"), breaks = waiver(), guide = NULL) +
         scale_color_brewer(palette="Set1", direction=-1) + 
         facet_wrap(as.formula(paste0(year_col," ~ .")))
       
