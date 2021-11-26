@@ -350,7 +350,7 @@ server <- function(input, output, session){
   
   # choices for growth parameters
   growthParChoices <- reactive({
-    if("age" %in% input$checkboxCatchData) {
+    if(any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))) {
       expr = c("User-specified", "Data fit (frequentist)")
     } else {
       expr = c("User-specified")
@@ -389,6 +389,7 @@ server <- function(input, output, session){
                               filteredLengthRecords[, sexCol])
       colnames(lengthAge) <- c(lengthCol, ageCol, sexCol)
       lengthAgeData <- lengthAge[!is.na(lengthAge[, ageCol]) & !is.na(lengthAge[, lengthCol]),]
+      colnames(lengthAgeData) <- c(lengthCol, "age", sexCol)
     } else {
       lengthAgeData <- data.frame(filteredLengthRecords[, c(lengthCol)], 
                                   age = NA,
@@ -1596,7 +1597,7 @@ server <- function(input, output, session){
                            nfleets=1 # fleetParVals$nfleets
                            )
       print(lh)
-      
+      print("lh")
       # length records
       length_records <- isolate(lengthRecordsFilter())
       lengthCol <- isolate(newLengthCol())
