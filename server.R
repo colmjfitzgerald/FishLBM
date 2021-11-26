@@ -1419,8 +1419,9 @@ server <- function(input, output, session){
       lbsprPars <- NULL
       lbsprStdErrs <- NULL
       mlePars <- NULL
+      MLE <- NULL
       optimOut <- vector("list", length = length(years))
-      
+
       for (yearLBSPR in years){
 
       LenDatIn <- LenDatVul[which(rownames(LenDatVul) == yearLBSPR),]  
@@ -1494,12 +1495,17 @@ server <- function(input, output, session){
                                  catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
                                  catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
                                  selectivityF_at_length = VulLen2,
-                                 varSelectivityF_at_length = deltaSLF$varSLF,
+                                 varSelectivityF_at_length = ifelse(input$specifySelectivity == "Initial estimate",
+                                                                deltaSLF$varSLF,
+                                                                NA),
                                  popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
                                  popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished) #standardised??
                       ))
       
       mlePars <- rbind(mlePars, optGTG$optimOut$par)
+      mleDF <- optGTG$MLE
+      mleDF$Parameter <- paste(mleDF$Parameter, yearLBSPR, sep = ".")
+      MLE <- rbind(mleDF, MLE)
       # Parameter = c("FM", "SL50", "SL95", "SPR"),
       # Description = c("F/M: relative fishing mortality",
       #                 "Length at 50% selectivity",
@@ -1522,9 +1528,9 @@ server <- function(input, output, session){
       
       mlePars <- data.frame(mlePars)
       if(dim(mlePars)[2] == 3) {
-        colnames(mlePars) <- c("FM", "log_SL50", "log_SLdelta")
+        colnames(mlePars) <- c("log_FM", "log_SL50", "log_SLdelta")
       } else {
-        colnames(mlePars) <- c("FM")
+        colnames(mlePars) <- c("log_FM")
       }
       mlePars <- cbind(year = years, mlePars)
       
@@ -1533,7 +1539,7 @@ server <- function(input, output, session){
            lbsprStdErrs = lbsprStdErrs,
            optimOut = optimOut,
            mlePars = mlePars,
-           MLE = optGTG$MLE,
+           MLE = MLE,
            fixedFleetPars = fixedFleetPars
            )
     }
@@ -1920,14 +1926,17 @@ server <- function(input, output, session){
 
     if(lbaMethod == "LB-SPR"){
       lbsprFit <- fitLBSPR()$lbsprPars
+      #fixedFleetPars <- fitLBSPR()$fixedFleetPars
       lbsprStockInput <- setLHPars()
       lbsprGearInput <- setFleetPars()
       yearsLBA <- row.names(lbsprFit)
       M <- lbsprStockInput$M
       FM <- lbsprFit$FM
-      SL1 <- format(lbsprFit[,2], digits = 3)
-      SL2 <- format(lbsprFit[,3], digits = 3)
       SPR <- format(lbsprFit$SPR, digits = 3)
+      if(specifySelectivity == "Initial estimate"){
+        SL1 <- format(lbsprFit[,"SL50"], digits = 3)
+        SL2 <- format(lbsprFit[,"SL95"], digits = 3)
+      }
       for (iyear in seq_along(yearsLBA)){
         if(specifySelectivity == "Fixed value"){
           sel_pars <- NULL
@@ -2467,9 +2476,11 @@ server <- function(input, output, session){
         theme(axis.text = element_text(size = 12),
               axis.title = element_text(size = 12))
       
-    } else if(input$lengthBasedAssessmentMethod == "LB-SPR" &&
-              input$analyseLengthComposition == "all periods") {
+    } else if(input$lengthBasedAssessmentMethod == "LB-SPR") {
+      
       fitLBSPR <- fitLBSPR()
+
+      if(input$analyseLengthComposition == "all periods") {
       # initial estimates, MLEs, confidence intervals
       parConstraintsLBSPR <- 
         data.frame(Parameter = fitLBSPR$MLE$Parameter,
@@ -2512,8 +2523,58 @@ server <- function(input, output, session){
         theme_bw() +
         theme(axis.text = element_text(size = 12),
               axis.title = element_text(size = 12))
-      pg
-      
+      } else if (input$analyseLengthComposition == "annual") {
+        # initial estimates, MLEs, confidence intervals
+        parConstraintsLBSPR <- 
+          data.frame(Parameter = fitLBSPR$MLE$Parameter,
+                     Lower = rep(-Inf, dim(fitLBSPR$MLE)[1]),
+                     Upper = rep(0, dim(fitLBSPR$MLE)[1]))
+        parConstraintsLBSPR$Upper[grepl("log(F/M)*", parConstraintsLBSPR$Parameter)] <- Inf
+        # for plotting purppses
+        parConstraintsLBSPR$Lower <- ifelse(is.finite(parConstraintsLBSPR$Lower),
+                                            parConstraintsLBSPR$Lower, -100)
+        parConstraintsLBSPR$Upper <- ifelse(is.finite(parConstraintsLBSPR$Upper),
+                                            parConstraintsLBSPR$Upper, +100)
+        parConstraintsLBSPR$Domain <- "lightgreen"
+        
+        # only F/M
+        parConstraintsLBSPR <- parConstraintsLBSPR[grepl("log(F/M)*", parConstraintsLBSPR$Parameter),]
+        diagnosticEstimatesLBSPR <- fitLBSPR$MLE[grepl("log(F/M)*", fitLBSPR$MLE$Parameter),]
+        ciEstimatesLBSPR <- fitLBSPR$MLE[grepl("log(F/M)*", fitLBSPR$MLE$Parameter),]
+        
+        names(diagnosticEstimatesLBSPR)[names(diagnosticEstimatesLBSPR)=="Initial"] <- "InitialEstimate"
+        names(diagnosticEstimatesLBSPR)[names(diagnosticEstimatesLBSPR)=="Estimate"] <- "MaximumLikelihoodEstimate"
+        diagnosticEstimatesLBSPR <- diagnosticEstimatesLBSPR %>% 
+          pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+          select(Parameter, Estimate, Value)
+        
+        # standard error from covariance matrix
+        ciEstimatesLBSPR <- data.frame(Parameter = fitLBSPR$MLE$Parameter,
+                                       MLE = fitLBSPR$MLE$Estimate,
+                                       LowerCI = fitLBSPR$MLE$Estimate-1.96*fitLBSPR$MLE$`Std. Error`,
+                                       UpperCI = fitLBSPR$MLE$Estimate +1.96*fitLBSPR$MLE$`Std. Error`)
+        # only F/M
+        ciEstimatesLBSPR <- ciEstimatesLBSPR[grepl("log(F/M)*", ciEstimatesLBSPR$Parameter),]
+        
+        # x-axis range
+        x_min <- floor(min(parConstraintsLBSPR$InitialEstimate, ciEstimatesLBSPR$MLE, ciEstimatesLBSPR$LowerCI))
+        x_max <- ceiling(max(parConstraintsLBSPR$InitialEstimate, ciEstimatesLBSPR$MLE, ciEstimatesLBSPR$UpperCI))
+        pg <- ggplot() +
+          geom_segment(data = parConstraintsLBSPR,
+                       aes(y = Parameter, yend = Parameter, x = Lower, xend = Upper), size = 5, lineend = "butt",
+                       colour = "lightgreen") +
+          geom_point(data = diagnosticEstimatesLBSPR,
+                     aes(y = Parameter, x = Value, shape = Estimate), size = 5, colour = "black") +
+          geom_errorbarh(data = ciEstimatesLBSPR,
+                         aes(y = Parameter, xmin = LowerCI, xmax = UpperCI), height = 0.5) +
+          scale_x_continuous(name = "Value", breaks = seq(x_min,x_max,1)) +
+          scale_y_discrete(name = "MLE parameters") +
+          scale_shape_manual(values = c(1, 16)) + #scale_colour_manual(name = waiver(), values = "lightgreen", breaks = "lightgreen", labels = NULL) +
+          coord_cartesian(xlim = c(x_min, x_max)) +
+          theme_bw() +
+          theme(axis.text = element_text(size = 12),
+                axis.title = element_text(size = 12))
+      }
     }
     ggplotly(p = pg) %>% highlight("plotly_selected")
   })
