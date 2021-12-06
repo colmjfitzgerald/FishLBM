@@ -1184,7 +1184,6 @@ server <- function(input, output, session){
     
     # length records
     length_records <- lengthRecordsFilter()
-    print(str(length_records))
     
     # length column
     length_col <- newLengthCol()
@@ -1196,62 +1195,59 @@ server <- function(input, output, session){
       year_max <- max(length_records[, year_col])
     }
 
-    # length_col (+ optional year_col): exclude NAs
-    length_records <- na.omit(length_records[, c(year_col,length_col), drop = FALSE])
-    
     # vulnerable to fishery 
-    isVulnerable <- (lengthMids >= input$MLL)
+    #isVulnerable <- (lengthMids >= input$MLL)
+    MLL <- max(ifelse(is.null(setFleetPars()$SLMin), NA , setFleetPars()$SLMin), input$MLL, na.rm = TRUE)
     
     # bin length data
-    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      print("length_records")
-      print(dim(length_records))
-      print(is.numeric(length_records[, length_col]))
-      if(input$analyseLengthComposition == "annual") {
-        # "each year" only an option if year column present (length(year_col)>0)
-        length_records_by_year <- length_records[, c(year_col, length_col)] %>% na.omit() %>%
-          mutate(lengthBin = cut(!!ensym(length_col), breaks = lengthBins, 
-                                 right = FALSE),
-                 year = factor(!!ensym(year_col)))  %>% # lengthMids??
-          group_by(year, lengthBin) %>%
-          summarise(nFish = n())
-        LF <- xtabs(formula = nFish ~ year + lengthBin, data = length_records_by_year)
-        colnames(LF) <- as.character(lengthBins)[-1]
-        LFVul <- LF*outer(rep.int(1, nrow(LF)), isVulnerable)
-      } else if(input$analyseLengthComposition == "all periods"){
-        # aggregate all years - see fitLBSPR for how this approach is incorporated in the assessment 
-        # could also be implemented in this reactive and propagated??
-        LFhist <- hist(length_records[, length_col], plot = FALSE, breaks = lengthBins, right = FALSE)
+    # aggregate all years of data
+    if(input$analyseLengthComposition == "all periods"){
 
-        LF <- matrix(LFhist$counts, nrow = 1, ncol = length(LFhist$counts), 
-                     dimnames = list("all periods", as.character(lengthBins)[-1]))
-        LFVul <- matrix(LFhist$counts*isVulnerable, 
-                        nrow = 1, ncol = length(LFhist$counts), 
-                        dimnames = list("all periods", as.character(lengthBins)[-1]))
-      }
-    } else {
-      length_records_by_year <- length_records[, c(year_col, length_col)] %>% na.omit() %>%
-        mutate(lengthBin = cut(!!ensym(length_col), breaks = lengthBins, 
-                               right = FALSE),
-               year = factor(!!ensym(year_col), levels = seq(year_min, year_max, 1)))  %>% # lengthMids??
-        group_by(year, lengthBin) %>%
-        summarise(nFish = n())
+      LF <- hist(na.omit(length_records[, length_col]), 
+                 plot = FALSE, breaks = lengthBins, right = FALSE)$counts
+      LFVul <- hist(na.omit(length_records[length_records[,length_col] >= MLL, length_col]), 
+                    plot = FALSE, breaks = lengthBins, right = FALSE)$counts
       
-      # configure length data for LIME
-      LFYear <- xtabs(formula = nFish ~ year + lengthBin, data = length_records_by_year)
-      colnames(LFYear) <- as.character(lengthBins)[-1] # lfLIME col.name with upper end of length bins or mid-bin??
-      LFVulYear <- LFYear*outer(rep.int(1, nrow(LFYear)), isVulnerable)
+      LF <- matrix(LF, nrow = 1, ncol = length(LF), 
+                   dimnames = list("all periods", as.character(lengthBins)[-1]))
+      LFVul <- matrix(LFVul, nrow = 1, ncol = length(LFVul), 
+                      dimnames = list("all periods", as.character(lengthBins)[-1]))
+    } else if(input$analyseLengthComposition == "annual") {
+
+        # "annual" only an option if year column present (length(year_col) > 0)
+        # drop any entry with NA years or lengths
+        length_yearly_all <- na.omit(length_records[, c(year_col,length_col), drop = FALSE])
+        # lengthBins
+        length_yearly_all$lengthBin = cut(length_yearly_all[, length_col], 
+                                      breaks = lengthBins, right = FALSE)
+        if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+          length_yearly_all$year <- factor(length_yearly_all[, year_col])
+        } else if(input$lengthBasedAssessmentMethod == "LIME"){
+          length_yearly_all$year <- factor(length_yearly_all[, year_col], 
+                                           levels = seq(year_min, year_max, 1))
+        }
+        LF <- table(length_yearly_all$year, length_yearly_all$lengthBin, 
+              dnn = c("year", "lengthBin"))
+        colnames(LF) <- as.character(lengthBins)[-1]
+
+        
+        # repeat process for vulnerable fish
+        length_yearly_vul <- na.omit(length_records[length_records[,length_col] >= MLL, 
+                                                    c(year_col,length_col), drop = FALSE])
+        length_yearly_vul$lengthBin = cut(length_yearly_vul[, length_col], 
+                                          breaks = lengthBins, right = FALSE)
+        if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+          length_yearly_vul$year <- factor(length_yearly_vul[, year_col])
+        } else if(input$lengthBasedAssessmentMethod == "LIME"){
+          length_yearly_vul$year <- factor(length_yearly_vul[, year_col], levels = seq(year_min, year_max, 1))
+        }
+        LFVul <- table(length_yearly_vul$year, length_yearly_vul$lengthBin,
+                       dnn = c("year", "lengthBin"))
+        colnames(LFVul) <- as.character(lengthBins)[-1]
     }
 
     # binned counts
-    list_out <- NULL
-    if((input$lengthBasedAssessmentMethod == "LB-SPR")){
-      list_out <- list(LenDat = LF,
-                    LenDatVul = LFVul)
-    } else if(input$lengthBasedAssessmentMethod == "LIME") {
-      list_out <- list(LenDat = LFYear,
-                    LenDatVul = LFVulYear)      
-    }
+    list_out <- list(LenDat = LF, LenDatVul = LFVul)
     list_out
   })
   
@@ -1396,19 +1392,7 @@ server <- function(input, output, session){
         titleFitPlot <- "User-specified selectivity parameters"
       }
 
-      #SizeBins <- list(Linc = input$Linc, ToSize = NULL)
-      #SizeBins$ToSize <- StockPars$Linf * (1 + StockPars$MaxSD*StockPars$CVLinf)
-      # 
-      # 
-      # LenBins <- seq(from=0, to=SizeBins$ToSize, by=SizeBins$Linc)
-      # LenMids <- seq(from=0.5*SizeBins$Linc, 
-      #                by=SizeBins$Linc, length.out=(length(LenBins)-1))
-      # 
-      # 
-      # histogram_length <- 
-      #   hist(length_records[, length_col], plot = FALSE,  breaks = LenBins, right = FALSE)
-      # # apply knife-edge selection to length composition data
-      # LenDat <- histogram_length$counts
+      # bin length data
       SizeBins <- createLengthBins()$SizeBins
       LenBins <- createLengthBins()$LenBins
       LenMids <- createLengthBins()$LenMids
