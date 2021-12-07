@@ -2317,8 +2317,8 @@ server <- function(input, output, session){
       
       # absolute fishing mortality
       meanF <- lbsprPars$FM*StockPars$M
-      lowerciF <- (lbsprPars$FM - 1.96*lbsprStdErrs[[1, "F/M"]])*StockPars$M
-      upperciF <- (lbsprPars$FM + 1.96*lbsprStdErrs[[1, "F/M"]])*StockPars$M
+      lowerciF <- (lbsprPars$FM - 1.96*lbsprStdErrs[, "F/M"])*StockPars$M
+      upperciF <- (lbsprPars$FM + 1.96*lbsprStdErrs[, "F/M"])*StockPars$M
       dfMort <- data.frame(mortality = c(rep("fishing", length(meanF)), "natural"),
                            mean = c(meanF, StockPars$M),
                            lowerci = c(lowerciF, NA),
