@@ -9,6 +9,7 @@ if(!require(knitr)){install.packages("knitr", dependencies = TRUE); require(knit
 if(!require(kableExtra)){install.packages("kableExtra", dependencies = TRUE); require(kableExtra)}
 if(!require(DT)){install.packages("DT", dependencies = TRUE); require(DT)}
 if(!require(devtools)){install.packages("devtools", dependencies = TRUE); require(devtools)}
+#devtools::install_github("ropensci/plotly", dependencies=TRUE)
 devtools::install_github("merrillrudd/LIME", dependencies=TRUE)
 require(LIME)
 

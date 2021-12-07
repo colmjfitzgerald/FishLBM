@@ -436,7 +436,8 @@ body <-   mainPanel(
                                             fluidPage(
                                             fluidRow(
                                               column(width = 12,
-                                                     plotlyOutput(outputId = "plotCatchFishedUnfished"),
+                                                     plotlyOutput(outputId = "plotCatchFishedUnfished",
+                                                                  width = "100%", height = "600px"),
                                               )
                                             ),
                                             fluidRow(

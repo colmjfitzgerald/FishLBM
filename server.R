@@ -2030,23 +2030,68 @@ server <- function(input, output, session){
       length_col <- newLengthCol()
       length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
       
-      # theory
+      # lb-spr numbers-at-length
       NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
       
+      all_years <- unique(NatL_LBSPR$year)
+      figs <- vector(mode = "list", length = length(all_years))
+      annotations_ply <- vector(mode = "list", length = length(all_years))
       
+      nsubplots <- length(all_years)
+      nrows_max <- 3
+      ncols_ply <- ceiling(nsubplots/nrows_max)
+      nrows_ply <- ceiling(nsubplots/ncols_ply)
+      margin_ply <- 0.025
+      px <- ifelse(ncols_ply == 1, 1, 1 - (ncols_ply-1.25)*margin_ply)  # horizontal space available for plots
+      py <- 1 - (nrows_ply-1)*margin_ply  # vertical space available for plots
       # plotly
-      pl_y <- plot_ly(data = NatL_LBSPR, 
-                      x = ~ length_mid, y = ~ catchUnfished_at_length, name = "unfished", 
-                      type = "scatter", mode = "lines+markers", frame = TRUE) %>% 
-        add_trace(y = ~ catchFished_at_length, name = "fished", mode = "lines+markers")
-      # adding histogram/bar data difficult in plot_ly
-      #lengthData <- binLengthData()
-      # %>% add_bars(data = lengthData,
-      #           x = ~ LenMids, y = LenDatVul, name = "catch data") %>% 
-      # layout(barmode = "stack", bargap = 0.1)
-      pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
-                              yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
-      #title = "Per recruit theory - catch")
+      for (i_year in seq_along(all_years)) {
+        # trace legends
+        showlegendstatus <- ifelse(i_year == 1, TRUE, FALSE)
+        
+        # annotation positions
+        
+        
+        # extract yearly data
+        NLY <- NatL_LBSPR[NatL_LBSPR$year == all_years[i_year], ]
+        catchAtLength <- rbind(data.frame(length = NLY$length_mid, 
+                                          catch_standardised = NLY$catchFished_at_length, 
+                                          exploitation = rep("fished", dim(NLY)[1])),
+                               data.frame(length = NLY$length_mid,
+                                          catch_standardised = NLY$catchUnfished_at_length, 
+                                          exploitation = rep("unfished", dim(NLY)[1])))
+        figs[[i_year]] <- 
+          plot_ly(data = catchAtLength, x = ~length, y = ~catch_standardised, color = ~exploitation,
+                  type = "scatter", mode = "lines+markers", colors = c('#ff7f0e', '#1f77b4'), 
+                  showlegend = showlegendstatus) #%>%add_trace(x = ~length, y = ~catchnfished_at_length)
+        irow <- floor((i_year-1)/ncols_ply)
+        icol <- (i_year-1) %% ncols_ply
+        
+        annotations_ply[[i_year]] <- 
+          list(x = margin_ply*1.75 + icol*((px/ncols_ply) + margin_ply), 
+               y = (1-1.5*margin_ply) - (irow/nrows_ply), text = all_years[i_year], 
+               xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", 
+               showarrow = FALSE, font = list(size = 16))
+        
+      }
+      
+      # add annotations
+      pl_y <- plotly::subplot(figs, nrows = nrows_ply, shareX = TRUE, titleY = FALSE, margin = margin_ply) %>%
+        layout(title = "Catch-length composition (standardised)",
+               annotations = annotations_ply)
+      # # plotly
+      # pl_y <- plot_ly(data = NatL_LBSPR, 
+      #                 x = ~ length_mid, y = ~ catchUnfished_at_length, name = "unfished", 
+      #                 type = "scatter", mode = "lines+markers", frame = TRUE) %>% 
+      #   add_trace(y = ~ catchFished_at_length, name = "fished", mode = "lines+markers")
+      # # adding histogram/bar data difficult in plot_ly
+      # #lengthData <- binLengthData()
+      # # %>% add_bars(data = lengthData,
+      # #           x = ~ LenMids, y = LenDatVul, name = "catch data") %>% 
+      # # layout(barmode = "stack", bargap = 0.1)
+      # pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
+      #                         yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
+      # #title = "Per recruit theory - catch")
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
       pl_y <- plotly_empty() %>% 
         plotly:: config(staticPlot = TRUE)
