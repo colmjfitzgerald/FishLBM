@@ -1,21 +1,4 @@
-# ui code
-
-# construct the layout and structure in user interface function "ui"
-# Q. does this have to be of fluidPage type? 
-# A. no, with shinydashboard we can have dashboardPage()
-
-
-#menuItem("Survey data", 
-#         icon = icon("upload"),
-#         tabName = "upload"),
-#menuItem("Species overview", tabName = "overview"),
-#menuItem("Growth analysis", tabName = "growthAnalysis"),
-#menuItem("Maturity analysis", tabName = "maturityAnalysis"),
-#menuItem("Survey background", 
-#         icon = icon("info"), # fontawesome info circle icon
-#         href = "http://wfdfish.ie/" # no tabName because it's a link to a separate page
-#),
-#id = "sbMenu")
+# ui code - shinydashboard
 
 sidebar <- sidebarPanel(
   width = 3,
@@ -59,8 +42,7 @@ sidebar <- sidebarPanel(
   #   column(width = 6,
   #          uiOutput(outputId = "yearSelect", width = "100%"))
   # ),
-  uiOutput(outputId = "btnSelectCols", width = "100%")
-
+  uiOutput(outputId = "btnSelectCols", width = "100%"),
 )
 
 
@@ -159,17 +141,22 @@ body <-   mainPanel(
                                    )
                                  ),
                         ),
-                        tabPanel("Maturity",
-                                 fluidRow(
-                                   column(width = 12,
-                                          NULL)
-                                 )
-                        ),
+                        # tabPanel("Maturity",
+                        #          fluidRow(
+                        #            column(width = 12,
+                        #                   NULL)
+                        #          )
+                        # ),
                         tabPanel("Life history parameters",
                                  withMathJax(),
+                                 tags$div(HTML(
+                                 "<script type='text/x-mathjax-config'>
+                                 MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$']]}});
+                                  </script>")
+                                 ),
                                  fluidPage(
                                    fluidRow(
-                                     column(width = 4,
+                                     column(width = 5,
                                             h3("Growth"),
                                             uiOutput(outputId = "growthParRadioBtn"),
                                             h3("Natural mortality"),
@@ -177,7 +164,7 @@ body <-   mainPanel(
                                             h3("Maturity"),
                                             uiOutput(outputId= "btnRadioMaturity")
                                      ),
-                                     column(width = 8,
+                                     column(width = 7,
                                             #                                          box(status = "primary", width = NULL,
                                             #                                          ),
                                             tags$table(id = "tableLHP",
@@ -312,13 +299,7 @@ body <-   mainPanel(
                                    selected = c("Estimate (model fit)")),
                       uiOutput(outputId = "chooseSelectivityCurve"),
                       #tags$div(id = "meshSizes"),  # for insertUI, removeUI
-                      conditionalPanel(
-                        "input.specifySelectivity == 'Specify (user)' && !input.specifySelectivity && 
-                                              input.chooseSelectivityPattern == 'Dome-shaped && !input.chooseSelectivityPattern'",
-                        uiOutput(outputId = "gearMeshSizes")),
-                      #actionButton(inputId = "btnSelectivity",
-                      #             label = "Input selectivity choices",
-                      #              class = "btn-success")
+                      uiOutput(outputId = "gearMeshSizes"),
                ),
                column(width = 8,
                       div(id = "specifySelectivityParameters", 
@@ -337,7 +318,7 @@ body <-   mainPanel(
                       plotlyOutput(outputId = "plotSelectivityPattern"))
              )
     ),
-    tabPanel("Length-based assessment", value = "tabLBSPR",
+    tabPanel("Length-based assessment", value = "tabLBA",
              #         plotlyOutput(outputId = "lengthAge",
              #                      width = "90%"),
              navbarPage(title = "Assessment steps",
@@ -386,58 +367,127 @@ body <-   mainPanel(
                                                          label = "Assessment - temporal basis",
                                                          choices = c("all periods"), #, "by year"),
                                                          selected = "all periods"
-                                            )
+                                            ),
                                             #uiOutput(outputId = "btnPlotLengthComposition")
+                                            div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
+                                            fluidRow(
+                                              actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
+                                                           class = "btn-success"),
+                                            )
                                      ),
                                      column(width = 9,
                                             plotlyOutput(outputId = "plotResponsiveLengthComposition",
                                                          width = "100%",
-                                                         height = "400px")
+                                                         height = "600px")
                                      )
                                    ),
                                  ),
-                                 div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
-                                 fluidRow(
-                                   actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
-                                                class = "btn-success"),
-                                 )
                         ),
-                        tabPanel("Model fit", value = "tabModelFit",
-                                 fluidRow(
-                                   column(width = 8,
-                                          plotlyOutput(outputId = "plotLBAModelFit",
-                                                       width = "100%",
-                                                       height = "600px")
+                        navbarMenu("Model fit", 
+                                   tabPanel("Length composition", value = "tabModelFit",
+                                            fluidPage(
+                                              fluidRow(
+                                                column(width = 12,
+                                                       plotlyOutput(outputId = "plotLBAModelFit",
+                                                                    width = "100%",
+                                                                    height = "600px")
+                                                )
+                                              )
+                                            )
                                    ),
-                                   column(width = 3, offset = 1, #tags$h3("LB-SPR estimates"),
-                                          tableOutput(outputId = "tableLBAEstimates"),
-                                          tags$h4("nlminb() output"),
-                                          verbatimTextOutput(outputId = "textLBAModelFit")#
-                                          #DTOutput(outputId = "gtgLBSPREstModel"),
-                                          #DTOutput(outputId = "gtgLBSPROpModel"),
-                                   )
-                                 ),
-                                 icon = icon("chart-line")
+                                   tabPanel("Fishing estimates",
+                                            fluidPage(
+                                              fluidRow(
+                                                column(width = 12,
+                                                       plotOutput(outputId = "plotFishingEstimateOutput",
+                                                                  width = "100%", height = "600px")
+                                                )
+                                              )
+                                            )
+                                   ),
+                                   tabPanel("Assessment summary",
+                                            fluidRow(
+                                              column(width = 8,
+                                                     tags$h3("Model estimates"),
+                                                     tableOutput(outputId = "tableLBASummary")
+                                              ),
+                                              column(width = 4,
+                                                     tags$h3("Model inputs"),
+                                                     tableOutput(outputId = "tableStockParameters"))
+                                            )
+                                   ),
+                                   icon = icon("chart-line")
                         ),
-                        tabPanel("Interpretation",
-                                 fluidRow(
-                                   column(width = 8,
-                                          #tags$h3("Population length composition"),
-                                          #plotOutput(outputId = "plotPopLBSPR"),
-                                          #tags$hr(),
-                                          #tags$h3("Expected catch-at-length - per recruit theory"),
-                                          plotlyOutput(outputId = "plotCatchLBSPR"),
-                                          plotOutput(outputId = "plotLIMEOutput")
-                                   ), 
-                                   column(width = 4,
-                                          tags$h3("Stock parameters and status"),
-                                          tableOutput(outputId = "stockPopParameters")
-                                          #plotlyOutput(outputId = "plotOpLBSPR",
-                                          #              width = "100%",
-                                          #             height = "400px"
+                        navbarMenu("Interpretation",
+                                   tabPanel("Graphical",
+                                            fluidPage(
+                                            fluidRow(
+                                              column(width = 12,
+                                                     plotlyOutput(outputId = "plotCatchFishedUnfished",
+                                                                  width = "100%", height = "600px"),
+                                              )
+                                            ),
+                                            fluidRow(
+                                            column(width = 12,
+                                                   plotlyOutput(outputId = "plotPopFishedUnfished"),
+                                            )
+                                            )
+                                            )
                                    )
-                                 )
-                        )),
+                        ),
+                        navbarMenu("Diagnostics",
+                                   tabPanel("Graphical",
+                                            fluidRow(
+                                              column(width = 9,
+#                                                     h3("Parameter estimates, confidence intervals, bounds"),
+                                                     plotlyOutput(outputId = "diagnosticParameterFits",
+                                                                  width = "100%",
+                                                                  height = "500px"),
+                                              ),
+                                              column(width = 3,
+                                                     box(
+                                                       title = "Parameter estimate plot - interpretation",
+                                                       width = NULL, # for column-based layouts
+                                                       status = "info",
+                                                       tags$body(
+                                                         tags$p(
+                                                           tags$ul(
+                                                             tags$li("Maximum likelihood (ML) optimization parameter domains are shaded light green."),
+                                                             tags$li("Initial parameter estimates for ML optimization are shown with a black circle."),
+                                                             tags$li("ML estimates and 95% confidence intervals are indicated with a large black dot and error bars."),
+                                                           ),
+                                                           tags$p("Possible model fit issues if:"),
+                                                           tags$ul(
+                                                             tags$li("any estimates are at parameter domain boundary;"),
+                                                             tags$li("confidence intervals around an estimate are very large;"),
+                                                             tags$li("final gradient at MLE is very large.")
+                                                           ),
+                                                         )                                                       ,
+                                                         collapsible = TRUE,
+                                                         collapsed = FALSE
+                                                       )
+                                                     )
+                                              )
+                                            ),
+                                            fluidRow(plotOutput(outputId = "plotPITresiduals"))
+                                   ),
+                                   tabPanel("Optimisation details",
+                                            fluidPage(
+                                              fluidRow(
+                                                column(width = 6,
+                                                       tags$h4("Optimisation output"),
+                                                       verbatimTextOutput(outputId = "textLBAModelFit")
+                                                ),
+                                                column(width = 6, 
+                                                       tags$h4("Estimated quantities"),
+                                                       tableOutput(outputId = "tableLBAEstimates")
+                                                )
+                                              )
+                                            ),
+                                   ),
+                                   icon = icon("tasks")
+                        )
+              ),
              icon = icon("list-ui")
     )#,
     # tabPanel("Other length-based methods",
