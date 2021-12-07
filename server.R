@@ -645,8 +645,8 @@ server <- function(input, output, session){
       withMathJax(
         radioButtons(inputId= "maturityPars", label = "Length-at-50%-maturity",
                      choices = c("User-specified" = "user", 
-                       "Beverton-Holt LHI ($Lm50 = 0.66 L_\\infty$)" = "bhlhi",
-                       "Binohlan, Froese (2009) $Lm50  = e^{-0.119} (L\\max)^{0.916}$" = "bf2009"), 
+                       "Beverton-Holt LHI ($L_{m50} = 0.66 L_\\infty$)" = "bhlhi",
+                       "Binohlan, Froese (2009) $L_{m50}  = e^{-0.119} (L_\\max)^{0.916}$" = "bf2009"), 
                        selected = "bhlhi")
       )
     }

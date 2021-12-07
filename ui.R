@@ -1,21 +1,4 @@
-# ui code
-
-# construct the layout and structure in user interface function "ui"
-# Q. does this have to be of fluidPage type? 
-# A. no, with shinydashboard we can have dashboardPage()
-
-
-#menuItem("Survey data", 
-#         icon = icon("upload"),
-#         tabName = "upload"),
-#menuItem("Species overview", tabName = "overview"),
-#menuItem("Growth analysis", tabName = "growthAnalysis"),
-#menuItem("Maturity analysis", tabName = "maturityAnalysis"),
-#menuItem("Survey background", 
-#         icon = icon("info"), # fontawesome info circle icon
-#         href = "http://wfdfish.ie/" # no tabName because it's a link to a separate page
-#),
-#id = "sbMenu")
+# ui code - shinydashboard
 
 sidebar <- sidebarPanel(
   width = 3,
@@ -59,8 +42,7 @@ sidebar <- sidebarPanel(
   #   column(width = 6,
   #          uiOutput(outputId = "yearSelect", width = "100%"))
   # ),
-  uiOutput(outputId = "btnSelectCols", width = "100%")
-
+  uiOutput(outputId = "btnSelectCols", width = "100%"),
 )
 
 
@@ -167,6 +149,11 @@ body <-   mainPanel(
                         # ),
                         tabPanel("Life history parameters",
                                  withMathJax(),
+                                 tags$div(HTML(
+                                 "<script type='text/x-mathjax-config'>
+                                 MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$']]}});
+                                  </script>")
+                                 ),
                                  fluidPage(
                                    fluidRow(
                                      column(width = 5,
