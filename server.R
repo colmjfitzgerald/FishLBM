@@ -1352,8 +1352,7 @@ server <- function(input, output, session){
                           value = TRUE)," ~ ."))
         ggLengthComp <- ggLengthComp + 
           facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
-                                            value = TRUE)," ~ .")),
-                     ncol = 3) 
+                                            value = TRUE)," ~ .")))
       }
       expr = ggplotly(ggLengthComp)
     })
