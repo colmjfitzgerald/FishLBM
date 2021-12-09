@@ -1404,101 +1404,105 @@ server <- function(input, output, session){
       lbsprStdErrs <- NULL
       mlePars <- NULL
       MLE <- NULL
+      sprVar <- NULL
       optimOut <- vector("list", length = length(years))
 
       for (yearLBSPR in years){
-
-      LenDatIn <- LenDatVul[which(rownames(LenDatVul) == yearLBSPR),]  
-
-      # GTG-LBSPR optimisation
-      optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")
-
-      optimOut[[which(years == yearLBSPR)]] <- optGTG$optimOut
-      names(optimOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
-
-      if(input$specifySelectivity == "Fixed value"){
-        optFleetPars <- list(FM = optGTG$lbPars[["F/M"]],
-                             selectivityCurve = optGTG$fixedFleetPars$selectivityCurve,
-                             SL1 = fixedFleetPars$SL1, 
-                             SL2 = fixedFleetPars$SL2,
-                             SLMin = fixedFleetPars$SLMin,
-                             SLmesh = fixedFleetPars$SLmesh)
-      } else if(input$specifySelectivity == "Initial estimate") {
-        optFleetPars <- list(FM = optGTG$lbPars[["F/M"]], 
-                             selectivityCurve = optGTG$fixedFleetPars$selectivityCurve,
-                             SL1 = optGTG$lbPars[["SL50"]], 
-                             SL2 = optGTG$lbPars[["SL95"]])
-      }
-
-      # per recruit theory simulation - called in DoOptDome also
-      prGTG <- GTGDomeLBSPRSim(StockPars, optFleetPars, SizeBins)
-
-      # configure outputs
-      # ifelse statement depending on selectivity curve
-      if(input$selectSelectivityCurve == "Logistic"){
-        VulLen2 <- 1.0/(1+exp(-log(19)*(LenMids-optFleetPars$SL1)/(optFleetPars$SL2-optFleetPars$SL1))) # Selectivity-at-Length
-      } else if(input$selectSelectivityCurve == "Normal.loc") {
-        VulLen2 <- exp(-0.5*((LenMids-((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SL2))^2)
-        VulLen2[LenMids < optFleetPars$SLMin] <- 0
-      } else if(input$selectSelectivityCurve == "Normal.sca") {
-        VulLen2 <- exp(-0.5*((LenMids-((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SLmesh*(optFleetPars$SL2)^0.5)^2))
-        VulLen2[LenMids < optFleetPars$SLMin] <- 0
-      } else if(input$selectSelectivityCurve == "logNorm") {
-        VulLen2 <- exp(-0.5*((log(LenMids)-log((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SL2))^2)
-        VulLen2[LenMids < optFleetPars$SLMin] <- 0
-      } else if(input$selectSelectivityCurve == "Knife-edged"){
-        VulLen2 <- rep(1, length(LenMids))
-        VulLen2[LenMids < optFleetPars$SLMin] <- 0
-      }
-      
-      # calculate variance in selectivity-at-length
-      if(input$specifySelectivity == "Initial estimate") {
+        
+        LenDatIn <- LenDatVul[which(rownames(LenDatVul) == yearLBSPR),]  
+        
+        # GTG-LBSPR optimisation
+        optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")
+        
+        optimOut[[which(years == yearLBSPR)]] <- optGTG$optimOut
+        names(optimOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
+        
+        if(input$specifySelectivity == "Fixed value"){
+          optFleetPars <- list(FM = optGTG$lbPars[["F/M"]],
+                               selectivityCurve = optGTG$fixedFleetPars$selectivityCurve,
+                               SL1 = fixedFleetPars$SL1, 
+                               SL2 = fixedFleetPars$SL2,
+                               SLMin = fixedFleetPars$SLMin,
+                               SLmesh = fixedFleetPars$SLmesh)
+        } else if(input$specifySelectivity == "Initial estimate") {
+          optFleetPars <- list(FM = optGTG$lbPars[["F/M"]], 
+                               selectivityCurve = optGTG$fixedFleetPars$selectivityCurve,
+                               SL1 = optGTG$lbPars[["SL50"]], 
+                               SL2 = optGTG$lbPars[["SL95"]])
+        }
+        
+        # per recruit theory simulation - called in DoOptDome also
+        prGTG <- GTGDomeLBSPRSim(StockPars, optFleetPars, SizeBins)
+        
+        # configure outputs
+        # ifelse statement depending on selectivity curve
+        if(input$selectSelectivityCurve == "Logistic"){
+          VulLen2 <- 1.0/(1+exp(-log(19)*(LenMids-optFleetPars$SL1)/(optFleetPars$SL2-optFleetPars$SL1))) # Selectivity-at-Length
+        } else if(input$selectSelectivityCurve == "Normal.loc") {
+          VulLen2 <- exp(-0.5*((LenMids-((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SL2))^2)
+          VulLen2[LenMids < optFleetPars$SLMin] <- 0
+        } else if(input$selectSelectivityCurve == "Normal.sca") {
+          VulLen2 <- exp(-0.5*((LenMids-((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SLmesh*(optFleetPars$SL2)^0.5)^2))
+          VulLen2[LenMids < optFleetPars$SLMin] <- 0
+        } else if(input$selectSelectivityCurve == "logNorm") {
+          VulLen2 <- exp(-0.5*((log(LenMids)-log((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SL2))^2)
+          VulLen2[LenMids < optFleetPars$SLMin] <- 0
+        } else if(input$selectSelectivityCurve == "Knife-edged"){
+          VulLen2 <- rep(1, length(LenMids))
+          VulLen2[LenMids < optFleetPars$SLMin] <- 0
+        }
+        
         optVarcov <- solve(optGTG$optimOut$hessian)
-        deltaSLF <- varFishingAtLength(optGTG$optimOut$par, optVarcov, optFleetPars, StockPars, LenMids)
-        lbsprPars <- rbind(lbsprPars,
-                           data.frame(FM = unname(optFleetPars$FM), 
-                                      SL50 = unname(optFleetPars$SL1), 
-                                      SL95 = unname(optFleetPars$SL2),
-                                      SPR = prGTG$SPR, 
-                                      row.names = yearLBSPR)
-        )
-      } else {
-        lbsprPars <- rbind(lbsprPars,
-                           data.frame(FM = unname(optFleetPars$FM), 
-                                      SPR = prGTG$SPR, 
-                                      row.names = yearLBSPR))
-      }
-      
-      #print(paste0("difference between meanSLF and VulLen2 = ", sum(deltaSLF$meanSLF-VulLen2)))
-      lbsprStdErrs <- rbind(lbsprStdErrs, optGTG$lbStdErrs)
-      
-      # numbers-at-length (midpoints) LBSPR
-      NatL_LBSPR <- rbind(NatL_LBSPR,
-                      data.frame(year = yearLBSPR,
-                                 length_mid = prGTG$LenMids,
-                                 catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
-                                 catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
-                                 selectivityF_at_length = VulLen2,
-                                 varSelectivityF_at_length = ifelse(input$specifySelectivity == "Initial estimate",
-                                                                deltaSLF$varSLF,
-                                                                NA),
-                                 popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
-                                 popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished) #standardised??
-                      ))
-      
-      mlePars <- rbind(mlePars, optGTG$optimOut$par)
-      mleDF <- optGTG$MLE
-      mleDF$Parameter <- paste(mleDF$Parameter, yearLBSPR, sep = ".")
-      MLE <- rbind(mleDF, MLE)
-      # Parameter = c("FM", "SL50", "SL95", "SPR"),
-      # Description = c("F/M: relative fishing mortality",
-      #                 "Length at 50% selectivity",
-      #                 "Length at 95% selectivity",
-      #                 "Spawning Potential Ratio"),
-      
-      #        opModelOut <- data.frame(Parameter = c("SPR", "YPR"),
-      #                                 Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
-      #                                 Estimate = c(prGTG$SPR, prGTG$YPR))
+        # calculate variance in selectivity-at-length
+        if(input$specifySelectivity == "Initial estimate") {
+          deltaSLF <- varFishingAtLength(optGTG$optimOut$par, optVarcov, optFleetPars, StockPars, LenMids)
+          lbsprPars <- rbind(lbsprPars,
+                             data.frame(FM = unname(optFleetPars$FM), 
+                                        SL50 = unname(optFleetPars$SL1), 
+                                        SL95 = unname(optFleetPars$SL2),
+                                        SPR = prGTG$SPR, 
+                                        row.names = yearLBSPR)
+          )
+        } else {
+          lbsprPars <- rbind(lbsprPars,
+                             data.frame(FM = unname(optFleetPars$FM), 
+                                        SPR = prGTG$SPR, 
+                                        row.names = yearLBSPR))
+        }
+        
+        #print(paste0("difference between meanSLF and VulLen2 = ", sum(deltaSLF$meanSLF-VulLen2)))
+        lbsprStdErrs <- rbind(lbsprStdErrs, optGTG$lbStdErrs)
+        
+        # numbers-at-length (midpoints) LBSPR
+        NatL_LBSPR <- rbind(NatL_LBSPR,
+                            data.frame(year = yearLBSPR,
+                                       length_mid = prGTG$LenMids,
+                                       catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
+                                       catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
+                                       selectivityF_at_length = VulLen2,
+                                       varSelectivityF_at_length = ifelse(input$specifySelectivity == "Initial estimate",
+                                                                          deltaSLF$varSLF,
+                                                                          NA),
+                                       popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
+                                       popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished) #standardised??
+                            ))
+        
+        mlePars <- rbind(mlePars, optGTG$optimOut$par)
+        mleDF <- optGTG$MLE
+        mleDF$Parameter <- paste(mleDF$Parameter, yearLBSPR, sep = ".")
+        MLE <- rbind(mleDF, MLE)
+        # Parameter = c("FM", "SL50", "SL95", "SPR"),
+        # Description = c("F/M: relative fishing mortality",
+        #                 "Length at 50% selectivity",
+        #                 "Length at 95% selectivity",
+        #                 "Spawning Potential Ratio"),
+        
+        #        opModelOut <- data.frame(Parameter = c("SPR", "YPR"),
+        #                                 Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
+        #                                 Estimate = c(prGTG$SPR, prGTG$YPR))
+        
+        sprVar <- rbind(sprVar, varSPR(optGTG$optimOut$par, optVarcov, optFleetPars, StockPars))
+        
       }
       if(input$specifySelectivity == "Fixed value"){
         if(input$selectSelectivityCurve == "Logistic"){
@@ -1518,13 +1522,15 @@ server <- function(input, output, session){
       }
       mlePars <- cbind(year = years, mlePars)
       
+      
       list(NatL_LBSPR = NatL_LBSPR,
            lbsprPars = lbsprPars,
            lbsprStdErrs = lbsprStdErrs,
            optimOut = optimOut,
            mlePars = mlePars,
            MLE = MLE,
-           fixedFleetPars = fixedFleetPars
+           fixedFleetPars = fixedFleetPars,
+           sprVar = sprVar
            )
     }
   )
@@ -2303,6 +2309,7 @@ server <- function(input, output, session){
       lbsprPars <- fitLBSPR()$lbsprPars
       lbsprStdErrs <- fitLBSPR()$lbsprStdErrs
       NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
+      sprVars <- fitLBSPR()$sprVar
       StockPars <- setLHPars()
       
       # extract years
@@ -2323,7 +2330,13 @@ server <- function(input, output, session){
                            lowerci = c(lowerciF, NA),
                            upperci = c(upperciF, NA),
                            year = c(lbsprPars$year, "all periods"))
-      #print(dfMort) # with years?
+      
+      # delta method approximation
+      meanSPR <- lbsprPars$SPR
+      stderrSPR <- sqrt(sprVars)
+      lowerciSPR <- ifelse(meanSPR - 1.96*stderrSPR < 0, 0, meanSPR - 1.96*stderrSPR)
+      upperciSPR <- ifelse(meanSPR + 1.96*stderrSPR > 1, 1, meanSPR + 1.96*stderrSPR)
+      cat(paste0("lowerciSPR = ", lowerciSPR))
       
       p <- plot.new()
       if(input$analyseLengthComposition == "all periods"){
@@ -2351,6 +2364,7 @@ server <- function(input, output, session){
         # SPR
         barplot(lbsprPars$SPR, width = 0.4, names.arg = yearsLBA, axes = TRUE, axisnames = TRUE,
                 ylab = "SPR", xlim = c(0,length(yearsLBA)), ylim = c(0,1), space = 0.75)
+        arrows(0.5, lowerciSPR, 0.5, upperciSPR, length=0.15, angle=90, code=3, col = c("black"))
         abline(h = 0.4, col = "red", lty = 2, lwd = 2)
         graphics::box(which = "plot", lty = "solid", lwd = 2)
         
@@ -2394,6 +2408,7 @@ server <- function(input, output, session){
         plot(yearsLBA, lbsprPars$SPR, 
              type = "p", lwd = 10, pch = 19, xlab = "year", ylab = "SPR", ylim = c(0,1))
         abline(h = 0.4, col = "red", lty = 2, lwd = 2)
+        arrows(yearsLBA, lowerciSPR, yearsLBA, upperciSPR, length=0.15, angle=90, code=3, col = c("black"))
 
         # selectivity-at-length
         plot(x=1, y=1, type="n", xlim = range(NatL_LBSPR$length_mid), ylim = c(0,1),
