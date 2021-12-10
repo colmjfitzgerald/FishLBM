@@ -95,7 +95,7 @@ server <- function(input, output, session){
   
   
   # catchdata element for plotting and LBSPR
-  catchdata_table <- eventReactive(input$checkboxCatchData,
+  catchdata_table <- eventReactive(input$selectCols, 
     { 
       req(input$lengthColSelect)
       cat(file = stderr(), "catchdata_table: new length col", input$lengthColSelect,"\n")
@@ -349,7 +349,8 @@ server <- function(input, output, session){
   # LVB growth ====
   
   anyAgeData <- reactive({
-    any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))
+    ifelse(is.null(input$checkboxCatchData), FALSE, 
+           any(grepl("age", input$checkboxCatchData, ignore.case = TRUE)))
   })
   
   
@@ -358,7 +359,8 @@ server <- function(input, output, session){
       tagList(actionButton(inputId = "btnGoToGrowthPage", "Explore length-at-age fit", 
                            class = NULL))
     } else {
-      tagList(tags$p("No age data selected"))
+      tagList(actionButton(inputId = "btnGoToGrowthPage", "Explore length composition", 
+                           class = NULL))
     }
   })
   
@@ -1410,7 +1412,7 @@ server <- function(input, output, session){
       # as.name
       length_records <- lengthRecordsFilter()
       length_col <- newLengthCol()
-      print(head(length_records[, length_col]))
+      print(head(length_records[, length_col], drop = FALSE))
       print(length_records[, length_col])
       
       StockPars <- setLHPars()
@@ -1475,7 +1477,7 @@ server <- function(input, output, session){
                                SL1 = optGTG$lbPars[["SL50"]], 
                                SL2 = optGTG$lbPars[["SL95"]])
         }
-        
+
         # per recruit theory simulation - called in DoOptDome also
         prGTG <- GTGDomeLBSPRSim(StockPars, optFleetPars, SizeBins)
         
@@ -1546,7 +1548,7 @@ server <- function(input, output, session){
         #                                 Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
         #                                 Estimate = c(prGTG$SPR, prGTG$YPR))
         
-        sprVar <- rbind(sprVar, varSPR(optGTG$optimOut$par, optVarcov, optFleetPars, StockPars))
+        sprVar <- rbind(sprVar, varSPR(optGTG$optimOut$par, optVarcov, optFleetPars, StockPars, SizeBins))
         
       }
       if(input$specifySelectivity == "Fixed value"){
