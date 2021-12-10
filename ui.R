@@ -105,48 +105,6 @@ body <-   mainPanel(
     tabPanel("Life history estimation", value = "tabLHP",
              navbarPage(title = "Life history",
                         id = "lhEstimate",
-                        tabPanel("Growth",
-                                 fluidRow(
-                                   column(width = 8,
-                                          plotlyOutput(outputId = "lvbGrowthCurve"),
-                                          actionButton(inputId = "fitGrowth", label = "Fit LVB curve"),
-                                          bsTooltip(id = "fitGrowth", 
-                                                    title = "Apply statistical fit if age data is available. Where age, length data are available then slider settings are used as initial estimates of the parameters Linf, K, t0 in nonlinear regression.", 
-                                                    placement = "right", trigger = "hover",  options = list(container = "body"))
-                                   ),
-                                   column(width = 4, 
-                                          h3("von Bertalanffy growth", id = "vbg_header"),
-                                          sliderInput(inputId = "sliderLinf", 
-                                                      label = "LVB Linf",
-                                                      min = 0, max = 150, value = 40,
-                                                      step = 1, ticks = TRUE),
-                                          sliderInput(inputId = "sliderK", 
-                                                      label = "LVB k",
-                                                      min = 0.05, max = 1, value = 0.25,
-                                                      step = 0.01, ticks = TRUE, round = FALSE),
-                                          sliderInput(inputId = "slidert0", 
-                                                      label = "LVB t0",
-                                                      min = -1.5, max = 1.5, value = -0.01,
-                                                      step = 0.05, ticks = TRUE, round = FALSE),
-                                          sliderInput(inputId = "sliderAgeMax", 
-                                                      label = "Max age",
-                                                      min = 6, max = 16, value = 11,
-                                                      step = 1, ticks = TRUE, round = FALSE)
-                                   )
-                                 ),
-                                 fluidRow(
-                                   column(width = 8,
-                                          div(hr(), id = "sectionGrowthFitSummary"),
-                                          verbatimTextOutput(outputId = "growthFitSummary")
-                                   )
-                                 ),
-                        ),
-                        # tabPanel("Maturity",
-                        #          fluidRow(
-                        #            column(width = 12,
-                        #                   NULL)
-                        #          )
-                        # ),
                         tabPanel("Life history parameters",
                                  withMathJax(),
                                  tags$div(HTML(
@@ -156,19 +114,29 @@ body <-   mainPanel(
                                  ),
                                  fluidPage(
                                    fluidRow(
-                                     column(width = 5,
+                                     column(width = 6,
                                             h3("Growth"),
-                                            uiOutput(outputId = "growthParRadioBtn"),
-                                            h3("Natural mortality"),
-                                            uiOutput(outputId= "natMortalityRadioBtn"),
+                                            uiOutput(outputId = "moveToGrowthPage"),
+                                            hr(),
+                                            radioButtons(inputId = "growthParOption",
+                                                         label = "LVB growth parameters",
+                                                         choices = "User-specified"),
+                                     ),
+                                     column(width = 6,
                                             h3("Maturity"),
                                             uiOutput(outputId= "btnRadioMaturity")
                                      ),
-                                     column(width = 7,
+                                   ),
+                                   fluidRow(
+                                     column(width = 6,
+                                      h3("Natural mortality"),
+                                      uiOutput(outputId= "natMortalityRadioBtn"),
+                                     ),
+                                     column(width = 6,
                                             #                                          box(status = "primary", width = NULL,
                                             #                                          ),
                                             tags$table(id = "tableLHP",
-                                                       tags$thead(h3("Life history parameters")),
+                                                       tags$thead(h3("Summary table")),
                                                        tags$tr(tags$th(class = "parTable", "Parameter"), 
                                                                tags$th(class = "parTable", "Description"), 
                                                                tags$th(class = "parTable", "Value")),
@@ -240,48 +208,91 @@ body <-   mainPanel(
                                      ),
                                    )
                                  )
-                                 # tags$head(
-                                 #   tags$style(
-                                 #     'thead {
-                                 #        display: table-header-group;
-                                 #        vertical-align: middle;
-                                 #        border-color: inherit;
-                                 #      }
-                                 # 
-                                 #      tr:nth-child(1) {
-                                 #        border: solid thick;
-                                 #      }
-                                 # 
-                                 #      tr:nth-child(2) {
-                                 #        border: solid thick;
-                                 #      }
-                                 # 
-                                 #      th {
-                                 #        text-align: center;
-                                 #      }
-                                 # 
-                                 #      td, th {
-                                 #        outline: none;
-                                 #      }
-                                 # 
-                                 #      table { 
-                                 #        display: table;
-                                 #        border-collapse: separate;
-                                 #        white-space: normal;
-                                 #        line-height: normal;
-                                 #        font-family: times-new-roman;
-                                 #        font-weight: normal;
-                                 #        font-size: medium;
-                                 #        font-style: normal;
-                                 #        color: -internal-quirk-inherit;
-                                 #        text-align: start;
-                                 #        border-spacing: 2px;
-                                 #        border-color: grey;
-                                 #        font-variant: normal;
-                                 #        }  '
-                                 #   )
-                                 # ),
-                        )
+                        ),
+                        tabPanel("Growth", value = "tabLengthAtAgeFit",
+                                 fluidRow(
+                                   column(width = 8,
+                                          plotlyOutput(outputId = "lvbGrowthCurve"),
+                                          actionButton(inputId = "fitGrowth", label = "Fit LVB curve",
+                                                       class = "btn-success"),
+                                          bsTooltip(id = "fitGrowth", 
+                                                    title = "Apply statistical fit if age data is available. Where age, length data are available then slider settings are used as initial estimates of the parameters Linf, K, t0 in nonlinear regression.", 
+                                                    placement = "right", trigger = "hover",  options = list(container = "body"))
+                                   ),
+                                   column(width = 4, 
+                                          h3("von Bertalanffy growth", id = "vbg_header"),
+                                          sliderInput(inputId = "sliderLinf", 
+                                                      label = "LVB Linf",
+                                                      min = 0, max = 150, value = 40,
+                                                      step = 1, ticks = TRUE),
+                                          sliderInput(inputId = "sliderK", 
+                                                      label = "LVB k",
+                                                      min = 0.05, max = 1, value = 0.25,
+                                                      step = 0.01, ticks = TRUE, round = FALSE),
+                                          sliderInput(inputId = "slidert0", 
+                                                      label = "LVB t0",
+                                                      min = -1.5, max = 1.5, value = -0.01,
+                                                      step = 0.05, ticks = TRUE, round = FALSE),
+                                          sliderInput(inputId = "sliderAgeMax", 
+                                                      label = "Max age",
+                                                      min = 6, max = 16, value = 11,
+                                                      step = 1, ticks = TRUE, round = FALSE)
+                                   )
+                                 ),
+                                 fluidRow(
+                                   column(width = 8,
+                                          div(hr(), id = "sectionGrowthFitSummary"),
+                                          verbatimTextOutput(outputId = "growthFitSummary")
+                                   )
+                                 ),
+                        ),
+                        # tabPanel("Maturity",
+                        #          fluidRow(
+                        #            column(width = 12,
+                        #                   NULL)
+                        #          )
+                        # ),
+                        # tags$head(
+                        #   tags$style(
+                        #     'thead {
+                        #        display: table-header-group;
+                        #        vertical-align: middle;
+                        #        border-color: inherit;
+                        #      }
+                        # 
+                        #      tr:nth-child(1) {
+                        #        border: solid thick;
+                        #      }
+                        # 
+                        #      tr:nth-child(2) {
+                        #        border: solid thick;
+                        #      }
+                        # 
+                        #      th {
+                        #        text-align: center;
+                        #      }
+                        # 
+                        #      td, th {
+                        #        outline: none;
+                        #      }
+                        # 
+                        #      table { 
+                        #        display: table;
+                        #        border-collapse: separate;
+                        #        white-space: normal;
+                        #        line-height: normal;
+                        #        font-family: times-new-roman;
+                        #        font-weight: normal;
+                        #        font-size: medium;
+                        #        font-style: normal;
+                        #        color: -internal-quirk-inherit;
+                        #        text-align: start;
+                        #        border-spacing: 2px;
+                        #        border-color: grey;
+                        #        font-variant: normal;
+                        #        }  '
+                        #   )
+                        # ),
              )
     ),
     tabPanel("Gear selectivity", value = "tabSelectivity",

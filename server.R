@@ -348,21 +348,46 @@ server <- function(input, output, session){
 
   # LVB growth ====
   
+  anyAgeData <- reactive({
+    any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))
+  })
+  
+  
+  exploreLengthAtAge <- reactive({
+    if(anyAgeData()){
+      tagList(actionButton(inputId = "btnGoToGrowthPage", "Explore length-at-age fit", 
+                           class = NULL))
+    } else {
+      tagList(tags$p("No age data selected"))
+    }
+  })
+  
+  output$moveToGrowthPage <- renderUI({
+    exploreLengthAtAge()
+  })
+  
+  observeEvent(input$btnGoToGrowthPage,
+               updateNavbarPage(session, inputId = "lhEstimate", selected = "tabLengthAtAgeFit"))  
+  
   # choices for growth parameters
   growthParChoices <- reactive({
-    if(any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))) {
-      expr = c("User-specified", "Data fit (frequentist)")
+    
+    growthModel <- growthFrequentistFit()
+    
+    if(req(growthModel$nls$convInfo$isConv) & !is.null(req(growthModel$nls$convInfo$isConv))) {
+      expr = c("User-specified", "Length-at-age fit")
     } else {
       expr = c("User-specified")
     }
-      
   })
   
-  output$growthParRadioBtn <- renderUI({
-                      radioButtons(inputId = "growthParOption",
-                                   label = "LVB growth",
-                                   choices = growthParChoices())
-                    })
+  
+  observe({
+    # note growthParChoices calls growthFrequentistFit - eventReactive(input$fitGrowth,)
+    updateRadioButtons(session, "growthParOption", choices = growthParChoices(),
+                       selected = "User-specified")
+  })
+  
 
   # reactive dataframes ####
   # create growth (age-length) dataframe 
@@ -382,7 +407,7 @@ server <- function(input, output, session){
     checkboxCatchCols <- input$checkboxCatchData
     sexCol <- grep("sex", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
     cat(file = stderr(), "gatherFishAgeLengthData lengthCol, sexCol\n")
-    if(any(grepl("age", checkboxCatchCols, ignore.case = TRUE))){
+    if(anyAgeData()){
       ageCol <- grep("age", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
       lengthAge <- data.frame(filteredLengthRecords[, c(lengthCol)], 
                               filteredLengthRecords[, ageCol],
@@ -415,9 +440,10 @@ server <- function(input, output, session){
                    start = list(Linf=input$sliderLinf, K = input$sliderK, t0=input$slidert0),
                    nls.control(maxiter = 250, tol = 1e-05, minFactor = 1/4096, 
                                printEval = TRUE, warnOnly = TRUE))
-      print(class(nls.m))
+      #print(class(nls.m))
+      #print(nls.m$convInfo)
     }
-    x <- list(model = nls.m, data = growthData)
+    x <- list(nls = nls.m, data = growthData)
   })
   
   # bootstrapped growth parameters confidence intervals using nlsBoot
@@ -425,7 +451,7 @@ server <- function(input, output, session){
     GFF <- growthFrequentistFit()
     growthFitData <- GFF$data
     ageLengthData <- gatherFishAgeLengthData()
-    gm <- GFF$model
+    gm <- GFF$nls
     
     if(all(is.na(growthFitData[, "age"])) || !identical(growthFitData, ageLengthData)){
       # NULL return value
@@ -468,7 +494,7 @@ server <- function(input, output, session){
   # create Linf dataframe from growth fit
   createLinfLineData <- reactive({ # question - better way to do this?
     GFF <- growthFrequentistFit()
-    fitLinf <- coef(GFF$model)["Linf"]
+    fitLinf <- coef(GFF$nls)["Linf"]
     if(is.null(fitLinf)){
       gtgLinf <- NULL
     } else {
@@ -556,7 +582,7 @@ server <- function(input, output, session){
     GFF <- growthFrequentistFit()
     fitGrowthData <- GFF$data
     
-    fitLinf <- coef(GFF$model)["Linf"]
+    fitLinf <- coef(GFF$nls)["Linf"]
     if(is.null(fitLinf)){
       gtgLinf <- NULL
     } else {
@@ -610,7 +636,7 @@ server <- function(input, output, session){
   })
   
   output$growthFitSummary <- renderPrint({
-    expr = print(summary(growthFrequentistFit()$model, correlation = TRUE))
+    expr = print(summary(growthFrequentistFit()$nls, correlation = TRUE))
   })
   
   
@@ -624,8 +650,8 @@ server <- function(input, output, session){
     growthChoices <- c("User-specified" = "user", 
                        "PaulyNLS-T ($M = 4.118K^{0.73}L_{\\infty}^{-0.33}$)" = "pauly", 
                        "Two-parameter K ($M = 0.098 + 1.55K$)" = "twoK")
-    if("age" %in% input$checkboxCatchData & 
-       any(!is.na(gatherFishAgeLengthData()[,grep("age", names(gatherFishAgeLengthData()), value = TRUE)]))) {
+    if(anyAgeData() & 
+       any(!is.na(gatherFishAgeLengthData()[,grep("age", names(gatherFishAgeLengthData()), ignore.case = TRUE, value = TRUE)]))) {
       growthChoices = c(growthChoices, "HoenigNLS ($M = 4.899t_{max}^{-0.916}$)" = "hoenig")
     }
     expr = growthChoices
@@ -658,14 +684,14 @@ server <- function(input, output, session){
   output$numLinf <- renderUI({
     numericInput("Linf", label = NULL, #"Linf", 
                  value = ifelse(grepl("fit", input$growthParOption), 
-                                round(coef(growthFrequentistFit()$model)["Linf"], digits = 2),
+                                round(coef(growthFrequentistFit()$nls)["Linf"], digits = 2),
                                 round(input$sliderLinf, digits = 2)))
   })
   
   output$numKlvb <- renderUI({
     numericInput("kLvb", label = NULL, #"K growth", 
                  value = ifelse(grepl("fit", input$growthParOption), 
-                                round(coef(growthFrequentistFit()$model)["K"], digits = 2),
+                                round(coef(growthFrequentistFit()$nls)["K"], digits = 2),
                                 round(input$sliderK, digits = 2)))
   })
   
@@ -678,14 +704,14 @@ server <- function(input, output, session){
   output$numLm50 <- renderUI({
     numericInput("Lm50", label = NULL, #"Linf", 
                  value = ifelse(grepl("fit", input$growthParOption), 
-                                round(coef(growthFrequentistFit()$model)["Linf"]*0.66, digits = 2),
+                                round(coef(growthFrequentistFit()$nls)["Linf"]*0.66, digits = 2),
                                 round(input$sliderLinf*0.66, digits = 2)))
   })
   
   output$numLm95 <- renderUI({
     numericInput("Lm95", label = NULL, #"Linf", 
                  value = ifelse(grepl("fit", input$growthParOption), 
-                                round(coef(growthFrequentistFit()$model)["Linf"]*0.75, digits = 2),
+                                round(coef(growthFrequentistFit()$nls)["Linf"]*0.75, digits = 2),
                                 round(input$sliderLinf*0.75, digits = 2)),
                  min = input$sliderLinf*0.25)
   })
