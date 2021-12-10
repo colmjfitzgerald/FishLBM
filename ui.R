@@ -210,7 +210,7 @@ body <- mainPanel(
                         tabPanel("Growth", value = "tabLengthAtAgeFit",
                                  fluidRow(
                                    column(width = 8,
-                                          plotlyOutput(outputId = "lvbGrowthCurve", width = "100%", height = "600px")
+                                          plotlyOutput(outputId = "lvbGrowthCurve", width = "100%", height = "400px")
                                    ),
                                    column(width = 4, 
                                           h3("von Bertalanffy growth", id = "vbg_header"),
