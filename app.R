@@ -13,9 +13,10 @@ if(!require(devtools)){install.packages("devtools", dependencies = TRUE); requir
 devtools::install_github("merrillrudd/LIME", dependencies=TRUE)
 require(LIME)
 
-#library(htmltools)
-#source("./LIME/create_lh_list.R")
-#source("./LIME/plot_LCfits_cf.R")
+# user feedback code block adapted (slightly) from DAMARA web-app 
+# see https://archimer.ifremer.fr/doc/00390/50174/50795.pdf for details
+# courtesy of Coilin Minto at Marine Institute, Ireland
+
 #source_url("https://github.com/AdrianHordyk/GTG_LBSPR/blob/master/GTG_LBSPR.r")
 options(shiny.maxRequestSize = 5*1024^2)
 source("../GTG-LBSPR_DomeShaped/GTGLBSPR_Dome.R")

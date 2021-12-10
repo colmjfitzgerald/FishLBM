@@ -2670,4 +2670,23 @@ server <- function(input, output, session){
     }
     ggplotly(p = pg) %>% highlight("plotly_selected")
   })
+  ##----------
+  ## FEEDBACK
+  ##----------
+  ## code block from DAMARA web-app
+  ## see https://archimer.ifremer.fr/doc/00390/50174/50795.pdf for details
+  submit.txt <- eventReactive(input$submitfeed, {
+    user.name<-tolower(input$user)
+    user.name<-gsub("[[:punct:]]|", "", user.name)
+    user.name<-gsub("[[:space:]]", "", user.name)
+    date.val<-format(Sys.time(), format="%B_%d_%Y_%H_%M_%S")
+    feedback.file<-paste(paste(user.name, date.val, sep="_"),".txt", sep="")
+    cat(input$exampleTextarea, file=feedback.file)
+    paste(feedback.file,"submitted, thank you.")
+  })
+  ##
+  output$outText <- renderText({
+    submit.txt()
+  })
 }
+

@@ -46,7 +46,7 @@ sidebar <- sidebarPanel(
 )
 
 
-body <-   mainPanel(
+body <- mainPanel(
   width = 9,
   #fluidPage(
   tabsetPanel(
@@ -498,29 +498,25 @@ body <-   mainPanel(
                         )
               ),
              icon = icon("list-ui")
-    )#,
-    # tabPanel("Other length-based methods",
-    #          tags$div(
-    #            tags$ul(
-    #              tags$li("Length-based Bayesian biomass estimator (LBB) - Froese et al., 2018"),
-    #              tags$li("Length-based pseudo-cohort analysis (LBPA) - Canales, Punt, Mardones, 2020 "),
-    #              tags$li("Size-based fishing status estimation for data-poor stocks - Kokkalis, .., Andersen, 2015")
-    #            )
-    #          ))#, 
-    #inline = FALSE))
-    #tabPanel("Stock assessment\n - diagnostics", 
-    #         fluidRow(width = 12,
-    #                  collapsible = TRUE, collapsed = TRUE,
-    #                  h4("Bivariate scatterplots of estimated regression parameters"), # from residual bootstrap sampling
-    #                  plotOutput(outputId = "pairPlotLVBParameters")),
-    #         fluidRow(width = 12, 
-    #                  collapsible = TRUE, collapsed = TRUE,
-    #                  h4("Histograms - marginal parameter distributions"),
-    #                  plotlyOutput(outputId = "histLVBParameters")),
-    #         icon = icon("tasks")
-    #)
+    ),
+  ##---------------
+  ## USER FEEDBACK
+  ##---------------
+  ## code block from DAMARA web-app
+  ## see https://archimer.ifremer.fr/doc/00390/50174/50795.pdf for details
+  tabPanel(title = "App feedback",
+        box(
+          title = "User feedback", status = "primary",
+          textInput("user", "User name", "User name"),
+          textAreaInput("exampleTextarea", '', width = "100%", height = "300px"),
+          actionButton("submitfeed", "Submit", icon("arrow-circle-right")),
+          tags$style(type='text/css', '#outText {background-color: white; color: green; border: white}'),
+          verbatimTextOutput("outText"),
+          solidHeader = TRUE,
+          width=8
+        )
+  )                 
   )
-  #  )
 )
 
 
