@@ -435,12 +435,12 @@ body <-   mainPanel(
                                                      plotlyOutput(outputId = "plotCatchFishedUnfished",
                                                                   width = "100%", height = "600px"),
                                               )
-                                            ),
-                                            fluidRow(
-                                            column(width = 12,
-                                                   plotlyOutput(outputId = "plotPopFishedUnfished"),
-                                            )
-                                            )
+                                            )#,
+                                            # fluidRow(
+                                            # column(width = 12,
+                                            #        plotlyOutput(outputId = "plotPopFishedUnfished"),
+                                            # )
+                                            # )
                                             )
                                    )
                         ),

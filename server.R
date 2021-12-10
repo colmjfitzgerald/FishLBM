@@ -2227,9 +2227,9 @@ server <- function(input, output, session){
       pl_y <- plot_ly(data = NatL_LIME, 
                       x = ~ length_mid, y = ~ catchFished, name = "fished - model fit", 
                       type = "scatter", mode = "lines+markers", frame = TRUE) %>%
-        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - sim",
+        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - equilibrium",
                   type = "scatter",mode = "lines+markers") %>% 
-        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - sim",
+        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - equilibrium",
                   type = "scatter",mode = "lines+markers")
       pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
                               yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
