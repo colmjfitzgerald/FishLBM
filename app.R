@@ -13,14 +13,17 @@ if(!require(devtools)){install.packages("devtools", dependencies = TRUE); requir
 devtools::install_github("merrillrudd/LIME", dependencies=TRUE)
 require(LIME)
 
+options(shiny.maxRequestSize = 5*1024^2)
+# supporting code for Dome-shaped LB-SPR
+source_gist(id = "https://gist.github.com/colmjfitzgerald/bb52a9579f870c09d3af6f4fe9ba6013",
+            filename = "GTGLBSPR_Dome.R") # dome-shaped GTG-LBSPR
+source_gist(id = "https://gist.github.com/colmjfitzgerald/86feef722803dcc6c82b6901c0d3c294",
+            filename = "varianceFishingEstimates.R") # varFishingAtLength, varSPR functions
+
 # user feedback code block adapted (slightly) from DAMARA web-app 
 # see https://archimer.ifremer.fr/doc/00390/50174/50795.pdf for details
 # courtesy of Coilin Minto at Marine Institute, Ireland
 
-#source_url("https://github.com/AdrianHordyk/GTG_LBSPR/blob/master/GTG_LBSPR.r")
-options(shiny.maxRequestSize = 5*1024^2)
-source("../GTG-LBSPR_DomeShaped/GTGLBSPR_Dome.R")
-source("./varianceFishingEstimates.R")
 source("./ui.R")
 source("./server.R")
 
