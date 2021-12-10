@@ -2577,7 +2577,8 @@ server <- function(input, output, session){
         data.frame(Parameter = fitLBSPR$MLE$Parameter,
                    Lower = rep(-Inf, dim(fitLBSPR$MLE)[1]),
                    Upper = rep(0, dim(fitLBSPR$MLE)[1])) 
-      parConstraintsLBSPR$Upper[parConstraintsLBSPR$Parameter == "log(F/M)"] <- Inf   
+
+      parConstraintsLBSPR$Upper[grepl("log(F/M)", parConstraintsLBSPR$Parameter, fixed = TRUE)] <- Inf
       parConstraintsLBSPR <- parConstraintsLBSPR %>% 
         mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
                 Upper = ifelse(is.finite(Upper), Upper, 100),
@@ -2596,8 +2597,8 @@ server <- function(input, output, session){
                                      UpperCI = fitLBSPR$MLE$Estimate +1.96*fitLBSPR$MLE$`Std. Error`)
       
       # x-axis range
-      x_min <- floor(min(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, ciEstimatesLBSPR$LowerCI))
-      x_max <- ceiling(max(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, ciEstimatesLBSPR$UpperCI))
+      x_min <- floor(min(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, max(ciEstimatesLBSPR$LowerCI,-50)))
+      x_max <- ceiling(max(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, min(ciEstimatesLBSPR$UpperCI, 50)))
 
       pg <- ggplot() +
         geom_segment(data = parConstraintsLBSPR,
@@ -2607,7 +2608,7 @@ server <- function(input, output, session){
                    aes(y = Parameter, x = Value, shape = Estimate), size = 5, colour = "black") +
         geom_errorbarh(data = ciEstimatesLBSPR,
                        aes(y = Parameter, xmin = LowerCI, xmax = UpperCI), height = 0.5) +
-        scale_x_continuous(name = "Value", breaks = seq(x_min,x_max,1)) +
+        scale_x_continuous(name = "Value") +
         scale_y_discrete(name = "MLE parameters") +
         scale_shape_manual(values = c(1, 16)) + #scale_colour_manual(name = waiver(), values = "lightgreen", breaks = "lightgreen", labels = NULL) +
         coord_cartesian(xlim = c(x_min, x_max)) +
