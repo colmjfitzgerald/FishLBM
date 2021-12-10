@@ -210,12 +210,7 @@ body <-   mainPanel(
                         tabPanel("Growth", value = "tabLengthAtAgeFit",
                                  fluidRow(
                                    column(width = 8,
-                                          plotlyOutput(outputId = "lvbGrowthCurve"),
-                                          actionButton(inputId = "fitGrowth", label = "Fit LVB curve",
-                                                       class = "btn-success"),
-                                          bsTooltip(id = "fitGrowth", 
-                                                    title = "Apply statistical fit if age data is available. Where age, length data are available then slider settings are used as initial estimates of the parameters Linf, K, t0 in nonlinear regression.", 
-                                                    placement = "right", trigger = "hover",  options = list(container = "body"))
+                                          plotlyOutput(outputId = "lvbGrowthCurve", width = "100%", height = "600px")
                                    ),
                                    column(width = 4, 
                                           h3("von Bertalanffy growth", id = "vbg_header"),
@@ -234,7 +229,12 @@ body <-   mainPanel(
                                           sliderInput(inputId = "sliderAgeMax", 
                                                       label = "Max age",
                                                       min = 6, max = 16, value = 11,
-                                                      step = 1, ticks = TRUE, round = FALSE)
+                                                      step = 1, ticks = TRUE, round = FALSE),
+                                          actionButton(inputId = "fitGrowth", label = "Fit LVB curve",
+                                                       class = "btn-success"),
+                                          bsTooltip(id = "fitGrowth", 
+                                                    title = "Apply statistical fit if age data is available. Where age, length data are available then slider settings are used as initial estimates of the parameters Linf, K, t0 in nonlinear regression.", 
+                                                    placement = "right", trigger = "hover",  options = list(container = "body"))
                                    )
                                  ),
                                  fluidRow(

@@ -628,11 +628,30 @@ server <- function(input, output, session){
   # growth outputs ####
   output$lvbGrowthCurve <- renderPlotly({#expr =
     print(input$fitGrowth)
+    # consider: req(growthModel$nls$convInfo$isConv) & !is.null(req(growthModel$nls$convInfo$isConv))
+    if(anyAgeData()){
     if(input$fitGrowth > 0) {
       ggplotly(ggGrowth_CurveALData() + ggGrowthFitMean() + ggGrowthFitCI() + ggLinf())    
     } else {
       ggplotly(ggGrowth_CurveALData())
     }
+    } else {
+      lengthData <- lengthRecordsFilter()
+      lengthCol <- newLengthCol()
+      maxLength <- max(lengthData[, lengthCol])
+      
+      p <- ggplot(data = lengthData) +
+        geom_histogram(aes(x = length_cm), fill = "grey80", binwidth = 1) +
+        geom_vline(xintercept = maxLength, colour = "black", linetype = 2, size = 0.75) +
+        geom_vline(xintercept = input$sliderLinf, colour = "red") +
+        theme_bw()
+      if(any(grepl("year", colnames(lengthData), ignore.case = TRUE))){
+        p <- p + 
+        facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, 
+                                          value = TRUE)," ~ .")))
+      }
+      ggplotly(p)
+    }  
   })
   
   output$growthFitSummary <- renderPrint({
