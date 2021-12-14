@@ -46,7 +46,7 @@ sidebar <- sidebarPanel(
 )
 
 
-body <-   mainPanel(
+body <- mainPanel(
   width = 9,
   #fluidPage(
   tabsetPanel(
@@ -105,110 +105,83 @@ body <-   mainPanel(
     tabPanel("Life history estimation", value = "tabLHP",
              navbarPage(title = "Life history",
                         id = "lhEstimate",
-                        tabPanel("Growth",
-                                 fluidRow(
-                                   column(width = 8,
-                                          plotlyOutput(outputId = "lvbGrowthCurve"),
-                                          actionButton(inputId = "fitGrowth", label = "Fit LVB curve"),
-                                          bsTooltip(id = "fitGrowth", 
-                                                    title = "Apply statistical fit if age data is available. Where age, length data are available then slider settings are used as initial estimates of the parameters Linf, K, t0 in nonlinear regression.", 
-                                                    placement = "right", trigger = "hover",  options = list(container = "body"))
-                                   ),
-                                   column(width = 4, 
-                                          h3("von Bertalanffy growth", id = "vbg_header"),
-                                          sliderInput(inputId = "sliderLinf", 
-                                                      label = "LVB Linf",
-                                                      min = 0, max = 150, value = 40,
-                                                      step = 1, ticks = TRUE),
-                                          sliderInput(inputId = "sliderK", 
-                                                      label = "LVB k",
-                                                      min = 0.05, max = 1, value = 0.25,
-                                                      step = 0.01, ticks = TRUE, round = FALSE),
-                                          sliderInput(inputId = "slidert0", 
-                                                      label = "LVB t0",
-                                                      min = -1.5, max = 1.5, value = -0.01,
-                                                      step = 0.05, ticks = TRUE, round = FALSE),
-                                          sliderInput(inputId = "sliderAgeMax", 
-                                                      label = "Max age",
-                                                      min = 6, max = 16, value = 11,
-                                                      step = 1, ticks = TRUE, round = FALSE)
-                                   )
-                                 ),
-                                 fluidRow(
-                                   column(width = 8,
-                                          div(hr(), id = "sectionGrowthFitSummary"),
-                                          verbatimTextOutput(outputId = "growthFitSummary")
-                                   )
-                                 ),
-                        ),
-                        # tabPanel("Maturity",
-                        #          fluidRow(
-                        #            column(width = 12,
-                        #                   NULL)
-                        #          )
-                        # ),
                         tabPanel("Life history parameters",
                                  withMathJax(),
                                  tags$div(HTML(
-                                 "<script type='text/x-mathjax-config'>
+                                   "<script type='text/x-mathjax-config'>
                                  MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$']]}});
                                   </script>")
                                  ),
                                  fluidPage(
                                    fluidRow(
-                                     column(width = 5,
-                                            h3("Growth"),
-                                            uiOutput(outputId = "growthParRadioBtn"),
-                                            h3("Natural mortality"),
-                                            uiOutput(outputId= "natMortalityRadioBtn"),
-                                            h3("Maturity"),
-                                            uiOutput(outputId= "btnRadioMaturity")
+                                     column(width = 6,
+                                     box(width = 12, 
+                                         title = h4("Growth"), status = "primary",
+                                         uiOutput(outputId = "moveToGrowthPage"),
+                                         hr(),
+                                         radioButtons(inputId = "growthParOption",
+                                                      label = "LVB growth parameters",
+                                                      choices = "User-specified"),
                                      ),
-                                     column(width = 7,
-                                            #                                          box(status = "primary", width = NULL,
-                                            #                                          ),
-                                            tags$table(id = "tableLHP",
-                                                       tags$thead(h3("Life history parameters")),
-                                                       tags$tr(tags$th(class = "parTable", "Parameter"), 
-                                                               tags$th(class = "parTable", "Description"), 
-                                                               tags$th(class = "parTable", "Value")),
-                                                       tags$tr(tags$td(strong("Linf (LVB)"), id = "Linf_label"), 
-                                                               tags$td("Asymptotic length"),
-                                                               tags$td(#class = "inline",
-                                                                       uiOutput(outputId = "numLinf"))), #numericInput(inputId = "Linf", label = "Linf", value = input$sliderLinf),
-                                                       tags$tr(tags$td(strong("CV for Linf"), id = "CVLinf_label"), 
-                                                               tags$td("Coefficient of variation for asymptotic length"),
-                                                               tags$td(#class = "inline",
-                                                                       numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
-                                                                                    min = 0.001, max = 1, step = 0.001))),
-                                                       tags$tr(tags$td(strong("K (LVB)"), id = "K_label"), 
-                                                               tags$td("Growth (length-at-age) constant "),
-                                                               tags$td(#class = "inline", 
-                                                                       uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
-                                                       tags$tr(tags$td(strong("M"), id = "M_label"), 
-                                                               tags$td("Natural mortality rate"),
-                                                               tags$td(#class = "inline", 
-                                                                       uiOutput(outputId = "numM"))),
-                                                       tags$tr(tags$td(strong("Lm50"), id = "Lm50_label"), 
-                                                               tags$td("Length at 50% maturity"),
-                                                               tags$td(#class = "inline",
-                                                                       uiOutput(outputId = "numLm50"))), 
-                                                       tags$tr(tags$td(strong("Lm95"), id = "Lm95_label"), 
-                                                               tags$td("Length at 95% maturity"),
-                                                               tags$td(#class = "inline",
-                                                                       uiOutput(outputId = "numLm95"))),
-                                                       tags$tr(tags$td(strong("Walpha"), id = "Walpha_label"),
-                                                               tags$td("Weight-at-length coefficient a"),
-                                                               tags$td(#class = "inline",
-                                                                       numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
-                                                       tags$tr(tags$td(strong("Wbeta"), id = "Wbeta_label"),
-                                                               tags$td("Weight-at-length exponent b"),
-                                                               tags$td(#class = "inline",
-                                                                       numericInput(inputId = "Wbeta", label = NULL, value = 3))),
-                                                       tags$tfoot()
-                                            ),
+                                     box(width = 12,
+                                         title = h4("Natural mortality"), status = "primary",
+                                         uiOutput(outputId= "natMortalityRadioBtn"),
                                      ),
-                                     # tooltips
+                                     box(width = 12, 
+                                         title = h4("Maturity"), status = "primary",
+                                         #h3("Maturity"),
+                                         uiOutput(outputId= "btnRadioMaturity")
+                                     )
+                                     ),
+                                     column(width = 6,
+                                     box(title = h4("Summary"),
+                                         status = "primary", width = 12,
+                                         tags$table(id = "tableLHP",
+                                                    #tags$thead(h3("Summary table")),
+                                                    tags$tr(tags$th(class = "parTable", "Parameter"), 
+                                                            tags$th(class = "parTable", "Description"), 
+                                                            tags$th(class = "parTable", "Value")),
+                                                    tags$tr(tags$td(strong("Linf (LVB)"), id = "Linf_label"), 
+                                                            tags$td("Asymptotic length"),
+                                                            tags$td(#class = "inline",
+                                                              uiOutput(outputId = "numLinf"))), #numericInput(inputId = "Linf", label = "Linf", value = input$sliderLinf),
+                                                    tags$tr(tags$td(strong("CV for Linf"), id = "CVLinf_label"), 
+                                                            tags$td("Coefficient of variation - asymptotic length"),
+                                                            tags$td(#class = "inline",
+                                                              numericInput(inputId = "CVLinf", label = NULL, value = 0.1,
+                                                                           min = 0.001, max = 1, step = 0.001))),
+                                                    tags$tr(tags$td(strong("K (LVB)"), id = "K_label"), 
+                                                            tags$td("Growth (length-at-age) constant "),
+                                                            tags$td(#class = "inline", 
+                                                              uiOutput(outputId = "numKlvb"))), #numericInput(inputId = "kLVB", label = "K", value = input$sliderK), 
+                                                    tags$tr(tags$td(strong("M"), id = "M_label"), 
+                                                            tags$td("Natural mortality rate"),
+                                                            tags$td(#class = "inline", 
+                                                              uiOutput(outputId = "numM"))),
+                                                    tags$tr(tags$td(strong("Lm50"), id = "Lm50_label"), 
+                                                            tags$td("Length at 50% maturity"),
+                                                            tags$td(#class = "inline",
+                                                              uiOutput(outputId = "numLm50"))), 
+                                                    tags$tr(tags$td(strong("Lm95"), id = "Lm95_label"), 
+                                                            tags$td("Length at 95% maturity"),
+                                                            tags$td(#class = "inline",
+                                                              uiOutput(outputId = "numLm95"))),
+                                                    tags$tr(tags$td(strong("Walpha"), id = "Walpha_label"),
+                                                            tags$td("Weight-at-length coefficient a"),
+                                                            tags$td(#class = "inline",
+                                                              numericInput(inputId = "Walpha", label = NULL, value =  0.00001 ))),
+                                                    tags$tr(tags$td(strong("Wbeta"), id = "Wbeta_label"),
+                                                            tags$td("Weight-at-length exponent b"),
+                                                            tags$td(#class = "inline",
+                                                              numericInput(inputId = "Wbeta", label = NULL, value = 3))),
+                                                    tags$tfoot()
+                                         ),
+                                     ),
+                                    # enter pars button
+                                    actionButton(inputId = "btnStockPars",
+                                                 label = "Enter Stock Pars",
+                                                 class = "btn-success"),
+                                    # tooltips
                                      bsTooltip(id = "M_label", 
                                                title = "In per-recruit theory M/K determines the natural rate of decrease of numbers-at-length in the absence of fishing mortality. M strongly influences estimate of F/M, SPR.", 
                                                placement = "left", trigger = "hover",  options = list(container = "body")),
@@ -230,58 +203,94 @@ body <-   mainPanel(
                                      bsTooltip(id = "natMortalityRadioBtn", 
                                                title = "User default: M = 0.3 1/yr. <br> Empirical natural mortality estimators are from Then et al. (2015) doi:10.1093/icesjms/fsu136", 
                                                placement = "bottom", trigger = "hover",  options = list(container = "body"))
-                                   ), 
-                                   fluidRow(
-                                     column(width = 4,
-                                            # enter pars button
-                                            actionButton(inputId = "btnStockPars",
-                                                         label = "Enter Stock Pars",
-                                                         class = "btn-success")
-                                     ),
                                    )
+                                   ),
                                  )
-                                 # tags$head(
-                                 #   tags$style(
-                                 #     'thead {
-                                 #        display: table-header-group;
-                                 #        vertical-align: middle;
-                                 #        border-color: inherit;
-                                 #      }
-                                 # 
-                                 #      tr:nth-child(1) {
-                                 #        border: solid thick;
-                                 #      }
-                                 # 
-                                 #      tr:nth-child(2) {
-                                 #        border: solid thick;
-                                 #      }
-                                 # 
-                                 #      th {
-                                 #        text-align: center;
-                                 #      }
-                                 # 
-                                 #      td, th {
-                                 #        outline: none;
-                                 #      }
-                                 # 
-                                 #      table { 
-                                 #        display: table;
-                                 #        border-collapse: separate;
-                                 #        white-space: normal;
-                                 #        line-height: normal;
-                                 #        font-family: times-new-roman;
-                                 #        font-weight: normal;
-                                 #        font-size: medium;
-                                 #        font-style: normal;
-                                 #        color: -internal-quirk-inherit;
-                                 #        text-align: start;
-                                 #        border-spacing: 2px;
-                                 #        border-color: grey;
-                                 #        font-variant: normal;
-                                 #        }  '
-                                 #   )
-                                 # ),
-                        )
+                        ),
+                        tabPanel("Growth", value = "tabLengthAtAgeFit",
+                                 fluidRow(
+                                   column(width = 8,
+                                          plotlyOutput(outputId = "lvbGrowthCurve", width = "100%", height = "400px")
+                                   ),
+                                   column(width = 4, 
+                                          h3("von Bertalanffy growth", id = "vbg_header"),
+                                          sliderInput(inputId = "sliderLinf", 
+                                                      label = "LVB Linf",
+                                                      min = 0, max = 150, value = 40,
+                                                      step = 1, ticks = TRUE),
+                                          sliderInput(inputId = "sliderK", 
+                                                      label = "LVB k",
+                                                      min = 0.05, max = 1, value = 0.25,
+                                                      step = 0.01, ticks = TRUE, round = FALSE),
+                                          sliderInput(inputId = "slidert0", 
+                                                      label = "LVB t0",
+                                                      min = -1.5, max = 1.5, value = -0.01,
+                                                      step = 0.05, ticks = TRUE, round = FALSE),
+                                          sliderInput(inputId = "sliderAgeMax", 
+                                                      label = "Max age",
+                                                      min = 6, max = 16, value = 11,
+                                                      step = 1, ticks = TRUE, round = FALSE),
+                                          actionButton(inputId = "fitGrowth", label = "Fit LVB curve",
+                                                       class = "btn-success"),
+                                          bsTooltip(id = "fitGrowth", 
+                                                    title = "Apply statistical fit if age data is available. Where age, length data are available then slider settings are used as initial estimates of the parameters Linf, K, t0 in nonlinear regression.", 
+                                                    placement = "right", trigger = "hover",  options = list(container = "body"))
+                                   )
+                                 ),
+                                 fluidRow(
+                                   column(width = 8,
+                                          div(hr(), id = "sectionGrowthFitSummary"),
+                                          verbatimTextOutput(outputId = "growthFitSummary")
+                                   )
+                                 ),
+                        ),
+                        # tabPanel("Maturity",
+                        #          fluidRow(
+                        #            column(width = 12,
+                        #                   NULL)
+                        #          )
+                        # ),
+                        # tags$head(
+                        #   tags$style(
+                        #     'thead {
+                        #        display: table-header-group;
+                        #        vertical-align: middle;
+                        #        border-color: inherit;
+                        #      }
+                        # 
+                        #      tr:nth-child(1) {
+                        #        border: solid thick;
+                        #      }
+                        # 
+                        #      tr:nth-child(2) {
+                        #        border: solid thick;
+                        #      }
+                        # 
+                        #      th {
+                        #        text-align: center;
+                        #      }
+                        # 
+                        #      td, th {
+                        #        outline: none;
+                        #      }
+                        # 
+                        #      table { 
+                        #        display: table;
+                        #        border-collapse: separate;
+                        #        white-space: normal;
+                        #        line-height: normal;
+                        #        font-family: times-new-roman;
+                        #        font-weight: normal;
+                        #        font-size: medium;
+                        #        font-style: normal;
+                        #        color: -internal-quirk-inherit;
+                        #        text-align: start;
+                        #        border-spacing: 2px;
+                        #        border-color: grey;
+                        #        font-variant: normal;
+                        #        }  '
+                        #   )
+                        # ),
              )
     ),
     tabPanel("Gear selectivity", value = "tabSelectivity",
@@ -350,13 +359,15 @@ body <-   mainPanel(
                                  fluidPage(
                                    fluidRow(
                                      column(width = 3,
-                                            sliderTextInput(inputId = "Linc", 
-                                                            label = "Length bin width", #paste0("Length increment"),
+                                            sliderTextInput(inputId = "Linc",
+                                                            label = "Length bin width",
                                                             selected = 1,
                                                             choices = c(0.25, 0.5, 1, 2, 4, 5),
                                                             grid = TRUE),
-                                            #min = 0.25, max = 5, value = 1, step = 0.25, 
-                                            #ticks = TRUE),
+                                            # sliderInput(inputId = "Linc", 
+                                            #             label = "Length bin width",
+                                            #             min = 0.5, max = 5, value = 1, step = 0.5, 
+                                            #             ticks = TRUE),
                                             div(id = "above MVL",hr()),
                                             numericInput(inputId = "MLL",
                                                          label = "Minimum length limit (fishery)",
@@ -409,7 +420,7 @@ body <-   mainPanel(
                                             fluidRow(
                                               column(width = 8,
                                                      tags$h3("Model estimates"),
-                                                     tableOutput(outputId = "tableLBASummary")
+                                                     div(style = 'overflow-x: scroll',tableOutput(outputId = "tableLBASummary"))
                                               ),
                                               column(width = 4,
                                                      tags$h3("Model inputs"),
@@ -426,12 +437,12 @@ body <-   mainPanel(
                                                      plotlyOutput(outputId = "plotCatchFishedUnfished",
                                                                   width = "100%", height = "600px"),
                                               )
-                                            ),
-                                            fluidRow(
-                                            column(width = 12,
-                                                   plotlyOutput(outputId = "plotPopFishedUnfished"),
-                                            )
-                                            )
+                                            )#,
+                                            # fluidRow(
+                                            # column(width = 12,
+                                            #        plotlyOutput(outputId = "plotPopFishedUnfished"),
+                                            # )
+                                            # )
                                             )
                                    )
                         ),
@@ -489,29 +500,25 @@ body <-   mainPanel(
                         )
               ),
              icon = icon("list-ui")
-    )#,
-    # tabPanel("Other length-based methods",
-    #          tags$div(
-    #            tags$ul(
-    #              tags$li("Length-based Bayesian biomass estimator (LBB) - Froese et al., 2018"),
-    #              tags$li("Length-based pseudo-cohort analysis (LBPA) - Canales, Punt, Mardones, 2020 "),
-    #              tags$li("Size-based fishing status estimation for data-poor stocks - Kokkalis, .., Andersen, 2015")
-    #            )
-    #          ))#, 
-    #inline = FALSE))
-    #tabPanel("Stock assessment\n - diagnostics", 
-    #         fluidRow(width = 12,
-    #                  collapsible = TRUE, collapsed = TRUE,
-    #                  h4("Bivariate scatterplots of estimated regression parameters"), # from residual bootstrap sampling
-    #                  plotOutput(outputId = "pairPlotLVBParameters")),
-    #         fluidRow(width = 12, 
-    #                  collapsible = TRUE, collapsed = TRUE,
-    #                  h4("Histograms - marginal parameter distributions"),
-    #                  plotlyOutput(outputId = "histLVBParameters")),
-    #         icon = icon("tasks")
-    #)
+    ),
+  ##---------------
+  ## USER FEEDBACK
+  ##---------------
+  ## code block from DAMARA web-app
+  ## see https://archimer.ifremer.fr/doc/00390/50174/50795.pdf for details
+  tabPanel(title = "App feedback",
+        box(
+          title = "User feedback", status = "primary",
+          textInput("user", "User name", "User name"),
+          textAreaInput("exampleTextarea", '', width = "100%", height = "300px"),
+          actionButton("submitfeed", "Submit", icon("arrow-circle-right")),
+          tags$style(type='text/css', '#outText {background-color: white; color: green; border: white}'),
+          verbatimTextOutput("outText"),
+          solidHeader = TRUE,
+          width=8
+        )
+  )                 
   )
-  #  )
 )
 
 

@@ -95,7 +95,7 @@ server <- function(input, output, session){
   
   
   # catchdata element for plotting and LBSPR
-  catchdata_table <- eventReactive(input$checkboxCatchData,
+  catchdata_table <- eventReactive(input$selectCols, 
     { 
       req(input$lengthColSelect)
       cat(file = stderr(), "catchdata_table: new length col", input$lengthColSelect,"\n")
@@ -348,21 +348,48 @@ server <- function(input, output, session){
 
   # LVB growth ====
   
+  anyAgeData <- reactive({
+    ifelse(is.null(input$checkboxCatchData), FALSE, 
+           any(grepl("age", input$checkboxCatchData, ignore.case = TRUE)))
+  })
+  
+  
+  exploreLengthAtAge <- reactive({
+    if(anyAgeData()){
+      tagList(actionButton(inputId = "btnGoToGrowthPage", "Explore length-at-age fit", 
+                           class = NULL))
+    } else {
+      tagList(actionButton(inputId = "btnGoToGrowthPage", "Explore length composition", 
+                           class = NULL))
+    }
+  })
+  
+  output$moveToGrowthPage <- renderUI({
+    exploreLengthAtAge()
+  })
+  
+  observeEvent(input$btnGoToGrowthPage,
+               updateNavbarPage(session, inputId = "lhEstimate", selected = "tabLengthAtAgeFit"))  
+  
   # choices for growth parameters
   growthParChoices <- reactive({
-    if(any(grepl("age", input$checkboxCatchData, ignore.case = TRUE))) {
-      expr = c("User-specified", "Data fit (frequentist)")
+    
+    growthModel <- growthFrequentistFit()
+    
+    if(req(growthModel$nls$convInfo$isConv) & !is.null(req(growthModel$nls$convInfo$isConv))) {
+      expr = c("User-specified", "Length-at-age fit")
     } else {
       expr = c("User-specified")
     }
-      
   })
   
-  output$growthParRadioBtn <- renderUI({
-                      radioButtons(inputId = "growthParOption",
-                                   label = "LVB growth",
-                                   choices = growthParChoices())
-                    })
+  
+  observe({
+    # note growthParChoices calls growthFrequentistFit - eventReactive(input$fitGrowth,)
+    updateRadioButtons(session, "growthParOption", choices = growthParChoices(),
+                       selected = "User-specified")
+  })
+  
 
   # reactive dataframes ####
   # create growth (age-length) dataframe 
@@ -382,7 +409,7 @@ server <- function(input, output, session){
     checkboxCatchCols <- input$checkboxCatchData
     sexCol <- grep("sex", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
     cat(file = stderr(), "gatherFishAgeLengthData lengthCol, sexCol\n")
-    if(any(grepl("age", checkboxCatchCols, ignore.case = TRUE))){
+    if(anyAgeData()){
       ageCol <- grep("age", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
       lengthAge <- data.frame(filteredLengthRecords[, c(lengthCol)], 
                               filteredLengthRecords[, ageCol],
@@ -415,9 +442,10 @@ server <- function(input, output, session){
                    start = list(Linf=input$sliderLinf, K = input$sliderK, t0=input$slidert0),
                    nls.control(maxiter = 250, tol = 1e-05, minFactor = 1/4096, 
                                printEval = TRUE, warnOnly = TRUE))
-      print(class(nls.m))
+      #print(class(nls.m))
+      #print(nls.m$convInfo)
     }
-    x <- list(model = nls.m, data = growthData)
+    x <- list(nls = nls.m, data = growthData)
   })
   
   # bootstrapped growth parameters confidence intervals using nlsBoot
@@ -425,7 +453,7 @@ server <- function(input, output, session){
     GFF <- growthFrequentistFit()
     growthFitData <- GFF$data
     ageLengthData <- gatherFishAgeLengthData()
-    gm <- GFF$model
+    gm <- GFF$nls
     
     if(all(is.na(growthFitData[, "age"])) || !identical(growthFitData, ageLengthData)){
       # NULL return value
@@ -468,7 +496,7 @@ server <- function(input, output, session){
   # create Linf dataframe from growth fit
   createLinfLineData <- reactive({ # question - better way to do this?
     GFF <- growthFrequentistFit()
-    fitLinf <- coef(GFF$model)["Linf"]
+    fitLinf <- coef(GFF$nls)["Linf"]
     if(is.null(fitLinf)){
       gtgLinf <- NULL
     } else {
@@ -556,7 +584,7 @@ server <- function(input, output, session){
     GFF <- growthFrequentistFit()
     fitGrowthData <- GFF$data
     
-    fitLinf <- coef(GFF$model)["Linf"]
+    fitLinf <- coef(GFF$nls)["Linf"]
     if(is.null(fitLinf)){
       gtgLinf <- NULL
     } else {
@@ -602,15 +630,34 @@ server <- function(input, output, session){
   # growth outputs ####
   output$lvbGrowthCurve <- renderPlotly({#expr =
     print(input$fitGrowth)
+    # consider: req(growthModel$nls$convInfo$isConv) & !is.null(req(growthModel$nls$convInfo$isConv))
+    if(anyAgeData()){
     if(input$fitGrowth > 0) {
       ggplotly(ggGrowth_CurveALData() + ggGrowthFitMean() + ggGrowthFitCI() + ggLinf())    
     } else {
       ggplotly(ggGrowth_CurveALData())
     }
+    } else {
+      lengthData <- lengthRecordsFilter()
+      lengthCol <- newLengthCol()
+      maxLength <- max(lengthData[, lengthCol])
+      
+      p <- ggplot(data = lengthData) +
+        geom_histogram(aes(x = length_cm), fill = "grey80", binwidth = 1) +
+        geom_vline(xintercept = maxLength, colour = "black", linetype = 2, size = 0.75) +
+        geom_vline(xintercept = input$sliderLinf, colour = "red") +
+        theme_bw()
+      if(any(grepl("year", colnames(lengthData), ignore.case = TRUE))){
+        p <- p + 
+        facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, 
+                                          value = TRUE)," ~ .")))
+      }
+      ggplotly(p)
+    }  
   })
   
   output$growthFitSummary <- renderPrint({
-    expr = print(summary(growthFrequentistFit()$model, correlation = TRUE))
+    expr = print(summary(growthFrequentistFit()$nls, correlation = TRUE))
   })
   
   
@@ -624,8 +671,8 @@ server <- function(input, output, session){
     growthChoices <- c("User-specified" = "user", 
                        "PaulyNLS-T ($M = 4.118K^{0.73}L_{\\infty}^{-0.33}$)" = "pauly", 
                        "Two-parameter K ($M = 0.098 + 1.55K$)" = "twoK")
-    if("age" %in% input$checkboxCatchData & 
-       any(!is.na(gatherFishAgeLengthData()[,grep("age", names(gatherFishAgeLengthData()), value = TRUE)]))) {
+    if(anyAgeData() & 
+       any(!is.na(gatherFishAgeLengthData()[,grep("age", names(gatherFishAgeLengthData()), ignore.case = TRUE, value = TRUE)]))) {
       growthChoices = c(growthChoices, "HoenigNLS ($M = 4.899t_{max}^{-0.916}$)" = "hoenig")
     }
     expr = growthChoices
@@ -658,14 +705,14 @@ server <- function(input, output, session){
   output$numLinf <- renderUI({
     numericInput("Linf", label = NULL, #"Linf", 
                  value = ifelse(grepl("fit", input$growthParOption), 
-                                round(coef(growthFrequentistFit()$model)["Linf"], digits = 2),
+                                round(coef(growthFrequentistFit()$nls)["Linf"], digits = 2),
                                 round(input$sliderLinf, digits = 2)))
   })
   
   output$numKlvb <- renderUI({
     numericInput("kLvb", label = NULL, #"K growth", 
                  value = ifelse(grepl("fit", input$growthParOption), 
-                                round(coef(growthFrequentistFit()$model)["K"], digits = 2),
+                                round(coef(growthFrequentistFit()$nls)["K"], digits = 2),
                                 round(input$sliderK, digits = 2)))
   })
   
@@ -678,14 +725,14 @@ server <- function(input, output, session){
   output$numLm50 <- renderUI({
     numericInput("Lm50", label = NULL, #"Linf", 
                  value = ifelse(grepl("fit", input$growthParOption), 
-                                round(coef(growthFrequentistFit()$model)["Linf"]*0.66, digits = 2),
+                                round(coef(growthFrequentistFit()$nls)["Linf"]*0.66, digits = 2),
                                 round(input$sliderLinf*0.66, digits = 2)))
   })
   
   output$numLm95 <- renderUI({
     numericInput("Lm95", label = NULL, #"Linf", 
                  value = ifelse(grepl("fit", input$growthParOption), 
-                                round(coef(growthFrequentistFit()$model)["Linf"]*0.75, digits = 2),
+                                round(coef(growthFrequentistFit()$nls)["Linf"]*0.75, digits = 2),
                                 round(input$sliderLinf*0.75, digits = 2)),
                  min = input$sliderLinf*0.25)
   })
@@ -1352,8 +1399,7 @@ server <- function(input, output, session){
                           value = TRUE)," ~ ."))
         ggLengthComp <- ggLengthComp + 
           facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
-                                            value = TRUE)," ~ .")),
-                     ncol = 3) 
+                                            value = TRUE)," ~ .")))
       }
       expr = ggplotly(ggLengthComp)
     })
@@ -1366,7 +1412,7 @@ server <- function(input, output, session){
       # as.name
       length_records <- lengthRecordsFilter()
       length_col <- newLengthCol()
-      print(head(length_records[, length_col]))
+      print(head(length_records[, length_col], drop = FALSE))
       print(length_records[, length_col])
       
       StockPars <- setLHPars()
@@ -1405,101 +1451,105 @@ server <- function(input, output, session){
       lbsprStdErrs <- NULL
       mlePars <- NULL
       MLE <- NULL
+      sprVar <- NULL
       optimOut <- vector("list", length = length(years))
 
       for (yearLBSPR in years){
+        
+        LenDatIn <- LenDatVul[which(rownames(LenDatVul) == yearLBSPR),]  
+        
+        # GTG-LBSPR optimisation
+        optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")
+        
+        optimOut[[which(years == yearLBSPR)]] <- optGTG$optimOut
+        names(optimOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
+        
+        if(input$specifySelectivity == "Fixed value"){
+          optFleetPars <- list(FM = optGTG$lbPars[["F/M"]],
+                               selectivityCurve = optGTG$fixedFleetPars$selectivityCurve,
+                               SL1 = fixedFleetPars$SL1, 
+                               SL2 = fixedFleetPars$SL2,
+                               SLMin = fixedFleetPars$SLMin,
+                               SLmesh = fixedFleetPars$SLmesh)
+        } else if(input$specifySelectivity == "Initial estimate") {
+          optFleetPars <- list(FM = optGTG$lbPars[["F/M"]], 
+                               selectivityCurve = optGTG$fixedFleetPars$selectivityCurve,
+                               SL1 = optGTG$lbPars[["SL50"]], 
+                               SL2 = optGTG$lbPars[["SL95"]])
+        }
 
-      LenDatIn <- LenDatVul[which(rownames(LenDatVul) == yearLBSPR),]  
-
-      # GTG-LBSPR optimisation
-      optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")
-
-      optimOut[[which(years == yearLBSPR)]] <- optGTG$optimOut
-      names(optimOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
-
-      if(input$specifySelectivity == "Fixed value"){
-        optFleetPars <- list(FM = optGTG$lbPars[["F/M"]],
-                             selectivityCurve = optGTG$fixedFleetPars$selectivityCurve,
-                             SL1 = fixedFleetPars$SL1, 
-                             SL2 = fixedFleetPars$SL2,
-                             SLMin = fixedFleetPars$SLMin,
-                             SLmesh = fixedFleetPars$SLmesh)
-      } else if(input$specifySelectivity == "Initial estimate") {
-        optFleetPars <- list(FM = optGTG$lbPars[["F/M"]], 
-                             selectivityCurve = optGTG$fixedFleetPars$selectivityCurve,
-                             SL1 = optGTG$lbPars[["SL50"]], 
-                             SL2 = optGTG$lbPars[["SL95"]])
-      }
-
-      # per recruit theory simulation - called in DoOptDome also
-      prGTG <- GTGDomeLBSPRSim(StockPars, optFleetPars, SizeBins)
-
-      # configure outputs
-      # ifelse statement depending on selectivity curve
-      if(input$selectSelectivityCurve == "Logistic"){
-        VulLen2 <- 1.0/(1+exp(-log(19)*(LenMids-optFleetPars$SL1)/(optFleetPars$SL2-optFleetPars$SL1))) # Selectivity-at-Length
-      } else if(input$selectSelectivityCurve == "Normal.loc") {
-        VulLen2 <- exp(-0.5*((LenMids-((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SL2))^2)
-        VulLen2[LenMids < optFleetPars$SLMin] <- 0
-      } else if(input$selectSelectivityCurve == "Normal.sca") {
-        VulLen2 <- exp(-0.5*((LenMids-((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SLmesh*(optFleetPars$SL2)^0.5)^2))
-        VulLen2[LenMids < optFleetPars$SLMin] <- 0
-      } else if(input$selectSelectivityCurve == "logNorm") {
-        VulLen2 <- exp(-0.5*((log(LenMids)-log((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SL2))^2)
-        VulLen2[LenMids < optFleetPars$SLMin] <- 0
-      } else if(input$selectSelectivityCurve == "Knife-edged"){
-        VulLen2 <- rep(1, length(LenMids))
-        VulLen2[LenMids < optFleetPars$SLMin] <- 0
-      }
-      
-      # calculate variance in selectivity-at-length
-      if(input$specifySelectivity == "Initial estimate") {
+        # per recruit theory simulation - called in DoOptDome also
+        prGTG <- GTGDomeLBSPRSim(StockPars, optFleetPars, SizeBins)
+        
+        # configure outputs
+        # ifelse statement depending on selectivity curve
+        if(input$selectSelectivityCurve == "Logistic"){
+          VulLen2 <- 1.0/(1+exp(-log(19)*(LenMids-optFleetPars$SL1)/(optFleetPars$SL2-optFleetPars$SL1))) # Selectivity-at-Length
+        } else if(input$selectSelectivityCurve == "Normal.loc") {
+          VulLen2 <- exp(-0.5*((LenMids-((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SL2))^2)
+          VulLen2[LenMids < optFleetPars$SLMin] <- 0
+        } else if(input$selectSelectivityCurve == "Normal.sca") {
+          VulLen2 <- exp(-0.5*((LenMids-((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SLmesh*(optFleetPars$SL2)^0.5)^2))
+          VulLen2[LenMids < optFleetPars$SLMin] <- 0
+        } else if(input$selectSelectivityCurve == "logNorm") {
+          VulLen2 <- exp(-0.5*((log(LenMids)-log((optFleetPars$SL1)*optFleetPars$SLmesh))/(optFleetPars$SL2))^2)
+          VulLen2[LenMids < optFleetPars$SLMin] <- 0
+        } else if(input$selectSelectivityCurve == "Knife-edged"){
+          VulLen2 <- rep(1, length(LenMids))
+          VulLen2[LenMids < optFleetPars$SLMin] <- 0
+        }
+        
         optVarcov <- solve(optGTG$optimOut$hessian)
-        deltaSLF <- varFishingAtLength(optGTG$optimOut$par, optVarcov, optFleetPars, StockPars, LenMids)
-        lbsprPars <- rbind(lbsprPars,
-                           data.frame(FM = unname(optFleetPars$FM), 
-                                      SL50 = unname(optFleetPars$SL1), 
-                                      SL95 = unname(optFleetPars$SL2),
-                                      SPR = prGTG$SPR, 
-                                      row.names = yearLBSPR)
-        )
-      } else {
-        lbsprPars <- rbind(lbsprPars,
-                           data.frame(FM = unname(optFleetPars$FM), 
-                                      SPR = prGTG$SPR, 
-                                      row.names = yearLBSPR))
-      }
-      
-      #print(paste0("difference between meanSLF and VulLen2 = ", sum(deltaSLF$meanSLF-VulLen2)))
-      lbsprStdErrs <- rbind(lbsprStdErrs, optGTG$lbStdErrs)
-      
-      # numbers-at-length (midpoints) LBSPR
-      NatL_LBSPR <- rbind(NatL_LBSPR,
-                      data.frame(year = yearLBSPR,
-                                 length_mid = prGTG$LenMids,
-                                 catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
-                                 catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
-                                 selectivityF_at_length = VulLen2,
-                                 varSelectivityF_at_length = ifelse(input$specifySelectivity == "Initial estimate",
-                                                                deltaSLF$varSLF,
-                                                                NA),
-                                 popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
-                                 popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished) #standardised??
-                      ))
-      
-      mlePars <- rbind(mlePars, optGTG$optimOut$par)
-      mleDF <- optGTG$MLE
-      mleDF$Parameter <- paste(mleDF$Parameter, yearLBSPR, sep = ".")
-      MLE <- rbind(mleDF, MLE)
-      # Parameter = c("FM", "SL50", "SL95", "SPR"),
-      # Description = c("F/M: relative fishing mortality",
-      #                 "Length at 50% selectivity",
-      #                 "Length at 95% selectivity",
-      #                 "Spawning Potential Ratio"),
-      
-      #        opModelOut <- data.frame(Parameter = c("SPR", "YPR"),
-      #                                 Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
-      #                                 Estimate = c(prGTG$SPR, prGTG$YPR))
+        # calculate variance in selectivity-at-length
+        if(input$specifySelectivity == "Initial estimate") {
+          deltaSLF <- varFishingAtLength(optGTG$optimOut$par, optVarcov, optFleetPars, StockPars, LenMids)
+          lbsprPars <- rbind(lbsprPars,
+                             data.frame(FM = unname(optFleetPars$FM), 
+                                        SL50 = unname(optFleetPars$SL1), 
+                                        SL95 = unname(optFleetPars$SL2),
+                                        SPR = prGTG$SPR, 
+                                        row.names = yearLBSPR)
+          )
+        } else {
+          lbsprPars <- rbind(lbsprPars,
+                             data.frame(FM = unname(optFleetPars$FM), 
+                                        SPR = prGTG$SPR, 
+                                        row.names = yearLBSPR))
+        }
+        
+        #print(paste0("difference between meanSLF and VulLen2 = ", sum(deltaSLF$meanSLF-VulLen2)))
+        lbsprStdErrs <- rbind(lbsprStdErrs, optGTG$lbStdErrs)
+        
+        # numbers-at-length (midpoints) LBSPR
+        NatL_LBSPR <- rbind(NatL_LBSPR,
+                            data.frame(year = yearLBSPR,
+                                       length_mid = prGTG$LenMids,
+                                       catchFished_at_length = prGTG$LCatchFished/max(prGTG$LCatchFished),
+                                       catchUnfished_at_length = prGTG$LCatchUnfished/max(prGTG$LCatchUnfished),
+                                       selectivityF_at_length = VulLen2,
+                                       varSelectivityF_at_length = ifelse(input$specifySelectivity == "Initial estimate",
+                                                                          deltaSLF$varSLF,
+                                                                          NA),
+                                       popUnfished_at_length = prGTG$LPopUnfished/max(prGTG$LPopUnfished),
+                                       popFished_at_length = prGTG$LPopFished/max(prGTG$LPopFished) #standardised??
+                            ))
+        
+        mlePars <- rbind(mlePars, optGTG$optimOut$par)
+        mleDF <- optGTG$MLE
+        mleDF$Parameter <- paste(mleDF$Parameter, yearLBSPR, sep = ".")
+        MLE <- rbind(mleDF, MLE)
+        # Parameter = c("FM", "SL50", "SL95", "SPR"),
+        # Description = c("F/M: relative fishing mortality",
+        #                 "Length at 50% selectivity",
+        #                 "Length at 95% selectivity",
+        #                 "Spawning Potential Ratio"),
+        
+        #        opModelOut <- data.frame(Parameter = c("SPR", "YPR"),
+        #                                 Description = c("Spawning Potential Ratio", "Yield-per-recruit"),
+        #                                 Estimate = c(prGTG$SPR, prGTG$YPR))
+        
+        sprVar <- rbind(sprVar, varSPR(optGTG$optimOut$par, optVarcov, optFleetPars, StockPars, SizeBins))
+        
       }
       if(input$specifySelectivity == "Fixed value"){
         if(input$selectSelectivityCurve == "Logistic"){
@@ -1519,13 +1569,15 @@ server <- function(input, output, session){
       }
       mlePars <- cbind(year = years, mlePars)
       
+      
       list(NatL_LBSPR = NatL_LBSPR,
            lbsprPars = lbsprPars,
            lbsprStdErrs = lbsprStdErrs,
            optimOut = optimOut,
            mlePars = mlePars,
            MLE = MLE,
-           fixedFleetPars = fixedFleetPars
+           fixedFleetPars = fixedFleetPars,
+           sprVar = sprVar
            )
     }
   )
@@ -2175,9 +2227,9 @@ server <- function(input, output, session){
       pl_y <- plot_ly(data = NatL_LIME, 
                       x = ~ length_mid, y = ~ catchFished, name = "fished - model fit", 
                       type = "scatter", mode = "lines+markers", frame = TRUE) %>%
-        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - sim",
+        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - equilibrium",
                   type = "scatter",mode = "lines+markers") %>% 
-        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - sim",
+        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - equilibrium",
                   type = "scatter",mode = "lines+markers")
       pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
                               yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
@@ -2304,6 +2356,7 @@ server <- function(input, output, session){
       lbsprPars <- fitLBSPR()$lbsprPars
       lbsprStdErrs <- fitLBSPR()$lbsprStdErrs
       NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
+      sprVars <- fitLBSPR()$sprVar
       StockPars <- setLHPars()
       
       # extract years
@@ -2324,7 +2377,13 @@ server <- function(input, output, session){
                            lowerci = c(lowerciF, NA),
                            upperci = c(upperciF, NA),
                            year = c(lbsprPars$year, "all periods"))
-      #print(dfMort) # with years?
+      
+      # delta method approximation
+      meanSPR <- lbsprPars$SPR
+      stderrSPR <- sqrt(sprVars)
+      lowerciSPR <- ifelse(meanSPR - 1.96*stderrSPR < 0, 0, meanSPR - 1.96*stderrSPR)
+      upperciSPR <- ifelse(meanSPR + 1.96*stderrSPR > 1, 1, meanSPR + 1.96*stderrSPR)
+      cat(paste0("lowerciSPR = ", lowerciSPR))
       
       p <- plot.new()
       if(input$analyseLengthComposition == "all periods"){
@@ -2352,6 +2411,7 @@ server <- function(input, output, session){
         # SPR
         barplot(lbsprPars$SPR, width = 0.4, names.arg = yearsLBA, axes = TRUE, axisnames = TRUE,
                 ylab = "SPR", xlim = c(0,length(yearsLBA)), ylim = c(0,1), space = 0.75)
+        arrows(0.5, lowerciSPR, 0.5, upperciSPR, length=0.15, angle=90, code=3, col = c("black"))
         abline(h = 0.4, col = "red", lty = 2, lwd = 2)
         graphics::box(which = "plot", lty = "solid", lwd = 2)
         
@@ -2395,6 +2455,7 @@ server <- function(input, output, session){
         plot(yearsLBA, lbsprPars$SPR, 
              type = "p", lwd = 10, pch = 19, xlab = "year", ylab = "SPR", ylim = c(0,1))
         abline(h = 0.4, col = "red", lty = 2, lwd = 2)
+        arrows(yearsLBA, lowerciSPR, yearsLBA, upperciSPR, length=0.15, angle=90, code=3, col = c("black"))
 
         # selectivity-at-length
         plot(x=1, y=1, type="n", xlim = range(NatL_LBSPR$length_mid), ylim = c(0,1),
@@ -2516,7 +2577,8 @@ server <- function(input, output, session){
         data.frame(Parameter = fitLBSPR$MLE$Parameter,
                    Lower = rep(-Inf, dim(fitLBSPR$MLE)[1]),
                    Upper = rep(0, dim(fitLBSPR$MLE)[1])) 
-      parConstraintsLBSPR$Upper[parConstraintsLBSPR$Parameter == "log(F/M)"] <- Inf   
+
+      parConstraintsLBSPR$Upper[grepl("log(F/M)", parConstraintsLBSPR$Parameter, fixed = TRUE)] <- Inf
       parConstraintsLBSPR <- parConstraintsLBSPR %>% 
         mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
                 Upper = ifelse(is.finite(Upper), Upper, 100),
@@ -2535,8 +2597,8 @@ server <- function(input, output, session){
                                      UpperCI = fitLBSPR$MLE$Estimate +1.96*fitLBSPR$MLE$`Std. Error`)
       
       # x-axis range
-      x_min <- floor(min(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, ciEstimatesLBSPR$LowerCI))
-      x_max <- ceiling(max(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, ciEstimatesLBSPR$UpperCI))
+      x_min <- floor(min(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, max(ciEstimatesLBSPR$LowerCI,-50)))
+      x_max <- ceiling(max(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, min(ciEstimatesLBSPR$UpperCI, 50)))
 
       pg <- ggplot() +
         geom_segment(data = parConstraintsLBSPR,
@@ -2546,7 +2608,7 @@ server <- function(input, output, session){
                    aes(y = Parameter, x = Value, shape = Estimate), size = 5, colour = "black") +
         geom_errorbarh(data = ciEstimatesLBSPR,
                        aes(y = Parameter, xmin = LowerCI, xmax = UpperCI), height = 0.5) +
-        scale_x_continuous(name = "Value", breaks = seq(x_min,x_max,1)) +
+        scale_x_continuous(name = "Value") +
         scale_y_discrete(name = "MLE parameters") +
         scale_shape_manual(values = c(1, 16)) + #scale_colour_manual(name = waiver(), values = "lightgreen", breaks = "lightgreen", labels = NULL) +
         coord_cartesian(xlim = c(x_min, x_max)) +
@@ -2608,4 +2670,23 @@ server <- function(input, output, session){
     }
     ggplotly(p = pg) %>% highlight("plotly_selected")
   })
+  ##----------
+  ## FEEDBACK
+  ##----------
+  ## code block from DAMARA web-app
+  ## see https://archimer.ifremer.fr/doc/00390/50174/50795.pdf for details
+  submit.txt <- eventReactive(input$submitfeed, {
+    user.name<-tolower(input$user)
+    user.name<-gsub("[[:punct:]]|", "", user.name)
+    user.name<-gsub("[[:space:]]", "", user.name)
+    date.val<-format(Sys.time(), format="%B_%d_%Y_%H_%M_%S")
+    feedback.file<-paste(paste(user.name, date.val, sep="_"),".txt", sep="")
+    cat(input$exampleTextarea, file=feedback.file)
+    paste(feedback.file,"submitted, thank you.")
+  })
+  ##
+  output$outText <- renderText({
+    submit.txt()
+  })
 }
+
