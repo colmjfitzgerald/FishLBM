@@ -420,7 +420,7 @@ body <- mainPanel(
                                             fluidRow(
                                               column(width = 8,
                                                      tags$h3("Model estimates"),
-                                                     tableOutput(outputId = "tableLBASummary")
+                                                     div(style = 'overflow-x: scroll',tableOutput(outputId = "tableLBASummary"))
                                               ),
                                               column(width = 4,
                                                      tags$h3("Model inputs"),
