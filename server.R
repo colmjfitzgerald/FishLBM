@@ -694,7 +694,7 @@ server <- function(input, output, session){
                      choices = c("User-specified" = "user", 
                        "Beverton-Holt LHI ($L_{m50} = 0.66 L_\\infty$)" = "bhlhi",
                        "Binohlan, Froese (2009) $L_{m50}  = e^{-0.119} (L_\\max)^{0.916}$" = "bf2009"), 
-                       selected = "bhlhi")
+                       selected = "user")
       )
     }
     )
@@ -703,22 +703,21 @@ server <- function(input, output, session){
   # numeric inputs for LBSPR ####
   # default to sliderInput values
   output$numLinf <- renderUI({
-    numericInput("Linf", label = NULL, #"Linf", 
+    numericInput("Linf", label = NULL, step = 1, #"Linf", 
                  value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$nls)["Linf"], digits = 2),
                                 round(input$sliderLinf, digits = 2)))
   })
   
   output$numKlvb <- renderUI({
-    numericInput("kLvb", label = NULL, #"K growth", 
+    numericInput("kLvb", label = NULL, step = 0.01,  #"K growth", 
                  value = ifelse(grepl("fit", input$growthParOption), 
                                 round(coef(growthFrequentistFit()$nls)["K"], digits = 2),
                                 round(input$sliderK, digits = 2)))
   })
   
   output$numM <- renderUI({
-    numericInput("M", label = NULL, #"M natural mortality", 
-                 value = 0.3)
+    numericInput("M", label = NULL, value = 0.3, step = 0.05) #"M natural mortality", 
   })
   
   # nb value = initial value
@@ -740,7 +739,8 @@ server <- function(input, output, session){
   
   observe({
     updateNumericInput(session, "M", value = updateMortality())
-    updateNumericInput(session, "Lm50", value = updateMaturity()) # update Lm95
+    updateNumericInput(session, "Lm50", value = updateMaturity())
+    updateNumericInput(session, "Lm95", value = updateMaturity95())
   })
   
   updateMaturity <- reactive({
@@ -750,6 +750,16 @@ server <- function(input, output, session){
       expr = round(0.66*input$Linf,1)
     } else if(input$maturityPars == "bf2009") {
       expr = round(exp(-0.1189 + 0.9157*log(max(isolate(gatherFishAgeLengthData())[, newLengthCol()]))),1)
+    }
+  })
+  
+  updateMaturity95 <- reactive({
+    if(input$maturityPars == "user" || is.null(input$maturityPars)){
+      expr = round(0.75*input$Linf,1)
+    } else if(input$maturityPars == "bhlhi") {
+      expr = round(0.66*input$Linf,1) + 5
+    } else if(input$maturityPars == "bf2009") {
+      expr = round(exp(-0.1189 + 0.9157*log(max(isolate(gatherFishAgeLengthData())[, newLengthCol()])))+5,1)
     }
   })
   
