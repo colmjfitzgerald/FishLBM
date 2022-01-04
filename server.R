@@ -49,13 +49,11 @@ server <- function(input, output, session){
                            selected = ifelse(any(grepl("length", colnames(catchdata_read()), ignore.case = TRUE)),
                                              grep("length", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE),
                                              NULL))
-      cat(file = stderr(), "after updateVarSelectInput\n")})
+      })
   
   # updates checkboxCatchData after lengthColSelect changes
   observeEvent(input$lengthColSelect,
-               { cat(file = stderr(), "before freezeReactiveValue(input, checkboxCatchData)\n")
-                 freezeReactiveValue(input, "checkboxCatchData")
-                 cat(file = stderr(), "after freezeReactiveValue(input, checkboxCatchData)\n")
+               { freezeReactiveValue(input, "checkboxCatchData")
                  updateCheckboxGroupInput(session = getDefaultReactiveDomain(),
                                           inputId = "checkboxCatchData",
                                           choices = setdiff(colnames(catchdata_read()),
@@ -98,10 +96,7 @@ server <- function(input, output, session){
   catchdata_table <- eventReactive(input$selectCols, 
     { 
       req(input$lengthColSelect)
-      cat(file = stderr(), "catchdata_table: new length col", input$lengthColSelect,"\n")
       checkboxCols <- input$checkboxCatchData
-      cat(file = stderr(), "catchdata_table: first $checkboxCatchData", checkboxCols,"\n")
-      cat(file = stderr(), "catchdata_table: names(catchdata_read())", names(catchdata_read()),"\n")
       catchdata <- catchdata_read()[, c(checkboxCols, paste0(input$lengthColSelect))]
       charCols <- which(sapply(catchdata, is.character))
       if(!(length(charCols) == 0 & is.integer(charCols))) {
@@ -116,7 +111,6 @@ server <- function(input, output, session){
         catchdata <- data.frame(catchdata)
         names(catchdata) <- c(checkboxCols, paste0(input$lengthColSelect))
       }
-      cat(file = stderr(), "catchdata_table: second $checkboxCatchdata", checkboxCols,"\n")
       catchdata
     }
   )
@@ -300,10 +294,8 @@ server <- function(input, output, session){
   lengthRecordsFilter <- reactive(#   eventReactive(input$convertLengthUnits,
     { 
       lengthScale <- lengthRecordsScale()
-      cat(file = stderr(), paste0("number of rows = ", length(input$catchDataTable_rows_all)),"\n")
       length_records <- catchdata_table()[input$catchDataTable_rows_all,,drop = FALSE] %>% #select(input$lengthColSelect) %>% 
         mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
-      cat(file = stderr(), "lengthRecordsFilter\n")
       length_records
     }
   )
@@ -409,12 +401,10 @@ server <- function(input, output, session){
 
   gatherFishAgeLengthData <- reactive({
     # lengthRecordsFilter() dependence ***
-    cat(file = stderr(), "gatherFishAgeLengthData\n")
     lengthCol <- newLengthCol()
     filteredLengthRecords <- lengthRecordsFilter()
     checkboxCatchCols <- input$checkboxCatchData
     sexCol <- grep("sex", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
-    cat(file = stderr(), "gatherFishAgeLengthData lengthCol, sexCol\n")
     if(anyAgeData()){
       ageCol <- grep("age", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
       lengthAge <- data.frame(filteredLengthRecords[, c(lengthCol)], 
@@ -517,7 +507,6 @@ server <- function(input, output, session){
   
   # reactive ggplot elements/geoms #### 
   ggGrowth_CurveALData <- reactive({
-    cat(file = stderr(), "ggGrowth_CurveALData\n")
     growthcurve <- createPlotSliderCurveData()
     fishAgeLengthData <- gatherFishAgeLengthData()
     lengthCol <- newLengthCol()
@@ -556,7 +545,6 @@ server <- function(input, output, session){
   
   # sample from length data for geom_rug
   sampleLengthRecords <- reactive({
-    cat(file = stderr(), "sampleLengthRecords\n")
     fishAgeLengthData <- gatherFishAgeLengthData()
     sample(1:nrow(fishAgeLengthData), 398, replace = FALSE,)
   })
@@ -895,10 +883,8 @@ server <- function(input, output, session){
   # selectivity curve ####
 
   observe({
-    print("update radio buttons")    
     updateRadioButtons(session, inputId = "specifySelectivity",
                        choices = selectParameterSpecification())
-    print("finished updating")
   })
   
   # reactive radioButton options..."Asymptotic" default:
@@ -1163,8 +1149,6 @@ server <- function(input, output, session){
   #observeEvent(
   #  input$btnFixedFleetPars, {
       output$plotSelectivityPattern <- renderPlotly({
-        print("before isolate in output$plotSelectivityPattern")
-        print(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE))
         isolate(length_vals <- seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), 
                            input$Linf, length.out = 201))
         if(req(input$specifySelectivity) == "Initial estimate" ){
@@ -1341,14 +1325,12 @@ server <- function(input, output, session){
   
   # btnStockPars causes move to next tab
   observeEvent(input$btnStockPars, {
-    print(setLHPars())
     updateTabsetPanel(session, inputId = "tabMain", selected = "tabSelectivity")
   })
   
   # btnTechnicalStockPars 
   observeEvent(input$btnTechnicalStockPars,
-               { cat(file = stderr(), "input$btnTechnicalStockPars\n")
-                 length_records <- lengthRecordsFilter()[, newLengthCol()]
+               { length_records <- lengthRecordsFilter()[, newLengthCol()]
                  print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])
                })
   
@@ -1424,8 +1406,6 @@ server <- function(input, output, session){
           theme_bw() + 
           theme(legend.position = "bottom")
       }
-      print("analyseLengthComposition")
-      print(input$analyseLengthComposition)
       if(input$analyseLengthComposition == "annual"){ # was observeEvent or eventReactive 
         print(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
                           value = TRUE)," ~ ."))
@@ -1549,7 +1529,6 @@ server <- function(input, output, session){
                                         row.names = yearLBSPR))
         }
         
-        #print(paste0("difference between meanSLF and VulLen2 = ", sum(deltaSLF$meanSLF-VulLen2)))
         lbsprStdErrs <- rbind(lbsprStdErrs, optGTG$lbStdErrs)
         
         # numbers-at-length (midpoints) LBSPR
@@ -1620,8 +1599,7 @@ server <- function(input, output, session){
       lhParVals <- isolate(setLHPars()) # only evaluated if fitLIME called
       fleetParVals <- isolate(setFleetPars()) 
       binwidth <- isolate(input$Linc)
-      print("fleetParVals LIME")
-      print(fleetParVals)
+
       # selectivity parameters fitted or estimated
       titleFitPlot <- "Model-estimated selectivity parameters"
       if(input$specifySelectivity == "Fixed value"){
@@ -1664,8 +1642,7 @@ server <- function(input, output, session){
                            nseasons=input$nseasons,
                            nfleets=1 # fleetParVals$nfleets
                            )
-      print(lh)
-      print("lh")
+
       # length records
       length_records <- isolate(lengthRecordsFilter())
       lengthCol <- isolate(newLengthCol())
@@ -1704,7 +1681,6 @@ server <- function(input, output, session){
       # #lengthBins <- seq(0, lh$binwidth*ceiling(lh$linf*(1 + lh$CVlen)/lh$binwidth), lh$binwidth)
       # #lengthMids <- seq(from=0.5*lh$binwidth, by=lh$binwidth, length.out=length(lengthBins)-1)
       # lfLIME <- lfLIME*outer(rep.int(1, nrow(lfLIME)), isVulnerable)
-      print("pre-lfLIME")
       lfLIME <- binLengthData()$LenDatVul
 
       # lfLIME col.name with upper end of length bins or mid-bin??
@@ -1728,8 +1704,7 @@ server <- function(input, output, session){
                        "neff_ft"= neff_ft)
 
       inputs_all <- create_inputs(lh=lh, input_data=data_all)
-      
-      print(data_all)
+
       
       #  run_LIME ####
       start <- Sys.time()
@@ -1739,8 +1714,7 @@ server <- function(input, output, session){
                           data_avail="LC", 
                           est_selex_f = fleetParVals$est_selex_f)
       end <- Sys.time() - start
-      print(end)
-      print(lc_only$input)
+
       # outputs
       list(length_data_raw = length_records[, c(yearCol, lengthCol)] %>% na.omit(),
            LF = LF, lc_only = lc_only, lh = lh)
@@ -1780,7 +1754,6 @@ server <- function(input, output, session){
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
       fitLIMEout <- fitLIME()$lc_only
       yearsLIME <- row.names(fitLIME()$LF)
-      print(yearsLIME)
       
       # fishing mortality
       log_fishing <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="lF_y"),]
@@ -1929,9 +1902,6 @@ server <- function(input, output, session){
         scale_fill_manual(name = "observed \n data", values = c("grey75"), breaks = waiver(), guide = NULL) +
         scale_color_brewer(palette="Set1", direction=-1) + 
         facet_wrap(as.formula(paste0(year_col," ~ .")))
-      
-      #      pg <- plot_LCfits_cf(Inputs=fitLIMEobj$lc_only$Inputs,
-      #                        Report=fitLIMEobj$lc_only$Report, plot_type = "counts")
       
       expr = ggplotly(pg + theme_bw()) %>% layout(autosize = TRUE)
     }
