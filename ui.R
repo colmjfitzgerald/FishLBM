@@ -411,7 +411,9 @@ body <- mainPanel(
                                               fluidRow(
                                                 column(width = 12,
                                                        plotOutput(outputId = "plotFishingEstimateOutput",
-                                                                  width = "100%", height = "600px")
+                                                                  width = "100%", height = "600px"),
+                                                       div(),
+                                                       textOutput(outputId = "textFishingEstimateOutput")
                                                 )
                                               )
                                             )

@@ -2503,6 +2503,13 @@ server <- function(input, output, session){
     p
   })
   
+  output$textFishingEstimateOutput <- renderText({
+    if(input$lengthBasedAssessmentMethod == "LIME"){
+      paste0("Plot code from https://github.com/merrillrudd/LIME/blob/master/R/plot_output.R")
+    } else {
+      NULL
+    }
+  })
   
   output$plotPopLBSPR <- renderPlot({
     NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
