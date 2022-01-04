@@ -106,6 +106,12 @@ server <- function(input, output, session){
       charCols <- which(sapply(catchdata, is.character))
       if(!(length(charCols) == 0 & is.integer(charCols))) {
         catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
+
+        sexCol <- grep("sex", checkboxCols, ignore.case = TRUE, value = TRUE)
+        if(length(sexCol) >0){
+          catchdata[, sexCol] <- as.factor(catchdata[, sexCol])
+        }
+
       } else {
         catchdata <- data.frame(catchdata)
         names(catchdata) <- c(checkboxCols, paste0(input$lengthColSelect))
