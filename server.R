@@ -820,16 +820,20 @@ server <- function(input, output, session){
         tagList(
           tags$table(
             tags$tr(tags$td("FecB"),
-                    tags$td(numericInput(inputId = "FecB", label = NULL, value = 3))),
+                    tags$td(numericInput(inputId = "FecB", label = NULL, value = 3, 
+                                         min = 0, step = 0.1))),
             tags$tr(tags$td("Steepness"),
-                    tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8))),
+                    tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8, 
+                                         min = 0, step = 0.1))),
             tags$tr(tags$td("Mpow"),
-                    tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0))),
+                    tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0, 
+                                         step = 0.1))),
             tags$tr(tags$td("NGTG"),
-                    tags$td(numericInput(inputId = "NGTG", label = NULL, value = 17))),
+                    tags$td(numericInput(inputId = "NGTG", label = NULL, value = 13, 
+                                         min = 1, step = 1))),
             tags$tr(tags$td("GTG Max SD about Linf"),
                     tags$td(numericInput(inputId = "MaxSD", label = NULL,
-                                         value = 2, min = 0, max = 4))),
+                                         value = 2, min = 0, max = 4, step = 0.5))),
             tags$tfoot()
           ),
         )
