@@ -351,6 +351,14 @@ server <- function(input, output, session){
            any(grepl("age", input$checkboxCatchData, ignore.case = TRUE)))
   })
   
+  maxAge <- reactive({
+    if(anyAgeData()){
+      max(gatherFishAgeLengthData()$age, na.rm = TRUE)
+    } else{
+      NA
+    }
+  })
+  
   
   exploreLengthAtAge <- reactive({
     if(anyAgeData()){
@@ -393,7 +401,7 @@ server <- function(input, output, session){
   # create growth (age-length) dataframe 
   createPlotSliderCurveData <- reactive({
     # slider curve
-    growthcurve <- data.frame(age = seq(0, input$sliderAgeMax, by = 0.1))
+    growthcurve <- data.frame(age = seq(0, floor(maxAge()*1.25), by = 0.1))
     growthcurve$length_cm <- input$sliderLinf*(1- exp(-input$sliderK*(growthcurve$age-input$slidert0)))
     growthcurve
   })
@@ -496,7 +504,7 @@ server <- function(input, output, session){
     if(is.null(fitLinf)){
       gtgLinf <- NULL
     } else {
-      gtgLinf <- expand.grid(age = c(0, input$sliderAgeMax), 
+      gtgLinf <- expand.grid(age = c(0, floor(maxAge()*1.25)), 
                            length = c(fitLinf), 
                            ci = c("mean", "mean+2SD", "mean-2SD"), stringsAsFactors = FALSE)
       gtgLinf$linetype <- ifelse(gtgLinf$ci == "mean", "1", "2")
@@ -582,7 +590,7 @@ server <- function(input, output, session){
     if(is.null(fitLinf)){
       gtgLinf <- NULL
     } else {
-      gtgLinf <- expand.grid(age = c(0, input$sliderAgeMax), 
+      gtgLinf <- expand.grid(age = c(0, floor(maxAge()*1.25)), 
                              length = c(fitLinf), 
                              ci = c("mean", "mean+2SD", "mean-2SD"), stringsAsFactors = FALSE)
       gtgLinf$linetype <- ifelse(gtgLinf$ci == "mean", "1", "2")
