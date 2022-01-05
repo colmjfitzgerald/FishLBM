@@ -689,19 +689,6 @@ server <- function(input, output, session){
     }
     )
   
-  output$btnRadioMaturity <- 
-    renderUI({
-      withMathJax(
-        radioButtons(inputId= "maturityPars", label = "Length-at-50%-maturity",
-                     choices = c("User-specified" = "user", 
-                       "Beverton-Holt LHI ($L_{m50} = 0.66 L_\\infty$)" = "bhlhi",
-                       "Binohlan, Froese (2009) $L_{m50}  = e^{-0.119} (L_\\max)^{0.916}$" = "bf2009"), 
-                       selected = "user")
-      )
-    }
-    )
-  
-  
   # numeric inputs for LBSPR ####
   # default to sliderInput values
   output$numLinf <- renderUI({
