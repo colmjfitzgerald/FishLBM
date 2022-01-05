@@ -1416,12 +1416,6 @@ server <- function(input, output, session){
   fitLBSPR <- eventReactive(
     input$fitLBA,
     {
-      # as.name
-      length_records <- lengthRecordsFilter()
-      length_col <- newLengthCol()
-      print(head(length_records[, length_col], drop = FALSE))
-      print(length_records[, length_col])
-      
       StockPars <- setLHPars()
       StockPars$MK <- StockPars$M/StockPars$K
       
