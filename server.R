@@ -415,6 +415,9 @@ server <- function(input, output, session){
     sexCol <- grep("sex", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
     if(anyAgeData()){
       ageCol <- grep("age", checkboxCatchCols, ignore.case = TRUE, value = TRUE)
+      if(is.character(filteredLengthRecords[, ageCol])){
+        filteredLengthRecords[, ageCol] <- as.numeric(gsub("\\+", "", filteredLengthRecords[, ageCol])) 
+      }
       lengthAge <- data.frame(filteredLengthRecords[, c(lengthCol)], 
                               filteredLengthRecords[, ageCol],
                               filteredLengthRecords[, sexCol])
