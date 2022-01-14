@@ -1463,7 +1463,7 @@ server <- function(input, output, session){
         LenDatIn <- LenDatVul[which(rownames(LenDatVul) == yearLBSPR),]  
         
         # GTG-LBSPR optimisation
-        optGTG <- DoOptDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")
+        optGTG <- optLBSPRDome(StockPars,  fixedFleetPars, LenDatIn, SizeBins, "GTG")
         
         optimOut[[which(years == yearLBSPR)]] <- optGTG$optimOut
         names(optimOut)[which(years == yearLBSPR)] <- paste0("lbspr_",yearLBSPR)
@@ -1483,7 +1483,7 @@ server <- function(input, output, session){
         }
 
         # per recruit theory simulation - called in DoOptDome also
-        prGTG <- GTGDomeLBSPRSim(StockPars, optFleetPars, SizeBins)
+        prGTG <- simLBSPRDome(StockPars, optFleetPars, SizeBins)
         
         # configure outputs
         # ifelse statement depending on selectivity curve
@@ -1502,8 +1502,8 @@ server <- function(input, output, session){
           VulLen2 <- rep(1, length(LenMids))
           VulLen2[LenMids < optFleetPars$SLMin] <- 0
         }
-        
-        optVarcov <- solve(optGTG$optimOut$hessian)
+
+        optVarcov <- optGTG$optVarcov
         # calculate variance in selectivity-at-length
         if(input$specifySelectivity == "Initial estimate") {
           deltaSLF <- varFishingAtLength(optGTG$optimOut$par, optVarcov, optFleetPars, StockPars, LenMids)
@@ -2438,16 +2438,20 @@ server <- function(input, output, session){
         lbsprPars$year <- as.integer(lbsprPars$year)
         yearsLBA <- lbsprPars$year
         
+        # indicate unreliable variance estimates
+        pch_plot <- rep(19, length(yearsLBA))
+        pch_plot[is.na(lbsprStdErrs[, "F/M"])] <- 1
+
         # fishing mortality
         plot(x = yearsLBA, y = meanF,
-             type = "p", lwd = 10, pch = 19, xlab = "year", ylab = "F", 
+             type = "p", cex = 2.5, pch = pch_plot, xlab = "year", ylab = "F", 
              ylim = c(0, 1.1*max(dfMort$upperci, dfMort$mean, na.rm = TRUE)))
         arrows(yearsLBA, lowerciF, yearsLBA, upperciF, length=0.15, angle=90, code=3)
         abline(h = StockPars$M, col = "red", lty = 2, lwd = 2)
         
         # SPR
         plot(yearsLBA, lbsprPars$SPR, 
-             type = "p", lwd = 10, pch = 19, xlab = "year", ylab = "SPR", ylim = c(0,1))
+             type = "p", cex = 2.5, pch = pch_plot, xlab = "year", ylab = "SPR", ylim = c(0,1))
         abline(h = 0.4, col = "red", lty = 2, lwd = 2)
         arrows(yearsLBA, lowerciSPR, yearsLBA, upperciSPR, length=0.15, angle=90, code=3, col = c("black"))
 
@@ -2650,8 +2654,8 @@ server <- function(input, output, session){
         ciEstimatesLBSPR <- ciEstimatesLBSPR[grepl("log(F/M)*", ciEstimatesLBSPR$Parameter),]
         
         # x-axis range
-        x_min <- floor(min(parConstraintsLBSPR$InitialEstimate, ciEstimatesLBSPR$MLE, ciEstimatesLBSPR$LowerCI))
-        x_max <- ceiling(max(parConstraintsLBSPR$InitialEstimate, ciEstimatesLBSPR$MLE, ciEstimatesLBSPR$UpperCI))
+        x_min <- floor(min(parConstraintsLBSPR$InitialEstimate, ciEstimatesLBSPR$MLE, ciEstimatesLBSPR$LowerCI, na.rm = TRUE))
+        x_max <- ceiling(max(parConstraintsLBSPR$InitialEstimate, ciEstimatesLBSPR$MLE, ciEstimatesLBSPR$UpperCI, na.rm = TRUE))
         pg <- ggplot() +
           geom_segment(data = parConstraintsLBSPR,
                        aes(y = Parameter, yend = Parameter, x = Lower, xend = Upper), size = 5, lineend = "butt",
