@@ -1013,15 +1013,18 @@ server <- function(input, output, session){
   
   # slider controls
   selectivityParsSliderInp <- reactive({
-    # Starting guesses
-    SizeBins <- list(Linc = 1)
-    SizeBins$ToSize <- input$Linf * (1 + 2*input$CVLinf)
-    lengthBins <- seq(from=0, to=SizeBins$ToSize, by = SizeBins$Linc)
-    lengthMids <- seq(from=0.5*SizeBins$Linc, by = 1, length.out=(length(lengthBins)-1))
     
+    validate(need(input$Linf * (1 + 2*input$CVLinf) > max(lengthRecordsFilter()[,newLengthCol()]),
+                  "Increase Linf (or CVLinf) so that Linf of largest GTG: Linf*(1+2*CVLinf) > max fish length!!"))
+
+    lengthInc <-1 # min bin width
+    lengthBins <- seq(from=0, to=input$Linf*(1 + 2*input$CVLinf), by = lengthInc)
+    lengthMids <- seq(from=0.5*lengthInc, by = lengthInc, length.out=(length(lengthBins)-1))
+    
+    # Starting guesses fo SL50 and sDelta
     LenDat1 <- hist(lengthRecordsFilter()[,newLengthCol()], plot = FALSE, breaks = lengthBins, right = FALSE)
-    sSL50 <- lengthMids[which.max(LenDat1$count)] # LenMids[which.max(LenDat)]/input$Linf
-    sDel <- 0.2*sSL50 # LenMids[which.max(LenDat)]/input$Linf
+    sSL50 <- lengthMids[which.max(LenDat1$count)]
+    sDel <- 0.2*sSL50
     sSL95 <- ifelse(sSL50+sDel < input$Linf, sSL50+sDel, sSL50 + 0.1(input$Linf-sSL50)  )
     
     if(req(input$selectSelectivityCurve) == "Knife-edged"){
