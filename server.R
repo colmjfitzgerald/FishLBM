@@ -1252,6 +1252,11 @@ server <- function(input, output, session){
     # length column
     length_col <- newLengthCol()
     
+    validate(
+      need(max(lengthBins) > max(length_records[, length_col]), 
+                                 "Increase Linf (or CVLinf and MaxSD) so maximum length bin > max fish length !!")
+    )
+    
     # check for year attribute
     year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
     if(any(grepl("year", names(length_records), ignore.case = TRUE))){
