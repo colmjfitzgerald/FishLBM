@@ -129,8 +129,11 @@ body <- mainPanel(
                                      ),
                                      box(width = 12, 
                                          title = h4("Maturity"), status = "primary",
-                                         #h3("Maturity"),
-                                         uiOutput(outputId= "btnRadioMaturity")
+                                           radioButtons(inputId= "maturityPars", label = "Length-at-50%-maturity",
+                                                        choices = c("User-specified" = "user", 
+                                                                    "Beverton-Holt LHI ($L_{m50} = 0.66 L_\\infty$)" = "bhlhi",
+                                                                    "Binohlan, Froese (2009) $L_{m50}  = e^{-0.119} (L_\\max)^{0.916}$" = "bf2009"), 
+                                                        selected = "user")
                                      )
                                      ),
                                      column(width = 6,
@@ -226,10 +229,6 @@ body <- mainPanel(
                                                       label = "LVB t0",
                                                       min = -1.5, max = 1.5, value = -0.01,
                                                       step = 0.05, ticks = TRUE, round = FALSE),
-                                          sliderInput(inputId = "sliderAgeMax", 
-                                                      label = "Max age",
-                                                      min = 6, max = 16, value = 11,
-                                                      step = 1, ticks = TRUE, round = FALSE),
                                           actionButton(inputId = "fitGrowth", label = "Fit LVB curve",
                                                        class = "btn-success"),
                                           bsTooltip(id = "fitGrowth", 
@@ -411,7 +410,9 @@ body <- mainPanel(
                                               fluidRow(
                                                 column(width = 12,
                                                        plotOutput(outputId = "plotFishingEstimateOutput",
-                                                                  width = "100%", height = "600px")
+                                                                  width = "100%", height = "600px"),
+                                                       div(),
+                                                       textOutput(outputId = "textFishingEstimateOutput")
                                                 )
                                               )
                                             )

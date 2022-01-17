@@ -11,11 +11,10 @@ library(DT)
 library(devtools)
 devtools::install_github("merrillrudd/LIME", dependencies=TRUE)
 library(LIME)
+library(LBSPRDome)
 
 options(shiny.maxRequestSize = 5*1024^2)
 # supporting code for Dome-shaped LB-SPR
-source_gist(id = "https://gist.github.com/colmjfitzgerald/bb52a9579f870c09d3af6f4fe9ba6013",
-            filename = "GTGLBSPR_Dome.R") # dome-shaped GTG-LBSPR
 source_gist(id = "https://gist.github.com/colmjfitzgerald/86feef722803dcc6c82b6901c0d3c294",
             filename = "varianceFishingEstimates.R") # varFishingAtLength, varSPR functions
 
