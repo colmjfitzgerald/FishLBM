@@ -1909,6 +1909,7 @@ server <- function(input, output, session){
   })
   
   
+
   # output$plotOpLBSPR <- renderPlotly({
   #   # operating model output based on estimating model fit
   #   NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
@@ -2342,19 +2343,63 @@ server <- function(input, output, session){
     expr <- pl_y
   })
   
-    
-  output$plotFishingEstimateOutput <- renderPlot({
+  
+  # fishing estimate data for download and plotting
+  fishingEstimates <- reactive({
     if(input$lengthBasedAssessmentMethod == "LIME"){
-      lc_only <- fitLIME()$lc_only
-      lh <- fitLIME()$lh
-      p <- plot_output(Inputs=lc_only$Inputs,
-                  Report=lc_only$Report,
-                  Sdreport=lc_only$Sdreport,
-                  lh=lh,
-                  True=NULL,
-                  plot=c("Fish","Rec","SPR","ML","SB","Selex"),
-                  set_ylim=list("Fish"=c(0,mean(lc_only$Report$F_t)*2),"SPR"=c(0,1)))
-    } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      limeFit <- fitLIME()$lc_only
+      limeLH <- fitLIME()$lh
+      
+      # fishing mortality
+      indexFt <- names(limeFit$Sdreport$value) == "lF_t" # or lF_y
+      # recruitment
+      indexRt <- names(limeFit$Sdreport$value) == "lR_t"
+      # SPR
+      indexSPRt <- names(limeFit$Sdreport$value) == "SPR_t"
+      # SB - spawning biomass
+      indexSBt <- names(limeFit$Sdreport$value) == "lSB_t"
+      # mean length
+      indexMLt <- names(limeFit$Sdreport$value) == "ML_ft_hat"
+      
+      # selectivity
+      indexS50 <- names(limeFit$Sdreport$value) == "S50_f"
+      indexS95 <- names(limeFit$Sdreport$value) == "S95_f"
+      
+      yearLIME <- limeFit$input$years
+      
+      stock_status <- rbind(
+        data.frame(year = yearLIME,
+                   quantity = "Fishing mortality",
+                   log = TRUE,
+                   mean = limeFit$Sdreport$value[indexFt],
+                   sd = limeFit$Sdreport$sd[indexFt]),
+        data.frame(year = yearLIME,
+                   quantity = "Recruitment",
+                   log = TRUE,
+                   mean = limeFit$Sdreport$value[indexRt],
+                   sd = limeFit$Sdreport$sd[indexRt]),
+        data.frame(year = yearLIME,
+                   quantity = "Spawning biomass",
+                   log = TRUE,
+                   mean = limeFit$Sdreport$value[indexSBt],
+                   sd = limeFit$Sdreport$sd[indexSBt]),
+        data.frame(year = yearLIME,
+                   quantity = "Mean length",
+                   log = FALSE,
+                   mean = limeFit$Sdreport$value[indexMLt],
+                   sd = limeFit$Sdreport$sd[indexMLt]),
+        data.frame(year = yearLIME,
+                   quantity = "SPR",
+                   log = FALSE,
+                   mean = limeFit$Sdreport$value[indexSPRt],
+                   sd = limeFit$Sdreport$sd[indexSPRt])
+      )
+      
+      fleet_select <- data.frame(l_mid = limeLH$mids,
+                                 S_l = t(limeFit$Report$S_fl))
+                   
+      
+    } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){  
       lbsprPars <- fitLBSPR()$lbsprPars
       lbsprStdErrs <- fitLBSPR()$lbsprStdErrs
       NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
@@ -2365,15 +2410,11 @@ server <- function(input, output, session){
       lbsprPars$year <- row.names(lbsprPars)
       row.names(lbsprPars) <- NULL
       
-      # cat(paste0("lbsprPars$year = ", lbsprPars$year, "\n"))
-      # cat(paste0("lbsprPars$FM = ", lbsprPars$FM, "\n"))
-      # cat(paste0("lbsprPars$SPR= ", lbsprPars$SPR, "\n"))
-      # print(paste("lbsprStdErrs =", lbsprStdErrs, sep = ", ")) # lbStdErrs is a row vector in DoOptDome
-      
       # absolute fishing mortality
       meanF <- lbsprPars$FM*StockPars$M
-      lowerciF <- (lbsprPars$FM - 1.96*lbsprStdErrs[, "F/M"])*StockPars$M
-      upperciF <- (lbsprPars$FM + 1.96*lbsprStdErrs[, "F/M"])*StockPars$M
+      stdErrFM <- lbsprStdErrs[, "F/M"]
+      lowerciF <- (lbsprPars$FM - 1.96*stdErrFM)*StockPars$M
+      upperciF <- (lbsprPars$FM + 1.96*stdErrFM)*StockPars$M
       dfMort <- data.frame(mortality = c(rep("fishing", length(meanF)), "natural"),
                            mean = c(meanF, StockPars$M),
                            lowerci = c(lowerciF, NA),
@@ -2385,96 +2426,165 @@ server <- function(input, output, session){
       stderrSPR <- sqrt(sprVars)
       lowerciSPR <- ifelse(meanSPR - 1.96*stderrSPR < 0, 0, meanSPR - 1.96*stderrSPR)
       upperciSPR <- ifelse(meanSPR + 1.96*stderrSPR > 1, 1, meanSPR + 1.96*stderrSPR)
-      cat(paste0("lowerciSPR = ", lowerciSPR))
+      
+      # remove as.integer
+      stock_status <- rbind(data.frame(year = lbsprPars$year,
+                                       quantity = "F",
+                                       mean = lbsprPars$FM*StockPars$M,
+                                       sderr = stdErrFM,
+                                       lowerci = ifelse((lbsprPars$FM - 1.96*stdErrFM)*StockPars$M < 0, 0, (lbsprPars$FM - 1.96*stdErrFM)*StockPars$M),
+                                       upperci = (lbsprPars$FM + 1.96*stdErrFM)*StockPars$M),
+                            data.frame(year =  lbsprPars$year,
+                                       quantity = "SPR",
+                                       mean = lbsprPars$SPR,
+                                       sderr = stderrSPR,
+                                       lowerci = ifelse(meanSPR - 1.96*stderrSPR < 0, 0, meanSPR - 1.96*stderrSPR),
+                                       upperci = ifelse(meanSPR + 1.96*stderrSPR > 1, 1, meanSPR + 1.96*stderrSPR)),
+                            data.frame(year =  lbsprPars$year,
+                                       quantity = "M",
+                                       mean = StockPars$M,
+                                       sderr = NA,
+                                       lowerci = NA,
+                                       upperci = NA),
+                            data.frame(year =  lbsprPars$year,
+                                       quantity = "SPR_RP",
+                                       mean = 0.4,
+                                       sderr = NA,
+                                       lowerci = NA,
+                                       upperci = NA))
+      
+      # selectivity-at-length fishing
+      fleet_select <- data.frame(year = NatL_LBSPR$year, 
+                                 lengthMid = NatL_LBSPR$length_mid,
+                                 meanSL = NatL_LBSPR$selectivityF_at_length)
+      
+      if(input$specifySelectivity == "Initial estimate" & !is.null(input$specifySelectivity)){
+        # calculate variance, derive lower and upper (95%) confidence intervals
+        fleet_select$sderrSL = sqrt(NatL_LBSPR$varSelectivityF_at_length)
+        fleet_select$lowerciSL <- pmax(fleet_select$meanSL - 1.96*fleet_select$sderrSL, 0.0)
+        fleet_select$upperciSL <- pmin(fleet_select$meanSL + 1.96*fleet_select$sderrSL, 1.0)
+      }
+    }
+    list(stock_status = stock_status,  fleet_select = fleet_select)
+  })
+  
+
+  createPlotLBAestimates <- reactive({
+    if(input$lengthBasedAssessmentMethod == "LIME"){
+      lc_only <- fitLIME()$lc_only
+      lh <- fitLIME()$lh
+      p <- plot_output(Inputs=lc_only$Inputs,
+                  Report=lc_only$Report,
+                  Sdreport=lc_only$Sdreport,
+                  lh=lh,
+                  True=NULL,
+                  plot=c("Fish","Rec","SPR","ML","SB","Selex"),
+                  set_ylim=list("Fish"=c(0,mean(lc_only$Report$F_t)*2),"SPR"=c(0,1)))
+    } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+      fishingLBSPR <- fishingEstimates()$stock_status
+      selectLBSPR <- fishingEstimates()$fleet_select
+      
+      DM <- fishingLBSPR %>% 
+        filter(quantity %in% c("F", "M")) %>% 
+        rename(mortality = quantity)
+      DSPR <- fishingLBSPR %>% 
+        filter(quantity == "SPR")
       
       p <- plot.new()
       if(input$analyseLengthComposition == "all periods"){
         par(mfrow = c(1,3), mgp = c(4,1.5,0), mar = c(5.5,6,3,2.5) + 0.1,
             lwd = 2, cex.axis = 2.25, cex.lab = 2.25)
         
-        yearsLBA <- lbsprPars$year
-        
+        yearsLBA <- unique(fishingLBSPR$year)
         #LenMids <- isolate(createLengthBins())$LenMids
         
         # fishing mortality
         # fishing mortality vs natural mortality
-        plot(x = seq_along(dfMort$mortality), y = dfMort$mean, type = "n",   
+        plot(x = seq_along(DM$mortality), y = DM$mean, type = "n",   
              xaxs = "i", yaxs = "i", xaxt = "n",
-             xlim = seq_along(dfMort$mortality) + c(-0.5,0.5), 
-             ylim = c(0, 1.1*max(dfMort$mean, dfMort$upperci, na.rm = TRUE)),
+             xlim = seq_along(DM$mortality) + c(-0.5,0.5), 
+             ylim = c(0, 1.1*max(DM$mean, DM$upperci, na.rm = TRUE)),
              xlab = "mortality", ylab = "instantaneous rate")
-        points(seq_along(dfMort$mortality), y = dfMort$mean,  pch = 19, lwd = 10, col = c("black", "red"))
-        axis(side = 1, at = seq_along(dfMort$mortality), labels = dfMort$mortality,
+        points(seq_along(DM$mortality), y = DM$mean,  pch = 19, lwd = 10, col = c("black", "red"))
+        axis(side = 1, at = seq_along(DM$mortality), labels = DM$mortality,
              tick = TRUE, lty = 1, lwd.ticks = 2, lwd = 2)
-        arrows(1, lowerciF, 1, upperciF, length=0.15, angle=90, code=3, col = c("black", "red"))
-        abline(h = StockPars$M, col = "red", lty = 2, lwd = 2)
+        arrows(1, DM[DM$mortality == "F", "lowerci"], 
+               1, DM[DM$mortality == "F", "upperci"], length=0.15, angle=90, code=3, col = c("black", "red"))
+        abline(h = fishingLBSPR$mean[fishingLBSPR$quantity == "M"], col = "red", lty = 2, lwd = 2)
         graphics::box(which = "plot", lty = "solid", lwd = 2)
-        
+        #browser()
         # SPR
-        barplot(lbsprPars$SPR, width = 0.4, names.arg = yearsLBA, axes = TRUE, axisnames = TRUE,
+        barplot(DSPR$mean, width = 0.4, names.arg = yearsLBA, axes = TRUE, axisnames = TRUE,
                 ylab = "SPR", xlim = c(0,length(yearsLBA)), ylim = c(0,1), space = 0.75)
-        arrows(0.5, lowerciSPR, 0.5, upperciSPR, length=0.15, angle=90, code=3, col = c("black"))
+        arrows(0.5, DSPR$lowerci, 0.5, DSPR$upperci, length=0.15, angle=90, code=3, col = c("black"))
         abline(h = 0.4, col = "red", lty = 2, lwd = 2)
         graphics::box(which = "plot", lty = "solid", lwd = 2)
         
         # selectivity-at-length
-        lengthMid <- NatL_LBSPR$length_mid
-        plot(x=1, y=1, type="n", xlim = c(StockPars$Linf*0.1, StockPars$Linf*0.9), ylim = c(0,1),
+        plot(x=1, y=1, type="n", xlim = c(setLHPars()$Linf*0.1, setLHPars()$Linf*0.9), ylim = c(0,1),
              xlab = "length", ylab = "selectivity", col = "black", lwd = 2) #main = yearsLBA,
-        selectivityF_year <- NatL_LBSPR$selectivityF_at_length
-        lines(lengthMid, selectivityF_year, lwd = 2)
-        points(lengthMid, selectivityF_year, lwd = 2, pch = 1)
+        lines(selectLBSPR$lengthMid, selectLBSPR$meanSL, lwd = 2)
+        points(selectLBSPR$lengthMid, selectLBSPR$meanSL, lwd = 2, pch = 1)
         graphics::box(which = "plot", lty = "solid", lwd = 2)
         
         # calculate selectivity variance
         # "logistic" in if statement also
         if(input$specifySelectivity == "Initial estimate" & !is.null(input$specifySelectivity)){
           # calculate variance, derive lower and upper (95%) confidence intervals
-          selAtL <- data.frame(lengthMid = lengthMid,
-                               meanSFL = NatL_LBSPR$selectivityF_at_length,
-                               sderrSFL = sqrt(NatL_LBSPR$varSelectivityF_at_length))
-          selAtL$lowerciSF <- pmax(selAtL$meanSFL - 1.96*selAtL$sderrSFL, 0.0)
-          selAtL$upperciSF <- pmin(selAtL$meanSFL + 1.96*selAtL$sderrSFL, 1.0)
-          polygon(x = c(lengthMid, rev(lengthMid)), y = c(selAtL$lowerciSF, rev(selAtL$upperciSF)),
+          # selectLBSPR$sderrSL <- sqrt(NatL_LBSPR$varSelectivityF_at_length)
+          # selectLBSPR$lowerciSL <- pmax(selectLBSPR$meanSL - 1.96*selectLBSPR$sderrSL, 0.0)
+          # selectLBSPRL$upperciSL <- pmin(selectLBSPR$meanSL + 1.96*selectLBSPR$sderrSL, 1.0)
+          polygon(x = c(selectLBSPR$lengthMid, rev(selectLBSPR$lengthMid)), 
+                  y = c(selectLBSPR$lowerciSL, rev(selectLBSPR$upperciSL)),
                   col = "#228B2240", border = NA)
         }
         
       } else {
         par(mfrow = c(3,1), mgp = c(3.5,1.4,0), mar = c(5.5,5.5,1,1)+0.1,
             lwd = 2, cex.axis = 2.25, cex.lab = 2.25)
-        #browser()
-        lbsprPars$year <- as.integer(lbsprPars$year)
-        yearsLBA <- lbsprPars$year
+        fishingLBSPR$year <- as.integer(fishingLBSPR$year)
+        selectLBSPR$year <- as.integer(selectLBSPR$year)
+        
+        yearsLBA <- fishingLBSPR$year[fishingLBSPR$quantity == "F"]
+        
+        fishMortality <- DM %>% pivot_wider(id_cols = year, 
+                                            names_from = mortality, 
+                                            values_from = c("mean", "sderr", "lowerci", "upperci"), 
+                                            names_sep = "" )
         
         # indicate unreliable variance estimates
         pch_plot <- rep(19, length(yearsLBA))
-        pch_plot[is.na(lbsprStdErrs[, "F/M"])] <- 1
+        pch_plot[is.na(fishingLBSPR$sderr[fishingLBSPR$quantity == "F"])] <- 1
 
         # fishing mortality
-        plot(x = yearsLBA, y = meanF,
+        plot(x = yearsLBA, y = fishingLBSPR$mean[fishingLBSPR$quantity == "F"],
              type = "p", cex = 2.5, pch = pch_plot, xlab = "year", ylab = "F", 
-             ylim = c(0, 1.1*max(dfMort$upperci, dfMort$mean, na.rm = TRUE)))
-        arrows(yearsLBA, lowerciF, yearsLBA, upperciF, length=0.15, angle=90, code=3)
-        abline(h = StockPars$M, col = "red", lty = 2, lwd = 2)
+             ylim = c(0, 1.1*max(DM$upperci, DM$mean, na.rm = TRUE)))
+        arrows(yearsLBA, fishingLBSPR$lowerci[fishingLBSPR$quantity == "F"], 
+               yearsLBA, fishingLBSPR$upperci[fishingLBSPR$quantity == "F"], length=0.15, angle=90, code=3)
+        abline(h = setLHPars()$M, col = "red", lty = 2, lwd = 2)
         
         # SPR
-        plot(yearsLBA, lbsprPars$SPR, 
+        plot(yearsLBA, DSPR$mean, 
              type = "p", cex = 2.5, pch = pch_plot, xlab = "year", ylab = "SPR", ylim = c(0,1))
         abline(h = 0.4, col = "red", lty = 2, lwd = 2)
-        arrows(yearsLBA, lowerciSPR, yearsLBA, upperciSPR, length=0.15, angle=90, code=3, col = c("black"))
+        arrows(yearsLBA, DSPR$lowerci, yearsLBA, DSPR$upperci, length=0.15, angle=90, code=3, col = c("black"))
 
         # selectivity-at-length
-        plot(x=1, y=1, type="n", xlim = range(NatL_LBSPR$length_mid), ylim = c(0,1),
+        plot(x=1, y=1, type="n", xlim = range(selectLBSPR$lengthMid), ylim = c(0,1),
              xlab = "length", ylab = "selectivity", col = "black", lwd = 2)
         for (year_plot in yearsLBA){
-          lengthMid_year <- NatL_LBSPR$length_mid[NatL_LBSPR$year == year_plot]
-          selectivityF_year <- NatL_LBSPR$selectivityF_at_length[NatL_LBSPR$year == year_plot]
-          lines(lengthMid_year, selectivityF_year, lwd = 2)
-          points(lengthMid_year, selectivityF_year, lwd = 2, pch = 1)
+          lines(selectLBSPR$lengthMid[selectLBSPR$year == year_plot], selectLBSPR$meanSL[selectLBSPR$year == year_plot], lwd = 2)
+          points(selectLBSPR$lengthMid[selectLBSPR$year == year_plot], selectLBSPR$meanSL[selectLBSPR$year == year_plot], lwd = 2, pch = 1)
         }
       }
     }
+    browser()
     p
+  })
+  
+  output$plotLBAestimate <- renderPlot({
+    print(createPlotLBAestimates())
   })
   
   output$textFishingEstimateOutput <- renderText({
@@ -2485,6 +2595,38 @@ server <- function(input, output, session){
     }
   })
   
+  output$downloadFishingData <- downloadHandler(
+    filename = function() {
+      paste("FishingEstimatesData-", Sys.Date(), ".zip", sep="")
+    },
+    content = function(fname) {
+      tmpdir <- tempdir()
+      setwd(tmpdir)
+      all_files <-  c("stock_status.csv", "fleet_selectivity.csv")
+      write.csv(fishingEstimates()$stock_status, file = "stock_status.csv", row.names = FALSE)
+      write.csv(fishingEstimates()$fleet_select, file = "fleet_selectivity.csv", row.names = FALSE)
+      
+      zip(zipfile = fname, files = all_files)
+      if(file.exists(paste0(fname, ".zip"))) {
+        file.rename(paste0(fname, ".zip"), fname)
+      }
+    },
+    contentType = "application/zip"
+  )
+  
+  output$downloadFishingPlot <- downloadHandler(
+    filename = function() {
+      paste0("FishingEstimatesPlot-", Sys.Date(), ".png")
+    },
+    content = function(fname) {
+      grDevices::png(filename = fname, width = 480, height = 600, units = "px", res = 300)
+      print(createPlotLBAestimates())
+      dev.off()
+    },
+    contentType = "image/png"
+  )
+
+
   output$plotPopLBSPR <- renderPlot({
     NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
     LPopUnfished <- NatL_LBSPR$popUnfished_at_length

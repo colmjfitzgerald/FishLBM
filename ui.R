@@ -409,10 +409,14 @@ body <- mainPanel(
                                             fluidPage(
                                               fluidRow(
                                                 column(width = 12,
-                                                       plotOutput(outputId = "plotFishingEstimateOutput",
+                                                       plotOutput(outputId = "plotLBAestimate",
                                                                   width = "100%", height = "600px"),
                                                        div(),
-                                                       textOutput(outputId = "textFishingEstimateOutput")
+                                                       textOutput(outputId = "textFishingEstimateOutput"),
+                                                       downloadButton(outputId = "downloadFishingData", label = "Download data",
+                                                                    class = "btn-link"),
+                                                       downloadButton(outputId = "downloadFishingPlot", label = "Download plot",
+                                                                      class = "btn-link")
                                                 )
                                               )
                                             )
