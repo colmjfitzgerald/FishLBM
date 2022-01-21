@@ -2579,7 +2579,6 @@ server <- function(input, output, session){
         }
       }
     }
-    browser()
     p
   })
   
@@ -2600,16 +2599,19 @@ server <- function(input, output, session){
       paste("FishingEstimatesData-", Sys.Date(), ".zip", sep="")
     },
     content = function(fname) {
-      tmpdir <- tempdir()
-      setwd(tmpdir)
-      all_files <-  c("stock_status.csv", "fleet_selectivity.csv")
-      write.csv(fishingEstimates()$stock_status, file = "stock_status.csv", row.names = FALSE)
-      write.csv(fishingEstimates()$fleet_select, file = "fleet_selectivity.csv", row.names = FALSE)
-      
-      zip(zipfile = fname, files = all_files)
-      if(file.exists(paste0(fname, ".zip"))) {
-        file.rename(paste0(fname, ".zip"), fname)
-      }
+      withr::with_dir(
+        tempdir(),
+        {
+          all_files <-  c("stock_status.csv", "fleet_selectivity.csv")
+          write.csv(fishingEstimates()$stock_status, file = "stock_status.csv", row.names = FALSE)
+          write.csv(fishingEstimates()$fleet_select, file = "fleet_selectivity.csv", row.names = FALSE)
+          
+          zip(zipfile = fname, files = all_files)
+          if(file.exists(paste0(fname, ".zip"))) {
+            file.rename(paste0(fname, ".zip"), fname)
+          }
+        }
+      )
     },
     contentType = "application/zip"
   )
