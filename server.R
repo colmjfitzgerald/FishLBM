@@ -1014,7 +1014,7 @@ server <- function(input, output, session){
   # slider controls
   selectivityParsSliderInp <- reactive({
     
-    validate(need(input$Linf * (1 + 2*input$CVLinf) > max(lengthRecordsFilter()[,newLengthCol()]),
+    validate(need(input$Linf * (1 + 2*input$CVLinf) > max(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE),
                   "Increase Linf (or CVLinf) so that Linf of largest GTG: Linf*(1+2*CVLinf) > max fish length!!"))
 
     lengthInc <-1 # min bin width
@@ -1253,7 +1253,7 @@ server <- function(input, output, session){
     length_col <- newLengthCol()
     
     validate(
-      need(max(lengthBins) > max(length_records[, length_col]), 
+      need(max(lengthBins) > max(length_records[, length_col], na.rm = TRUE),
                                  "Increase Linf (or CVLinf and MaxSD) so maximum length bin > max fish length !!")
     )
     
