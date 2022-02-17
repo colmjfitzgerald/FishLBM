@@ -1025,11 +1025,12 @@ server <- function(input, output, session){
     lengthBins <- seq(from=0, to=input$Linf*(1 + 2*input$CVLinf), by = lengthInc)
     lengthMids <- seq(from=0.5*lengthInc, by = lengthInc, length.out=(length(lengthBins)-1))
     
-    # Starting guesses fo SL50 and sDelta
+    # Starting guesses fo SL50, SL95, sDelta = SL95 - SL50 , sSD
     LenDat1 <- hist(lengthRecordsFilter()[,newLengthCol()], plot = FALSE, breaks = lengthBins, right = FALSE)
     sSL50 <- lengthMids[which.max(LenDat1$count)]
-    sDel <- log(19) # corresponds to a single parameter logistic curve
-    sSL95 <- ifelse(sSL50+sDel < input$Linf, sSL50+sDel, sSL50 + 0.1(input$Linf-sSL50)  )
+    sDelta <- log(19) # single parameter logistic curve
+    sSL95 <- ifelse(sSL50+sDelta < input$Linf, sSL50+sDelta, sSL50 + 0.1(input$Linf-sSL50)  )
+    sSD <- 0.2*sSL50
     
     if(req(input$selectSelectivityCurve) == "Knife-edged"){
       tList <- tagList(
@@ -1040,16 +1041,18 @@ server <- function(input, output, session){
     } else if(req(input$selectSelectivityCurve) == "Logistic") {
       tList <- tagList(
         sliderInput(inputId = "SL1", label = "Length at 50% selectivity",
-                    value = round(sSL50, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2),
+                    value = round(sSL50, digits = 2), min = 0, max = input$Linf,
+                    step = 0.1, round = 3),
         sliderInput(inputId = "SL2", label = "Length at 95% selectivity",
-                    value = round(sSL95, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2)
+                    value = round(sSL95, digits = 2), min = 0, max = input$Linf,
+                    step = 0.1, round = 3)
       )
     } else if(req(input$selectSelectivityCurve) %in% c("Normal.sca", "Normal.loc")){
       tList <- tagList(
         sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
                     value = round(sSL50, digits = 2), min = 0, max = input$Linf, step = 1),
         sliderInput(inputId = "SL2", label = "SD (spread) of dome-shaped selectivity curve",
-                    value = round(sDel, digits = 2), min = 0, max = input$Linf, step = 1),
+                    value = round(sSD, digits = 2), min = 0, max = input$Linf, step = 1),
         sliderInput(inputId = "SLKnife", label = "MLL",
                     value = round(input$Linf*0.0, digits = 2),
                     min = 0.0, max = input$Linf,  step = 1)
@@ -1057,14 +1060,16 @@ server <- function(input, output, session){
     } else if(req(input$selectSelectivityCurve) == "dome (rhs)") {
       tList <- tagList(
         sliderInput(inputId = "SL1", label = "Length at 50% selectivity",
-                    value = round(sSL50, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2),
+                    value = round(sSL50, digits = 2), min = 0, max = input$Linf,
+                    step = 0.1, round = 3),
         sliderInput(inputId = "SL2", label = "Length at 95% selectivity",
-                    value = round(sSL95, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2),
+                    value = round(sSL95, digits = 2), min = 0, max = input$Linf,
+                    step = 0.1, round = 3),
         sliderInput(inputId = "SLDome", label = "SD (spread) of dome-shaped selectivity curve",
-                    value = round(sDel, digits = 2), min = 0, max = input$Linf, step = 1),
+                    value = sSD, min = 0, max = input$Linf, step = 1, round = 2),
         sliderInput(inputId = "SLKnife", label = "MLL",
                     value = round(input$Linf*0.0, digits = 2),
-                    min = 0.0, max = input$Linf,  step = 1)
+                    min = 0.0, max = round(input$Linf, 3),  step = 1)
       )
     } else if(req(input$selectSelectivityCurve) == "logNorm") {
       tList <- tagList(
@@ -1159,7 +1164,6 @@ server <- function(input, output, session){
       # see create_lh_list.R in LIME https://github.com/merrillrudd/LIME/blob/master/R/create_lh_list.R
       indexSfull <- which(round(dSC$proportion, 2) == 1.00)[1] # select first component
       lengthSfull <- dSC$length[indexSfull]
-      cat(paste0("length at full selectivity = ", lengthSfull, "\n"))
       right_dome <- indexSfull:(dim(dSC)[2])
       dSC$proportion <- dSC$proportion*exp(-0.5*((dSC$length-lengthSfull)/(req(input$SLDome)))^2)
       dSC$proportion[dSC$length < req(input$SLKnife)] <- 0
