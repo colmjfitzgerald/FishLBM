@@ -2216,6 +2216,7 @@ server <- function(input, output, session){
                      lwb= lh_fit$lwb, # length-weight W = aL^b: b
                      S50= limeFit$Report$S50_f,  # selectivity-at-length 50%
                      S95= limeFit$Report$S95_f,  # selectivity-at-length 95%
+                     dome_sd = lh_fit$dome_sd,
                      selex_input= lh_fit$selex_input,# "length"
                      selex_type= lh_fit$selex_type, # "logistic"/"dome"
                      maturity_input=lh_fit$maturity_input,#lhParVals$maturity_input,
