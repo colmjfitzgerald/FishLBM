@@ -909,7 +909,11 @@ server <- function(input, output, session){
     if(input$chooseSelectivityPattern == "Asymptotic" && !is.null(input$chooseSelectivityPattern)){
       x <- c("Logistic", "Knife-edged")  
     } else if(input$chooseSelectivityPattern == "Dome-shaped" && !is.null(input$chooseSelectivityPattern)) {
-      x <- c("Normal.loc", "Normal.sca", "logNorm")
+      if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+        x <- c("Normal.loc", "Normal.sca", "logNorm")
+      } else if(input$lengthBasedAssessmentMethod == "LIME"){
+        x <- "dome (rhs)"
+      }
     }
   })
 
@@ -1024,7 +1028,7 @@ server <- function(input, output, session){
     # Starting guesses fo SL50 and sDelta
     LenDat1 <- hist(lengthRecordsFilter()[,newLengthCol()], plot = FALSE, breaks = lengthBins, right = FALSE)
     sSL50 <- lengthMids[which.max(LenDat1$count)]
-    sDel <- 0.2*sSL50
+    sDel <- log(19) # corresponds to a single parameter logistic curve
     sSL95 <- ifelse(sSL50+sDel < input$Linf, sSL50+sDel, sSL50 + 0.1(input$Linf-sSL50)  )
     
     if(req(input$selectSelectivityCurve) == "Knife-edged"){
@@ -1040,7 +1044,7 @@ server <- function(input, output, session){
         sliderInput(inputId = "SL2", label = "Length at 95% selectivity",
                     value = round(sSL95, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2)
       )
-    } else if(req(input$selectSelectivityCurve) %in% c("Normal.sca", "Normal.loc")) {
+    } else if(req(input$selectSelectivityCurve) %in% c("Normal.sca", "Normal.loc")){
       tList <- tagList(
         sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
                     value = round(sSL50, digits = 2), min = 0, max = input$Linf, step = 1),
@@ -1050,7 +1054,19 @@ server <- function(input, output, session){
                     value = round(input$Linf*0.0, digits = 2),
                     min = 0.0, max = input$Linf,  step = 1)
       )
-    } else if(req(input$selectSelectivityCurve) %in% c("logNorm")) {
+    } else if(req(input$selectSelectivityCurve) == "dome (rhs)") {
+      tList <- tagList(
+        sliderInput(inputId = "SL1", label = "Length at 50% selectivity",
+                    value = round(sSL50, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2),
+        sliderInput(inputId = "SL2", label = "Length at 95% selectivity",
+                    value = round(sSL95, digits = 2), min = 0, max = input$Linf, step = round(input$Linf/50)/2),
+        sliderInput(inputId = "SLDome", label = "SD (spread) of dome-shaped selectivity curve",
+                    value = round(sDel, digits = 2), min = 0, max = input$Linf, step = 1),
+        sliderInput(inputId = "SLKnife", label = "MLL",
+                    value = round(input$Linf*0.0, digits = 2),
+                    min = 0.0, max = input$Linf,  step = 1)
+      )
+    } else if(req(input$selectSelectivityCurve) == "logNorm") {
       tList <- tagList(
         sliderInput(inputId = "SL1", label = "Length with maximum selectivity",
                     value = round(sSL50, digits = 2), min = 0, max = input$Linf, step = 1),
@@ -1061,7 +1077,6 @@ server <- function(input, output, session){
                     min = 0.0, max = input$Linf,  step = 1)
       )
     }
-    
     # add action button to submit selectivity parameters
     tagList(tList, 
             actionButton(inputId = "btnFixedFleetPars", 
@@ -1102,20 +1117,19 @@ server <- function(input, output, session){
                       } 
                     }
                     } else if(input$lengthBasedAssessmentMethod == "LIME"){
-                      if(input$specifySelectivity == "Fixed value"){
+                      if(input$chooseSelectivityPattern == "Dome-shaped"){
+                        list(S50 = input$SL1, S95 = input$SL2, # hack to get around create_lh_list issues
+                             dome_sd = input$SLDome,
+                             selexBy = "length",
+                             selexCurve = "dome", # create_lh_list, #tolower(input$selectSelectivityCurve),
+                             nfleets = 1,
+                             est_selex_f = FALSE)
+                      } else if(input$chooseSelectivityPattern == "Asymptotic") {
                         list(S50 = input$SL1, S95 = input$SL2,
                              selexBy = "length",
                              selexCurve = tolower(input$selectSelectivityCurve),
-                             nfleets = 1, # where is the best place for this?
-                             est_selex_f = FALSE
-                        )
-                      } else if(input$specifySelectivity == "Initial estimate") {
-                        list(S50 = input$SL1, S95 = input$SL2,
-                             selexBy = "length",
-                             selexCurve = tolower(input$selectSelectivityCurve),
-                             nfleets = 1, # where is the best place for this?
-                             est_selex_f = TRUE
-                        )
+                             nfleets = 1,
+                             est_selex_f = ifelse(input$specifySelectivity == "Fixed value", FALSE, TRUE))
                       }
                     }
     })
@@ -1139,6 +1153,15 @@ server <- function(input, output, session){
       dSC$proportion[dSC$length < req(input$SLKnife)] <- 0
     } else if(req(input$selectSelectivityCurve) == "logNorm") {
       dSC$proportion <- exp(-0.5*((log(dSC$length)-log((input$SL1)*SLmesh))/(input$SL2))^2)
+      dSC$proportion[dSC$length < req(input$SLKnife)] <- 0
+    } else if(req(input$selectSelectivityCurve) == "dome (rhs)") {
+      dSC$proportion <- 1/(1 + exp(-log(19)*(dSC$length - input$SL1)/(input$SL2 - input$SL1)))
+      # see create_lh_list.R in LIME https://github.com/merrillrudd/LIME/blob/master/R/create_lh_list.R
+      indexSfull <- which(round(dSC$proportion, 2) == 1.00)[1] # select first component
+      lengthSfull <- dSC$length[indexSfull]
+      cat(paste0("length at full selectivity = ", lengthSfull, "\n"))
+      right_dome <- indexSfull:(dim(dSC)[2])
+      dSC$proportion <- dSC$proportion*exp(-0.5*((dSC$length-lengthSfull)/(req(input$SLDome)))^2)
       dSC$proportion[dSC$length < req(input$SLKnife)] <- 0
     }
     dSC
@@ -1605,14 +1628,20 @@ server <- function(input, output, session){
       if(input$specifySelectivity == "Fixed value"){
         titleFitPlot <- "User-specified selectivity parameters"
       }
-      
+
       # how to handle specifying/estimating SL50/SL95 for logistic
       if(tolower(fleetParVals$selexCurve) == "logistic"){
           S50 <- fleetParVals$S50  # initial estimate of selectivity-at-length 50%
           S95 <- fleetParVals$S95
-      } else {
-        cat("no app support for dome-shaped LIME as of yet - see LIME package or LIME shiny app for dome-shaped support")   
+          dome_sd <- NULL
+      } else if(grepl("dome", fleetParVals$selexCurve, ignore.case = TRUE)) {
+        cat("no app support for dome-shaped LIME as of yet - see LIME package or LIME shiny app for dome-shaped support")
+        # place-holders
+        S50 <- fleetParVals$S50
+        S95 <- fleetParVals$S95 # avoid S95 NULL issues in create_lh_list
+        dome_sd <- fleetParVals$dome_sd
       }
+
       lh <- create_lh_list(vbk= lhParVals$K,    # vb growth coefficient
                            linf= lhParVals$Linf,  # vbg Linf
                            t0= input$slidert0,  
@@ -1620,6 +1649,7 @@ server <- function(input, output, session){
                            lwb=lhParVals$Wbeta,     # length-weight W = aL^b: b
                            S50=S50, #50,  # selectivity-at-length 50%
                            S95=S95, #95,  # selectivity-at-length 95%
+                           dome_sd = dome_sd,
                            selex_input=fleetParVals$selexBy,# "length"
                            selex_type=tolower(fleetParVals$selexCurve), # fleetParVals$selex_type
                            M50=lhParVals$L50,     # length at 50% maturity
@@ -1708,11 +1738,11 @@ server <- function(input, output, session){
       
       #  run_LIME ####
       start <- Sys.time()
-      
       lc_only <- run_LIME(modpath=NULL, 
                           input=inputs_all,
                           data_avail="LC", 
-                          est_selex_f = fleetParVals$est_selex_f)
+                          est_selex_f = fleetParVals$est_selex_f,
+                          vals_selex_ft = lh$S_fl)
       end <- Sys.time() - start
 
       # outputs
