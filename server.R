@@ -1938,11 +1938,12 @@ server <- function(input, output, session){
       
       # plot_LCfits adaption
       pg <- ggplot(length_records %>% filter(isVulnerable)) + 
-        geom_histogram(aes_string(x = length_col, y = "..density..", fill = "isVulnerable"),
+        geom_histogram(aes_string(x = length_col, y = "..density..*..width..", fill = "isVulnerable"),
                        colour = "black", size = 0.25, breaks = LenBins, closed = "left") + 
         geom_line(data=pred_df2 %>% filter(Type=="Predicted"), 
                   aes(x=!!ensym(length_col), y=proportion, color=Model), alpha = 0.5, lwd=1.2) +
         scale_fill_manual(name = "observed \n data", values = c("grey75"), breaks = waiver(), guide = NULL) +
+        labs(y = "catch proportion") +
         scale_color_brewer(palette="Set1", direction=-1) + 
         facet_wrap(as.formula(paste0(year_col," ~ .")))
       
