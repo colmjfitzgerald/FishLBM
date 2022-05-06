@@ -108,9 +108,10 @@ server <- function(input, output, session){
         }
 
         dateCol <- grep("date", checkboxCols, ignore.case = TRUE, value = TRUE)
-        if(length(dateCol) >0){
+        yearCol <- grep("year", checkboxCols, ignore.case = TRUE, value = TRUE)
+        if(length(dateCol)==1 & length(yearCol)==0){
           catchdata[, dateCol] <- as.Date(catchdata[, dateCol], tryFormats = c("%d/%m/%Y", "%Y-%m-%d"))
-          catchdata$yearCatch <- format(catchdata[, dateCol], "%Y")
+          catchdata$yearDate <- format(catchdata[, dateCol], "%Y")
         }
 
       } else {
