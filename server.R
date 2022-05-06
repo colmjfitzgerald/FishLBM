@@ -40,7 +40,7 @@ server <- function(input, output, session){
   #              ... observers use eager evaluations; as soon as their dependencies change, they 
   #              ... schedule themselves to re-execute
   
-  #observeEvent(input$uploadFile,
+  #observeEvent(input$uploadFile, #catchdata_read()?
   observe(
     { freezeReactiveValue(input, "lengthColSelect")
       updateVarSelectInput(session = getDefaultReactiveDomain(),
@@ -105,6 +105,13 @@ server <- function(input, output, session){
         sexCol <- grep("sex", checkboxCols, ignore.case = TRUE, value = TRUE)
         if(length(sexCol) >0){
           catchdata[, sexCol] <- as.factor(catchdata[, sexCol])
+        }
+
+        dateCol <- grep("date", checkboxCols, ignore.case = TRUE, value = TRUE)
+        yearCol <- grep("year", checkboxCols, ignore.case = TRUE, value = TRUE)
+        if(length(dateCol)==1 & length(yearCol)==0){
+          catchdata[, dateCol] <- as.Date(catchdata[, dateCol], tryFormats = c("%d/%m/%Y", "%Y-%m-%d"))
+          catchdata$yearDate <- format(catchdata[, dateCol], "%Y")
         }
 
       } else {
@@ -1389,7 +1396,9 @@ server <- function(input, output, session){
   #              #, selected = "in aggregate")
   #              })
   collateLengthChoice <- reactive({
-    lengthRecordAttributes <- input$checkboxCatchData
+    req(catchdata_table(), input$lengthColSelect)
+    # input$checkboxCatchData may not have "year" but catchdata_table() will
+    lengthRecordAttributes <- setdiff(colnames(catchdata_table()), paste0(input$lengthColSelect))
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       collationChoice <- "all periods"
       if(any(grepl("year", lengthRecordAttributes, ignore.case = TRUE))){
