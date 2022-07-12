@@ -2818,12 +2818,16 @@ server <- function(input, output, session){
         theme(axis.text = element_text(size = 12),
               axis.title = element_text(size = 12))
       } else if (input$analyseLengthComposition == "annual") {
+        parNames <- t(unname(as.data.frame(strsplit(fitLBSPR$MLE$Parameter, split = ".", fixed = TRUE))))[,1]
+        parYears <- t(unname(as.data.frame(strsplit(fitLBSPR$MLE$Parameter, split = ".", fixed = TRUE))))[,2]
+        
         # initial estimates, MLEs, confidence intervals
         parConstraintsLBSPR <- 
-          data.frame(Parameter = fitLBSPR$MLE$Parameter,
+          data.frame(Parameter = parNames,
+                     Year = parYears,
                      Lower = rep(-Inf, dim(fitLBSPR$MLE)[1]),
                      Upper = rep(0, dim(fitLBSPR$MLE)[1]))
-        parConstraintsLBSPR$Upper[grepl("log(F/M)*", parConstraintsLBSPR$Parameter)] <- Inf
+        parConstraintsLBSPR$Upper[grepl("log(F/M)", parConstraintsLBSPR$Parameter, fixed = TRUE)] <- Inf
         # for plotting purppses
         parConstraintsLBSPR$Lower <- ifelse(is.finite(parConstraintsLBSPR$Lower),
                                             parConstraintsLBSPR$Lower, -100)
@@ -2831,40 +2835,55 @@ server <- function(input, output, session){
                                             parConstraintsLBSPR$Upper, +100)
         parConstraintsLBSPR$Domain <- "lightgreen"
         
-        # only F/M
-        parConstraintsLBSPR <- parConstraintsLBSPR[grepl("log(F/M)*", parConstraintsLBSPR$Parameter),]
-        diagnosticEstimatesLBSPR <- fitLBSPR$MLE[grepl("log(F/M)*", fitLBSPR$MLE$Parameter),]
-        ciEstimatesLBSPR <- fitLBSPR$MLE[grepl("log(F/M)*", fitLBSPR$MLE$Parameter),]
-        
+        # diagnostic data frame
+        diagnosticEstimatesLBSPR <- fitLBSPR$MLE # initialise
         names(diagnosticEstimatesLBSPR)[names(diagnosticEstimatesLBSPR)=="Initial"] <- "InitialEstimate"
         names(diagnosticEstimatesLBSPR)[names(diagnosticEstimatesLBSPR)=="Estimate"] <- "MaximumLikelihoodEstimate"
+        diagnosticEstimatesLBSPR$Parameter <- parNames
+        diagnosticEstimatesLBSPR$Year <- parYears
         diagnosticEstimatesLBSPR <- diagnosticEstimatesLBSPR %>% 
           pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
-          select(Parameter, Estimate, Value)
+          select(Parameter, Year, Estimate, Value)
         
-        # standard error from covariance matrix
-        ciEstimatesLBSPR <- data.frame(Parameter = fitLBSPR$MLE$Parameter,
+        # confidence intervals - standard error from covariance matrix
+        ciEstimatesLBSPR <- fitLBSPR$MLE  # initialise
+        ciEstimatesLBSPR <- data.frame(Parameter = parNames,
+                                       Year = parYears,
                                        MLE = fitLBSPR$MLE$Estimate,
                                        LowerCI = fitLBSPR$MLE$Estimate-1.96*fitLBSPR$MLE$`Std. Error`,
                                        UpperCI = fitLBSPR$MLE$Estimate +1.96*fitLBSPR$MLE$`Std. Error`)
-        # only F/M
-        ciEstimatesLBSPR <- ciEstimatesLBSPR[grepl("log(F/M)*", ciEstimatesLBSPR$Parameter),]
-        
-        # x-axis range
-        x_min <- floor(min(parConstraintsLBSPR$InitialEstimate, ciEstimatesLBSPR$MLE, ciEstimatesLBSPR$LowerCI, na.rm = TRUE))
-        x_max <- ceiling(max(parConstraintsLBSPR$InitialEstimate, ciEstimatesLBSPR$MLE, ciEstimatesLBSPR$UpperCI, na.rm = TRUE))
+
+        # axes range
+        plotRange <- expand.grid(Parameter = unique(parConstraintsLBSPR$Parameter),
+                                Year = rep(unique(parConstraintsLBSPR$Year),2),
+                                Value = NA)
+        for (parEst in unique(diagnosticEstimatesLBSPR$Parameter)){
+          plotRange$Value[plotRange$Parameter == parEst] <-
+            c(pmin(diagnosticEstimatesLBSPR$Value[diagnosticEstimatesLBSPR$Estimate == "Initial" &
+                                                    diagnosticEstimatesLBSPR$Parameter == parEst],
+                   ciEstimatesLBSPR$MLE[ciEstimatesLBSPR$Parameter == parEst],
+                   ciEstimatesLBSPR$LowerCI[ciEstimatesLBSPR$Parameter == parEst], na.rm = TRUE),
+              pmax(diagnosticEstimatesLBSPR$Value[diagnosticEstimatesLBSPR$Estimate == "Initial" &
+                                                    diagnosticEstimatesLBSPR$Parameter == parEst],
+                   ciEstimatesLBSPR$MLE[ciEstimatesLBSPR$Parameter == parEst],
+                   ciEstimatesLBSPR$UpperCI[ciEstimatesLBSPR$Parameter == parEst], na.rm = TRUE)
+            )
+        }
+
+            
         pg <- ggplot() +
+          geom_blank(data = plotRange, aes(y = Year, x = Value)) +
           geom_segment(data = parConstraintsLBSPR,
-                       aes(y = Parameter, yend = Parameter, x = Lower, xend = Upper), size = 5, lineend = "butt",
+                       aes(y = Year, yend = Year, x = Lower, xend = Upper), size = 5, lineend = "butt",
                        colour = "lightgreen") +
           geom_point(data = diagnosticEstimatesLBSPR,
-                     aes(y = Parameter, x = Value, shape = Estimate), size = 5, colour = "black") +
+                     aes(y = Year, x = Value, shape = Estimate), size = 5, colour = "black") +
           geom_errorbarh(data = ciEstimatesLBSPR,
-                         aes(y = Parameter, xmin = LowerCI, xmax = UpperCI), height = 0.5) +
-          scale_x_continuous(name = "Value", breaks = seq(x_min,x_max,1)) +
-          scale_y_discrete(name = "MLE parameters") +
-          scale_shape_manual(values = c(1, 16)) + #scale_colour_manual(name = waiver(), values = "lightgreen", breaks = "lightgreen", labels = NULL) +
-          coord_cartesian(xlim = c(x_min, x_max)) +
+                         aes(y = Year, xmin = LowerCI, xmax = UpperCI), height = 0.5) +
+          scale_shape_manual(values = c(1, 16)) + # scale_colour_manual(name = waiver(), values = "lightgreen", breaks = "lightgreen", labels = NULL) +
+          scale_x_continuous(name = "Value") +
+          scale_y_discrete(name = "Year") +
+          facet_wrap(vars(Parameter), scales = "free_x") + #coord_cartesian(xlim = c(x_min, x_max)) +
           theme_bw() +
           theme(axis.text = element_text(size = 12),
                 axis.title = element_text(size = 12))
