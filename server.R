@@ -2711,10 +2711,8 @@ server <- function(input, output, session){
     
   })
   
-  
-  output$diagnosticParameterFits <- renderPlotly({
+  diagnosticData <- reactive({
     if(input$lengthBasedAssessmentMethod == "LIME") {
-      
       # LIME - life history and model fit data
       fitLIMEout <- fitLIME()
       #lh_fit <- fitLIMEout$lh
@@ -2724,34 +2722,112 @@ server <- function(input, output, session){
       diagnosticLIME <- as.data.frame(limeFit$opt$diagnostics)
       # fishing mortality by year -  use two digits...for proper ordering of years
       diagnosticLIME$Param[diagnosticLIME$Param == "log_F_ft"] <- sprintf(fmt = "%s.%02d", "log_F_ft", years_lime)
-
+      
       
       # parameter constraints
-      parConstraintsLIME <- diagnosticLIME %>% select(Param, Lower, Upper, final_gradient) %>%
+      parConstraints <- diagnosticLIME %>% select(Param, Lower, Upper, final_gradient) %>%
         mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
                Upper = ifelse(is.finite(Upper), Upper, 100),
                Domain = "lightgreen")
       
       # parameter estimates
-      diagnosticEstimatesLIME <- diagnosticLIME %>%
+      diagnosticEstimates <- diagnosticLIME %>%
         rename(InitialEstimate = starting_value, MaximumLikelihoodEstimate = MLE) %>% 
         pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
         select(Param, Estimate, Value)
       
       # estimate confidence intervals from standard error from covariance matrix
-      ciEstimatesLIME <- data.frame(Param = diagnosticLIME$Param,
-                                    MLE = limeFit$Sdreport$par.fixed,
-                                    LowerCI = limeFit$Sdreport$par.fixed -1.96*sqrt(diag(limeFit$Sdreport$cov.fixed)),
-                                    UpperCI = limeFit$Sdreport$par.fixed +1.96*sqrt(diag(limeFit$Sdreport$cov.fixed)))
-
+      ciEstimates <- data.frame(Param = diagnosticLIME$Param,
+                                MLE = limeFit$Sdreport$par.fixed,
+                                LowerCI = limeFit$Sdreport$par.fixed -1.96*sqrt(diag(limeFit$Sdreport$cov.fixed)),
+                                UpperCI = limeFit$Sdreport$par.fixed +1.96*sqrt(diag(limeFit$Sdreport$cov.fixed)))
+      
+    } else if(input$lengthBasedAssessmentMethod == "LB-SPR") {
+      fitLBSPR <- fitLBSPR()
+      
+      if(input$analyseLengthComposition == "all periods") {
+        # initial estimates, MLEs, confidence intervals
+        parConstraints <- 
+          data.frame(Parameter = fitLBSPR$MLE$Parameter,
+                     Lower = rep(-Inf, dim(fitLBSPR$MLE)[1]),
+                     Upper = rep(0, dim(fitLBSPR$MLE)[1])) 
+        
+        parConstraints$Upper[grepl("log(F/M)", parConstraints$Parameter, fixed = TRUE)] <- Inf
+        parConstraints <- parConstraints %>% 
+          mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
+                 Upper = ifelse(is.finite(Upper), Upper, 100),
+                 Domain = "lightgreen")
+        
+        diagnosticEstimates <- fitLBSPR$MLE %>%
+          rename(InitialEstimate = Initial, MaximumLikelihoodEstimate = Estimate) %>% 
+          pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+          select(Parameter, Estimate, Value)
+        
+        
+        # standard error from covariance matrix
+        ciEstimates <- data.frame(Parameter = fitLBSPR$MLE$Parameter,
+                                  MLE = fitLBSPR$MLE$Estimate,
+                                  LowerCI = fitLBSPR$MLE$Estimate-1.96*fitLBSPR$MLE$`Std. Error`,
+                                  UpperCI = fitLBSPR$MLE$Estimate +1.96*fitLBSPR$MLE$`Std. Error`)
+        
+        # # x-axis range
+        # x_min <- floor(min(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, max(ciEstimates$LowerCI,-50)))
+        # x_max <- ceiling(max(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, min(ciEstimates$UpperCI, 50)))
+      } else if(input$analyseLengthComposition == "annual") {
+        parNames <- t(unname(as.data.frame(strsplit(fitLBSPR$MLE$Parameter, split = ".", fixed = TRUE))))[,1]
+        parYears <- t(unname(as.data.frame(strsplit(fitLBSPR$MLE$Parameter, split = ".", fixed = TRUE))))[,2]
+        
+        # initial estimates, MLEs, confidence intervals
+        parConstraints <- 
+          data.frame(Parameter = parNames,
+                     Year = parYears,
+                     Lower = rep(-Inf, dim(fitLBSPR$MLE)[1]),
+                     Upper = rep(0, dim(fitLBSPR$MLE)[1]))
+        parConstraints$Upper[grepl("log(F/M)", parConstraints$Parameter, fixed = TRUE)] <- Inf
+        # for plotting purppses
+        parConstraints$Lower <- ifelse(is.finite(parConstraints$Lower),
+                                       parConstraints$Lower, -100)
+        parConstraints$Upper <- ifelse(is.finite(parConstraints$Upper),
+                                       parConstraints$Upper, +100)
+        parConstraints$Domain <- "lightgreen"
+        
+        # diagnostic data frame
+        diagnosticEstimates <- fitLBSPR$MLE # initialise
+        names(diagnosticEstimates)[names(diagnosticEstimates)=="Initial"] <- "InitialEstimate"
+        names(diagnosticEstimates)[names(diagnosticEstimates)=="Estimate"] <- "MaximumLikelihoodEstimate"
+        diagnosticEstimates$Parameter <- parNames
+        diagnosticEstimates$Year <- parYears
+        diagnosticEstimates <- diagnosticEstimates %>% 
+          pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+          select(Parameter, Year, Estimate, Value)
+        
+        # confidence intervals - standard error from covariance matrix
+        ciEstimates <- fitLBSPR$MLE  # initialise
+        ciEstimates <- data.frame(Parameter = parNames,
+                                  Year = parYears,
+                                  MLE = fitLBSPR$MLE$Estimate,
+                                  LowerCI = fitLBSPR$MLE$Estimate-1.96*fitLBSPR$MLE$`Std. Error`,
+                                  UpperCI = fitLBSPR$MLE$Estimate +1.96*fitLBSPR$MLE$`Std. Error`)
+      }
+    }
+    list("parConstraints" = parConstraints, 
+         "diagnosticEstimates" = diagnosticEstimates,
+         "ciEstimates" = ciEstimates)
+  })
+  
+  output$diagnosticParameterFits <- renderPlotly({
+    diagnostics <- diagnosticData()  
+    if(input$lengthBasedAssessmentMethod == "LIME") {
+      parConstraintsLIME <- diagnostics$parConstraints
+      diagnosticEstimatesLIME <- diagnostics$diagnosticEstimates
+      ciEstimatesLIME <- diagnostics$ciEstimates
+      
       # x-axis range
-      x_min <- floor(min(diagnosticLIME$Lower[is.finite(diagnosticLIME$Lower)], 
-                         diagnosticLIME$starting_value, diagnosticLIME$starting_value,
-                         diagnosticLIME$MLE))
-      x_max <- ceiling(max(diagnosticLIME$Upper[is.finite(diagnosticLIME$Upper)], 
-                           diagnosticLIME$starting_value,
-                           diagnosticLIME$MLE))
-
+      x_min <- floor(min(parConstraintsLIME$Lower[parConstraintsLIME$Lower != -100], # exclude "infinite" lower bound
+                         diagnosticEstimatesLIME$Value))
+      x_max <- ceiling(max(parConstraintsLIME$Upper[parConstraintsLIME$Upper != 100], # exclude "infinite" upper bound 
+                           diagnosticEstimatesLIME$Value))
+      
       # order of fixed effects is important
       pg <- ggplot() + 
         geom_segment(data = parConstraintsLIME,
@@ -2771,36 +2847,15 @@ server <- function(input, output, session){
       
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR") {
       
-      fitLBSPR <- fitLBSPR()
+      parConstraintsLBSPR <- diagnostics$parConstraints
+      diagnosticEstimatesLBSPR <- diagnostics$diagnosticEstimates
+      ciEstimatesLBSPR <- diagnostics$ciEstimates
 
       if(input$analyseLengthComposition == "all periods") {
-      # initial estimates, MLEs, confidence intervals
-      parConstraintsLBSPR <- 
-        data.frame(Parameter = fitLBSPR$MLE$Parameter,
-                   Lower = rep(-Inf, dim(fitLBSPR$MLE)[1]),
-                   Upper = rep(0, dim(fitLBSPR$MLE)[1])) 
 
-      parConstraintsLBSPR$Upper[grepl("log(F/M)", parConstraintsLBSPR$Parameter, fixed = TRUE)] <- Inf
-      parConstraintsLBSPR <- parConstraintsLBSPR %>% 
-        mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
-                Upper = ifelse(is.finite(Upper), Upper, 100),
-                Domain = "lightgreen")
-      
-      diagnosticEstimatesLBSPR <- fitLBSPR$MLE %>%
-        rename(InitialEstimate = Initial, MaximumLikelihoodEstimate = Estimate) %>% 
-        pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
-        select(Parameter, Estimate, Value)
-      
-      
-      # standard error from covariance matrix
-      ciEstimatesLBSPR <- data.frame(Parameter = fitLBSPR$MLE$Parameter,
-                                     MLE = fitLBSPR$MLE$Estimate,
-                                     LowerCI = fitLBSPR$MLE$Estimate-1.96*fitLBSPR$MLE$`Std. Error`,
-                                     UpperCI = fitLBSPR$MLE$Estimate +1.96*fitLBSPR$MLE$`Std. Error`)
-      
       # x-axis range
-      x_min <- floor(min(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, max(ciEstimatesLBSPR$LowerCI,-50)))
-      x_max <- ceiling(max(fitLBSPR$MLE$Initial, fitLBSPR$MLE$Estimate, min(ciEstimatesLBSPR$UpperCI, 50)))
+      x_min <- floor(min(diagnosticEstimatesLBSPR$Value, max(ciEstimatesLBSPR$LowerCI,-50))) # exclude "infinite" lower bound
+      x_max <- ceiling(max(diagnosticEstimatesLBSPR$Value, min(ciEstimatesLBSPR$UpperCI, 50))) # exclude "infinite" upper bound
 
       pg <- ggplot() +
         geom_segment(data = parConstraintsLBSPR,
@@ -2818,45 +2873,10 @@ server <- function(input, output, session){
         theme(axis.text = element_text(size = 12),
               axis.title = element_text(size = 12))
       } else if (input$analyseLengthComposition == "annual") {
-        parNames <- t(unname(as.data.frame(strsplit(fitLBSPR$MLE$Parameter, split = ".", fixed = TRUE))))[,1]
-        parYears <- t(unname(as.data.frame(strsplit(fitLBSPR$MLE$Parameter, split = ".", fixed = TRUE))))[,2]
-        
-        # initial estimates, MLEs, confidence intervals
-        parConstraintsLBSPR <- 
-          data.frame(Parameter = parNames,
-                     Year = parYears,
-                     Lower = rep(-Inf, dim(fitLBSPR$MLE)[1]),
-                     Upper = rep(0, dim(fitLBSPR$MLE)[1]))
-        parConstraintsLBSPR$Upper[grepl("log(F/M)", parConstraintsLBSPR$Parameter, fixed = TRUE)] <- Inf
-        # for plotting purppses
-        parConstraintsLBSPR$Lower <- ifelse(is.finite(parConstraintsLBSPR$Lower),
-                                            parConstraintsLBSPR$Lower, -100)
-        parConstraintsLBSPR$Upper <- ifelse(is.finite(parConstraintsLBSPR$Upper),
-                                            parConstraintsLBSPR$Upper, +100)
-        parConstraintsLBSPR$Domain <- "lightgreen"
-        
-        # diagnostic data frame
-        diagnosticEstimatesLBSPR <- fitLBSPR$MLE # initialise
-        names(diagnosticEstimatesLBSPR)[names(diagnosticEstimatesLBSPR)=="Initial"] <- "InitialEstimate"
-        names(diagnosticEstimatesLBSPR)[names(diagnosticEstimatesLBSPR)=="Estimate"] <- "MaximumLikelihoodEstimate"
-        diagnosticEstimatesLBSPR$Parameter <- parNames
-        diagnosticEstimatesLBSPR$Year <- parYears
-        diagnosticEstimatesLBSPR <- diagnosticEstimatesLBSPR %>% 
-          pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
-          select(Parameter, Year, Estimate, Value)
-        
-        # confidence intervals - standard error from covariance matrix
-        ciEstimatesLBSPR <- fitLBSPR$MLE  # initialise
-        ciEstimatesLBSPR <- data.frame(Parameter = parNames,
-                                       Year = parYears,
-                                       MLE = fitLBSPR$MLE$Estimate,
-                                       LowerCI = fitLBSPR$MLE$Estimate-1.96*fitLBSPR$MLE$`Std. Error`,
-                                       UpperCI = fitLBSPR$MLE$Estimate +1.96*fitLBSPR$MLE$`Std. Error`)
-
         # axes range
         plotRange <- expand.grid(Parameter = unique(parConstraintsLBSPR$Parameter),
-                                Year = rep(unique(parConstraintsLBSPR$Year),2),
-                                Value = NA)
+                                 Year = rep(unique(parConstraintsLBSPR$Year),2),
+                                 Value = NA)
         for (parEst in unique(diagnosticEstimatesLBSPR$Parameter)){
           plotRange$Value[plotRange$Parameter == parEst] <-
             c(pmin(diagnosticEstimatesLBSPR$Value[diagnosticEstimatesLBSPR$Estimate == "Initial" &
@@ -2869,7 +2889,6 @@ server <- function(input, output, session){
                    ciEstimatesLBSPR$UpperCI[ciEstimatesLBSPR$Parameter == parEst], na.rm = TRUE)
             )
         }
-
             
         pg <- ggplot() +
           geom_blank(data = plotRange, aes(y = Year, x = Value)) +
