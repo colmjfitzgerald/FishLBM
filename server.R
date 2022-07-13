@@ -2810,71 +2810,58 @@ server <- function(input, output, session){
         theme_bw() + 
         theme(axis.text = element_text(size = 12),
               axis.title = element_text(size = 12))
-      
+      pl_y <- ggplotly(p = pg) %>% highlight("plotly_selected")  
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR") {
-      
       parConstraintsLBSPR <- diagnostics$parConstraints
       diagnosticEstimatesLBSPR <- diagnostics$diagnosticEstimates
       ciEstimatesLBSPR <- diagnostics$ciEstimates
-
-      if(input$analyseLengthComposition == "all periods") {
-
-      # x-axis range
-      x_min <- floor(min(diagnosticEstimatesLBSPR$Value, max(ciEstimatesLBSPR$LowerCI,-100))) # exclude "infinite" lower bound
-      x_max <- ceiling(max(diagnosticEstimatesLBSPR$Value, min(ciEstimatesLBSPR$UpperCI, 100))) # exclude "infinite" upper bound
-
-      pg <- ggplot() +
-        geom_segment(data = parConstraintsLBSPR,
-                     aes(y = Parameter, yend = Parameter, x = Lower, xend = Upper), size = 5, lineend = "butt",
-                     colour = "lightgreen") +
-        geom_point(data = diagnosticEstimatesLBSPR,
-                   aes(y = Parameter, x = Value, shape = Estimate), size = 5, colour = "black") +
-        geom_errorbarh(data = ciEstimatesLBSPR,
-                       aes(y = Parameter, xmin = LowerCI, xmax = UpperCI), height = 0.5) +
-        scale_x_continuous(name = "Value") +
-        scale_y_discrete(name = "MLE parameters") +
-        scale_shape_manual(values = c(1, 16)) + #scale_colour_manual(name = waiver(), values = "lightgreen", breaks = "lightgreen", labels = NULL) +
-        coord_cartesian(xlim = c(x_min, x_max)) +
-        theme_bw() +
-        theme(axis.text = element_text(size = 12),
-              axis.title = element_text(size = 12))
-      } else if (input$analyseLengthComposition == "annual") {
-        # axes range
-        plotRange <- expand.grid(Parameter = unique(parConstraintsLBSPR$Parameter),
-                                 Year = rep(unique(parConstraintsLBSPR$Year),2),
-                                 Value = NA)
-        for (parEst in unique(diagnosticEstimatesLBSPR$Parameter)){
-          plotRange$Value[plotRange$Parameter == parEst] <-
-            c(pmin(diagnosticEstimatesLBSPR$Value[diagnosticEstimatesLBSPR$Estimate == "Initial" &
-                                                    diagnosticEstimatesLBSPR$Parameter == parEst],
-                   ciEstimatesLBSPR$MLE[ciEstimatesLBSPR$Parameter == parEst],
-                   ciEstimatesLBSPR$LowerCI[ciEstimatesLBSPR$Parameter == parEst], na.rm = TRUE),
-              pmax(diagnosticEstimatesLBSPR$Value[diagnosticEstimatesLBSPR$Estimate == "Initial" &
-                                                    diagnosticEstimatesLBSPR$Parameter == parEst],
-                   ciEstimatesLBSPR$MLE[ciEstimatesLBSPR$Parameter == parEst],
-                   ciEstimatesLBSPR$UpperCI[ciEstimatesLBSPR$Parameter == parEst], na.rm = TRUE)
-            )
+      
+      pglist <- vector("list", length = 3)
+      parNames <- unique(parConstraintsLBSPR$Parameter)
+      
+      for (iParEst in seq_along(parNames)){
+        parCon <- parConstraintsLBSPR[parConstraintsLBSPR$Parameter == parNames[iParEst],]
+        dgnstcEst <- diagnosticEstimatesLBSPR[diagnosticEstimatesLBSPR$Parameter == parNames[iParEst],]
+        ciEst <- ciEstimatesLBSPR[ciEstimatesLBSPR$Parameter == parNames[iParEst],]
+        
+        x_min <- floor(min(dgnstcEst$Value, max(ciEst$LowerCI,-100))) # exclude "infinite" lower bound
+        x_max <- ceiling(max(dgnstcEst$Value, min(ciEst$UpperCI, 100))) # exclude "infinite" upper bound
+        
+        if(parNames[[iParEst]] == "log(Sdelta/Linf)"){
+          x_max <- 0.0
         }
-            
-        pg <- ggplot() +
-          geom_blank(data = plotRange, aes(y = Year, x = Value)) +
-          geom_segment(data = parConstraintsLBSPR,
-                       aes(y = Year, yend = Year, x = Lower, xend = Upper), size = 5, lineend = "butt",
+        
+        pgPar <- ggplot() +
+          geom_segment(data = parCon, aes(y = Year, yend = Year, x = Lower, xend = Upper), size = 5, lineend = "butt",
                        colour = "lightgreen") +
-          geom_point(data = diagnosticEstimatesLBSPR,
-                     aes(y = Year, x = Value, shape = Estimate), size = 5, colour = "black") +
-          geom_errorbarh(data = ciEstimatesLBSPR,
-                         aes(y = Year, xmin = LowerCI, xmax = UpperCI), height = 0.5) +
-          scale_shape_manual(values = c(1, 16)) + # scale_colour_manual(name = waiver(), values = "lightgreen", breaks = "lightgreen", labels = NULL) +
-          scale_x_continuous(name = "Value") +
-          scale_y_discrete(name = "Year") +
-          facet_wrap(vars(Parameter), scales = "free_x") + #coord_cartesian(xlim = c(x_min, x_max)) +
-          theme_bw() +
+          geom_point(data = dgnstcEst, aes(y = Year, x = Value, shape = Estimate), size = 5, colour = "black") +
+          geom_errorbarh(data = ciEst, aes(y = Year, xmin = LowerCI, xmax = UpperCI), height = 0.5) +
+          scale_x_continuous(name = "Parameter value") +
+          scale_y_discrete(name = "") + # MLE parameters
+          scale_shape_manual(values = c(1, 16)) + 
+          facet_grid(cols = vars(Parameter), scales = "free_x") +
+          coord_cartesian(xlim = c(x_min, x_max)) +
+          theme_bw() + 
           theme(axis.text = element_text(size = 12),
-                axis.title = element_text(size = 12))
+                axis.title = element_text(size = 12),
+                legend.position = "none")
+        pglist[[iParEst]] <- pgPar
+        if(input$analyseLengthComposition == "all periods") {  
+          pglist[[iParEst]] <- pgPar +
+            theme(axis.text.y = element_text(angle = 90, hjust = 0.5, vjust = 4))
+        } 
       }
+
+      # convert to plotly and arrange
+      pl_y <- plotly::subplot(pglist[[1]], pglist[[2]], pglist[[3]], nrows = 1, 
+                              margin = c(0.05, 0.0, 0.0, 0.0), 
+                              widths = c(0.31, 0.345, 0.345),
+                              shareY = TRUE, titleX = TRUE) %>%
+        layout(xaxis = list(title = "estimate"), 
+               xaxis2 = list(title = "estimate"), 
+               xaxis3 = list(title = "estimate"), font = list(size = 14))
     }
-    ggplotly(p = pg) %>% highlight("plotly_selected")
+    pl_y
   })
   ##----------
   ## FEEDBACK
