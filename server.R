@@ -736,10 +736,19 @@ server <- function(input, output, session){
   })
   
   
-  observe({
-    updateNumericInput(session, "M", value = updateMortality())
-    updateNumericInput(session, "Lm50", value = updateMaturity())
-    updateNumericInput(session, "Lm95", value = updateMaturity95())
+  # mortality and maturity life history parameter updates
+  updateMortality <- reactive({
+    #if(is.na(max(gatherFishAgeLengthData()$age, na.rm = FALSE)))
+    #if(is.na(tmax)) { NA } else { round(4.899*tmax^-0.916, 3) }
+    if(input$natMortality == "user" || is.null(input$natMortality)){
+      expr = 0.3
+    } else if(input$natMortality == "pauly") {
+      expr = round(4.118*input$kLvb^0.73*input$Linf^(-0.33), 3)
+    } else if(input$natMortality == "twoK") {
+      expr = round(0.098 + 1.55*input$kLvb, 3)        
+    } else if(input$natMortality == "hoenig") {
+      expr = round(4.899*max(isolate(gatherFishAgeLengthData())$age, na.rm = FALSE)^-0.916, 3) 
+    }
   })
   
   updateMaturity <- reactive({
@@ -762,18 +771,11 @@ server <- function(input, output, session){
     }
   })
   
-  updateMortality <- reactive({
-    #if(is.na(max(gatherFishAgeLengthData()$age, na.rm = FALSE)))
-    #if(is.na(tmax)) { NA } else { round(4.899*tmax^-0.916, 3) }
-    if(input$natMortality == "user" || is.null(input$natMortality)){
-      expr = 0.3
-    } else if(input$natMortality == "pauly") {
-      expr = round(4.118*input$kLvb^0.73*input$Linf^(-0.33), 3)
-    } else if(input$natMortality == "twoK") {
-      expr = round(0.098 + 1.55*input$kLvb, 3)        
-    } else if(input$natMortality == "hoenig") {
-      expr = round(4.899*max(isolate(gatherFishAgeLengthData())$age, na.rm = FALSE)^-0.916, 3) 
-    }
+  
+  observe({
+    updateNumericInput(session, "M", value = updateMortality())
+    updateNumericInput(session, "Lm50", value = updateMaturity())
+    updateNumericInput(session, "Lm95", value = updateMaturity95())
   })
   
   
