@@ -292,7 +292,7 @@ ui <- navbarPage(
   ),
   tabPanel("Gear selectivity", value = "tabSelectivity",
            fluidRow(
-             column(width = 4,
+             column(width = 3,
                     div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
                     radioButtons(inputId = "chooseSelectivityPattern",
                                  label = "Size-selectivity pattern",
@@ -303,26 +303,19 @@ ui <- navbarPage(
                                  label = "Fishery selectivity parameters",
                                  choices = c("Estimate (model fit)", "Specify (user)"),
                                  selected = c("Estimate (model fit)")),
+                    div(id = "sizeSelectivityCurve", hr()),
                     uiOutput(outputId = "chooseSelectivityCurve"),
                     #tags$div(id = "meshSizes"),  # for insertUI, removeUI
                     uiOutput(outputId = "gearMeshSizes"),
-             ),
-             column(width = 8,
-                    div(id = "specifySelectivityParameters", 
-                        h4("Fishery selectivity parameters")),
+                    div(id = "specifySelectivityParameters", hr(), h4("Fishery selectivity parameters")),
                     #textOutput(outputId = "selectivityNote"),
                     uiOutput(outputId = "selectivityParameters")
                     # specify parameters dependent on input
-             )
+             ),
+             column(width = 9, # 9
+                    plotlyOutput(outputId = "plotSelectivityPattern", height = "600px"),
+                    )
            ),
-           div(id = "plotSelectivitySection", hr()),
-           fluidRow(
-             #                                   column(width = 3,
-             #                                          uiOutput(outputId = "selectivityControls")
-             #                                   ),
-             column(width = 12, # 9
-                    plotlyOutput(outputId = "plotSelectivityPattern"))
-           )
   ),
   tabPanel("Length-based assessment", value = "tabLBA",
            #         plotlyOutput(outputId = "lengthAge",
