@@ -806,86 +806,10 @@ server <- function(input, output, session){
   })
   
 
-  # technical method parameters
-  output$boxTechParsLBSPR <- renderUI({
-    box(status = "info", width = NULL,
-        collapsible = TRUE,
-        collapsed = ifelse(is.null(input$lengthBasedAssessmentMethod), TRUE, !(input$lengthBasedAssessmentMethod == "LB-SPR")),
-        title = "LB-SPR parameters",
-        tagList(
-          tags$table(
-            tags$tr(tags$td("FecB"),
-                    tags$td(numericInput(inputId = "FecB", label = NULL, value = 3, 
-                                         min = 0, step = 0.1))),
-            tags$tr(tags$td("Steepness"),
-                    tags$td(numericInput(inputId = "Steepness", label = NULL, value = 0.8, 
-                                         min = 0, step = 0.1))),
-            tags$tr(tags$td("Mpow"),
-                    tags$td(numericInput(inputId = "Mpow", label = NULL, value = 0.0, 
-                                         step = 0.1))),
-            tags$tr(tags$td("NGTG"),
-                    tags$td(numericInput(inputId = "NGTG", label = NULL, value = 13, 
-                                         min = 1, step = 1))),
-            tags$tr(tags$td("GTG Max SD about Linf"),
-                    tags$td(numericInput(inputId = "MaxSD", label = NULL,
-                                         value = 2, min = 0, max = 4, step = 0.5))),
-            tags$tfoot()
-          ),
-        )
-        # uiOutput(outputId = "tableTechnicalParametersLBSPR")
-    )
-    
-  })
-  
-  output$boxTechParsLIME <- renderUI({
-     box(status = "info", width = NULL,
-         collapsible = TRUE,
-         collapsed = ifelse(is.null(input$lengthBasedAssessmentMethod), TRUE, !(input$lengthBasedAssessmentMethod == "LIME")),
-         title = "LIME parameters",
-         tagList(
-           tags$table(
-             tags$tr(tags$td("SigmaR"),
-                     tags$td(numericInput(inputId = "SigmaR", label = NULL, value = 0.737, 
-                                          min = 0.0, step = 0.1))),
-             tags$tr(tags$td("SigmaF"),
-                     tags$td(numericInput(inputId = "SigmaF", label = NULL, value = 0.2,
-                                          min = 0.0, step = 0.05))),
-             tags$tr(tags$td("SigmaC"),
-                     tags$td(numericInput(inputId = "SigmaC", label = NULL, value = 0.1,
-                                          min = 0.0, step = 0.02))),
-             tags$tr(tags$td("SigmaI"),
-                     tags$td(numericInput(inputId = "SigmaI", label = NULL, value = 0.1,
-                                          min = 0.0, step = 0.02))),
-             tags$tr(tags$td("R0"),
-                     tags$td(numericInput(inputId = "R0", label = NULL, value = 1, 
-                                          min = 1, step = 1))),
-             tags$tr(tags$td("Frate"),
-                     tags$td(numericInput(inputId = "Frate", label = NULL, value = 0.1, 
-                                          min = 0, step = 0.05))),
-             tags$tr(tags$td("Fequil"),
-                     tags$td(numericInput(inputId = "Fequil", label = NULL, value = 0.25, 
-                                          min = 0, step = 0.05))),
-             tags$tr(tags$td("qcoef"),
-                     tags$td(numericInput(inputId = "qcoef", label = NULL, value = 1e-5, 
-                                          min = 0, step = 5e-6))),
-             tags$tr(tags$td("start_ages"),
-                     tags$td(numericInput(inputId = "start_ages", label = NULL, 
-                                          value = 0, min = 0, max = 1, step = 1))),
-             tags$tr(tags$td("rho"),
-                     tags$td(numericInput(inputId = "rho", label = NULL, value = 0.43, 
-                                          min = 0, step = 0.01))),
-             tags$tr(tags$td("theta"),
-                     tags$td(numericInput(inputId = "theta", label = NULL, value = 10, 
-                                          min = 0, step = 1))),
-             tags$tr(tags$td("nseasons"),
-                     tags$td(numericInput(inputId = "nseasons", label = NULL, value = 1, 
-                                          min = 1, step = 1, max = 12))),
-             tags$tfoot()
-           )
-         )
-    #     uiOutput(outputId = "tableTechnicalParametersLIME")
-     )
-  })
+  # technical method parameters ####
+  observeEvent(input$lengthBasedAssessmentMethod, 
+               {updateTabsetPanel(inputId = "techPars", selected = input$lengthBasedAssessmentMethod)}
+  )
   
   # selectivity curve ####
 
