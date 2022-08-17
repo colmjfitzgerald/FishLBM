@@ -66,21 +66,7 @@ server <- function(input, output, session){
                  # the observers (including outputs) have finished running
                })
   
-  observe({
-    cat(file=stderr(), "selected length column", input$lengthColSelect, "\n")
-    cat(file=stderr(), "number of rows selected", length(input$catchDataTable_rows_all), "\n")
-  })
-  
-  observeEvent(input$selectCols,
-               { print(paste0("choose length column"))
-                 print(input$lengthColSelect)
-                 print(paste0("choose attributes"))
-                 print(input$checkboxCatchData)
-                 print(paste0("species column?"))
-                 print(grepl("species", input$checkboxCatchData, ignore.case = TRUE))
-               })
 
-    
   # dynamic UI elements (renderUI, insertUI etc.) ----
   
   # Tabulate data action button and reaction ====
@@ -622,21 +608,12 @@ server <- function(input, output, session){
     x
   })
   
-  # debug observe events
-  observeEvent(input$fitGrowth,
-               {print(input$checkboxCatchData)
-                 # print(growthParChoices())
-                 # print("debug observe event - print growthFrequentistFit(), growthFrequentistFitBoot()")
-                 # print(growthFrequentistFit())
-                 # print(growthFrequentistFitBoot())
-                 # print("are ggplots?")
-                 # print(is.ggplot(ggGrowthFitMean()))
-                 # print(is.ggplot(ggGrowth_CurveALData()))
-                 # print(tags$p("(/^weight/).test(input.checkboxCatchData)"))
-                 #insertUI(selector = "#sectionGrowthFitSummary",
-                #          where = "beforeBegin",
-                #          ui = actionButton(inputId = "removeFit", label = "Remove fit"))
-  })
+  # # debug observe events
+  # observeEvent(input$fitGrowth,
+  #              {print(input$checkboxCatchData)
+  #               insertUI(selector = "#sectionGrowthFitSummary", where = "beforeBegin", 
+  #                        ui = actionButton(inputId = "removeFit", label = "Remove fit"))
+  # })
   
   
   # growth outputs ####
@@ -871,21 +848,6 @@ server <- function(input, output, session){
   # reactive or reactiveValues?
   gearSelectivityParameters <- reactive({
     x <- list(SL1 = NULL, SL2 = NULL, SLKnife = NULL)
-  })
-  
-  observe({
-    print("*** observe ***")
-    print(input$chooseSelectivityPattern)
-    print(paste0("sizeSelectivityCurves() == ",  sizeSelectivityCurves()))
-    print(input$selectSelectivityCurve)
-    # we comment out the print statements below because changes in reactive expressions 
-    # cause the observe expressions to evaluate. therefore to find out which reactive 
-    # expressions change we should examine each input individually and then together 
-    # print(paste0("selectSelectivityCurve is NULL: ", is.null(input$selectSelectivityCurve)))
-    # print(input$specifySelectivity)
-    # print(paste0("specify selectivity choices = ", selectParameterSpecification()))
-    # print(length(selectParameterSpecification()))
-    # print(paste0("specifySelectivity is NULL: ", is.null(input$specifySelectivity)))
   })
   
   
@@ -1294,13 +1256,6 @@ server <- function(input, output, session){
     updateTabsetPanel(session, inputId = "tabMain", selected = "tabSelectivity")
   })
   
-  # btnTechnicalStockPars 
-  observeEvent(input$btnTechnicalStockPars,
-               { length_records <- lengthRecordsFilter()[, newLengthCol()]
-                 print(length_records[is.na(lengthRecordsFilter()[, newLengthCol()])])
-               })
-  
-  
   # visualise length composition by year - optional selection radio button
   # observeEvent(input$selectCols,
   #              { rbChoices <- c("in aggregate")
@@ -1375,8 +1330,6 @@ server <- function(input, output, session){
           theme(legend.position = "bottom")
       }
       if(input$analyseLengthComposition == "annual"){ # was observeEvent or eventReactive 
-        print(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
-                          value = TRUE)," ~ ."))
         ggLengthComp <- ggLengthComp + 
           facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
                                             value = TRUE)," ~ .")))
@@ -1397,12 +1350,10 @@ server <- function(input, output, session){
       if(input$specifySelectivity == "Fixed value" & !allFleetPars$selexParsEstimate){
         titleFitPlot <- "User-specified selectivity parameters"
         fixedFleetPars <- allFleetPars[names(allFleetPars) != "selexParsEstimate"]
-        cat(paste0("fixedFleetPars = ", fixedFleetPars, "\n")) 
       } else if(input$specifySelectivity == "Initial estimate" & allFleetPars$selexParsEstimate) {
         titleFitPlot <- "User-specified selectivity parameters"
         fixedFleetPars <- allFleetPars[names(allFleetPars) != "selexParsEstimate"]
         initialFleetPars <- list(SL1 = allFleetPars$SL1, SL2 = allFleetPars$SL2)
-        cat(paste0("initialFleetPars = ", initialFleetPars, "\n"))
       }
       fixedFleetPars
       names(fixedFleetPars)[names(fixedFleetPars) == "selexCurve"] <- "selectivityCurve"
