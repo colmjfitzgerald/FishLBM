@@ -94,6 +94,7 @@ testServer(server, {
   # growth curve fitting ####
   cat("***\n")
   cat("growth curve fit\n")
+  cat("growth fit button value: ", input$fitGrowth, "\n")
   # age data
   cat("anyAgeData?", anyAgeData(), "\n")
   cat("gatherFishAgeData has nrow = ", nrow(gatherFishAgeLengthData()), "\n")

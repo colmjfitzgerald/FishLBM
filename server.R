@@ -618,7 +618,6 @@ server <- function(input, output, session){
   
   # growth outputs ####
   output$lvbGrowthCurve <- renderPlotly({#expr =
-    print(input$fitGrowth)
     # consider: req(growthModel$nls$convInfo$isConv) & !is.null(req(growthModel$nls$convInfo$isConv))
     if(anyAgeData()){
     if(input$fitGrowth > 0) {
