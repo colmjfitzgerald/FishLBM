@@ -334,18 +334,14 @@ ui <- navbarPage(
                       tabPanel("Method parameters", value = "tabMethodParameters",
                                fluidPage(
                                  fluidRow(
-                                   column(width = 3,
+                                   column(width = 4,
                                           shinydashboard::box(status = "info", 
                                               width = NULL,
                                               collapsible = FALSE,
                                           #div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
                                           selectInput(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
-                                                      choices = c("LB-SPR", "LIME")),
-                                          actionButton(inputId = "btnTechnicalStockPars", label = "Input parameters",
-                                                       class = "btn-success")
-                                          )
-                                   ),
-                                   column(width = 9,
+                                                      choices = c("LB-SPR", "LIME"))
+                                          ),
                                           tabsetPanel(
                                             id = "techPars",
                                             type = "hidden",
@@ -377,19 +373,19 @@ ui <- navbarPage(
                                                      # tooltips
                                                      bsTooltip(id = "FecB_in", 
                                                                title = "Fecundity-at-length exponent - set to 3 as fecundity is assumed to be proportional to body mass.", 
-                                                               placement = "left", trigger = "hover",  options = list(container = "body")),
+                                                               placement = "bottom", trigger = "hover",  options = list(container = "body")),
                                                      bsTooltip(id = "Steep_in", 
                                                                title = "Stock-recruitment steepness parameter, often denoted h in the literature.", 
-                                                               placement = "left", trigger = "hover",  options = list(container = "body")),
+                                                               placement = "bottom", trigger = "hover",  options = list(container = "body")),
                                                      bsTooltip(id = "Mpow_in", 
                                                                title = "Natural mortality-at-length exponent - set to 0 as mortality assumed constant across size.", 
-                                                               placement = "left", trigger = "hover",  options = list(container = "body")),
+                                                               placement = "bottom", trigger = "hover",  options = list(container = "body")),
                                                      bsTooltip(id = "NGTG_in", 
                                                                title = "Number of growth-type groups. Set to 13 as default in LBSPRsim_.r on github.com/AdrianHordyk/LBSPR.", 
-                                                               placement = "left", trigger = "hover",  options = list(container = "body")),
+                                                               placement = "bottom", trigger = "hover",  options = list(container = "body")),
                                                      bsTooltip(id = "GTGMax_in", 
                                                                title = "Maximum standard deviations of GTG Linfs about mean Linf. Set at 2 by default.", 
-                                                               placement = "left", trigger = "hover",  options = list(container = "body"))
+                                                               placement = "bottom", trigger = "hover",  options = list(container = "body"))
                                             ),
                                             tabPanel("LIME",
                                                      shinydashboard::box(
@@ -475,8 +471,12 @@ ui <- navbarPage(
                                                                title = "Number of time periods per year; default value = 1.", 
                                                                placement = "left", trigger = "hover",  options = list(container = "body"))
                                             )
-                                          ) #end tabsetPanel
-                                   )
+                                          ), #end tabsetPanel
+                                          actionButton(inputId = "btnTechnicalStockPars", label = "Input parameters",
+                                                       class = "btn-success")
+                                   )#,
+                                   # column(width = 9,
+                                   # )
                                  ) 
                                )
                       ),
