@@ -1248,11 +1248,16 @@ server <- function(input, output, session){
                updateTabsetPanel(session, inputId = "tabMain", selected = "tabLHP"))  
   
   observeEvent(input$btnFixedFleetPars,
-               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBA"))
+               updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabMethodParameters")
+               )
+
+  observeEvent(input$btnLengthComposition,
+              updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabSelectivity")
+  )
   
   # btnStockPars causes move to next tab
   observeEvent(input$btnStockPars, {
-    updateTabsetPanel(session, inputId = "tabMain", selected = "tabSelectivity")
+    updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBA")
   })
   
   # visualise length composition by year - optional selection radio button
@@ -1642,9 +1647,6 @@ server <- function(input, output, session){
   
   
   # move panel within navBarPage after fit
-  observeEvent(input$btnTechnicalStockPars,
-               updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabLengthComposition"))
-  
   observeEvent(input$fitLBA,
                {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")
                  if(input$lengthBasedAssessmentMethod == "LIME") {

@@ -296,33 +296,6 @@ ui <- navbarPage(
                       # ),
            )
   ),
-  tabPanel("Gear selectivity", value = "tabSelectivity",
-           fluidRow(
-             column(width = 3,
-                    div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
-                    radioButtons(inputId = "chooseSelectivityPattern",
-                                 label = "Size-selectivity pattern",
-                                 choices = c("Asymptotic", "Dome-shaped"),
-                                 selected = "Asymptotic"
-                    ),
-                    radioButtons(inputId = "specifySelectivity",
-                                 label = "Fishery selectivity parameters",
-                                 choices = c("Estimate (model fit)", "Specify (user)"),
-                                 selected = c("Estimate (model fit)")),
-                    div(id = "sizeSelectivityCurve", hr()),
-                    uiOutput(outputId = "chooseSelectivityCurve"),
-                    #tags$div(id = "meshSizes"),  # for insertUI, removeUI
-                    uiOutput(outputId = "gearMeshSizes"),
-                    div(id = "specifySelectivityParameters", hr(), h4("Fishery selectivity parameters")),
-                    #textOutput(outputId = "selectivityNote"),
-                    uiOutput(outputId = "selectivityParameters")
-                    # specify parameters dependent on input
-             ),
-             column(width = 9, # 9
-                    plotlyOutput(outputId = "plotSelectivityPattern", height = "600px"),
-                    )
-           ),
-  ),
   tabPanel("Length-based assessment", value = "tabLBA",
            #         plotlyOutput(outputId = "lengthAge",
            #                      width = "90%"),
@@ -357,7 +330,9 @@ ui <- navbarPage(
                                                        label = "Assessment - temporal basis",
                                                        choices = c("all periods"), #, "by year"),
                                                        selected = "all periods"
-                                          )
+                                          ),
+                                          actionButton(inputId = "btnLengthComposition", label = "Input length composition",
+                                                       class = "btn-success")
                                    ),
                                    column(width = 9,
                                           plotlyOutput(outputId = "plotResponsiveLengthComposition",
@@ -365,6 +340,33 @@ ui <- navbarPage(
                                                        height = "600px")
                                    )
                                  ),
+                               ),
+                      ),
+                      tabPanel("Gear selectivity", value = "tabSelectivity",
+                               fluidRow(
+                                 column(width = 3,
+                                        div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
+                                        radioButtons(inputId = "chooseSelectivityPattern",
+                                                     label = "Size-selectivity pattern",
+                                                     choices = c("Asymptotic", "Dome-shaped"),
+                                                     selected = "Asymptotic"
+                                        ),
+                                        radioButtons(inputId = "specifySelectivity",
+                                                     label = "Fishery selectivity parameters",
+                                                     choices = c("Estimate (model fit)", "Specify (user)"),
+                                                     selected = c("Estimate (model fit)")),
+                                        div(id = "sizeSelectivityCurve", hr()),
+                                        uiOutput(outputId = "chooseSelectivityCurve"),
+                                        #tags$div(id = "meshSizes"),  # for insertUI, removeUI
+                                        uiOutput(outputId = "gearMeshSizes"),
+                                        div(id = "specifySelectivityParameters", hr(), h4("Fishery selectivity parameters")),
+                                        #textOutput(outputId = "selectivityNote"),
+                                        uiOutput(outputId = "selectivityParameters")
+                                        # specify parameters dependent on input
+                                 ),
+                                 column(width = 9, # 9
+                                        plotlyOutput(outputId = "plotSelectivityPattern", height = "600px"),
+                                 )
                                ),
                       ),
                       tabPanel("Method parameters", value = "tabMethodParameters",
@@ -504,9 +506,7 @@ ui <- navbarPage(
                                                                title = "Number of time periods per year; default value = 1.", 
                                                                placement = "left", trigger = "hover",  options = list(container = "body"))
                                             )
-                                          ), #end tabsetPanel
-                                          actionButton(inputId = "btnTechnicalStockPars", label = "Input parameters",
-                                                       class = "btn-success"),
+                                          ),
                                           div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
                                           actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
                                                        class = "btn-success"),
