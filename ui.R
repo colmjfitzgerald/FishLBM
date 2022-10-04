@@ -331,17 +331,50 @@ ui <- navbarPage(
                       header = tagList(
                         useShinydashboard()
                       ),
+                      tabPanel("Length composition", value = "tabLengthComposition",
+                               fluidPage(
+                                 fluidRow(
+                                   column(width = 3,
+                                          #div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
+                                          selectInput(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
+                                                      choices = c("LB-SPR", "LIME")),
+                                          sliderTextInput(inputId = "Linc",
+                                                          label = "Length bin width",
+                                                          selected = 1,
+                                                          choices = c(0.25, 0.5, 1, 2, 4, 5),
+                                                          grid = TRUE),
+                                          # sliderInput(inputId = "Linc", 
+                                          #             label = "Length bin width",
+                                          #             min = 0.5, max = 5, value = 1, step = 0.5, 
+                                          #             ticks = TRUE),
+                                          div(id = "above MVL",hr()),
+                                          numericInput(inputId = "MLL",
+                                                       label = "Minimum length limit (fishery)",
+                                                       value = 0.0,
+                                                       min = 0.0),
+                                          div(id = "aboveVisualiseRadioButtons", hr()),
+                                          radioButtons(inputId = "analyseLengthComposition",
+                                                       label = "Assessment - temporal basis",
+                                                       choices = c("all periods"), #, "by year"),
+                                                       selected = "all periods"
+                                          )
+                                   ),
+                                   column(width = 9,
+                                          plotlyOutput(outputId = "plotResponsiveLengthComposition",
+                                                       width = "100%",
+                                                       height = "600px")
+                                   )
+                                 ),
+                               ),
+                      ),
                       tabPanel("Method parameters", value = "tabMethodParameters",
                                fluidPage(
                                  fluidRow(
                                    column(width = 4,
-                                          shinydashboard::box(status = "info", 
-                                              width = NULL,
-                                              collapsible = FALSE,
-                                          #div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
-                                          selectInput(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
-                                                      choices = c("LB-SPR", "LIME"))
-                                          ),
+                                          # shinydashboard::box(status = "info", 
+                                          #     width = NULL,
+                                          #     collapsible = FALSE,
+                                          # ),
                                           tabsetPanel(
                                             id = "techPars",
                                             type = "hidden",
@@ -473,51 +506,15 @@ ui <- navbarPage(
                                             )
                                           ), #end tabsetPanel
                                           actionButton(inputId = "btnTechnicalStockPars", label = "Input parameters",
-                                                       class = "btn-success")
+                                                       class = "btn-success"),
+                                          div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
+                                          actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
+                                                       class = "btn-success"),
                                    )#,
                                    # column(width = 9,
                                    # )
                                  ) 
                                )
-                      ),
-                      tabPanel("Length composition", value = "tabLengthComposition",
-                               fluidPage(
-                                 fluidRow(
-                                   column(width = 3,
-                                          sliderTextInput(inputId = "Linc",
-                                                          label = "Length bin width",
-                                                          selected = 1,
-                                                          choices = c(0.25, 0.5, 1, 2, 4, 5),
-                                                          grid = TRUE),
-                                          # sliderInput(inputId = "Linc", 
-                                          #             label = "Length bin width",
-                                          #             min = 0.5, max = 5, value = 1, step = 0.5, 
-                                          #             ticks = TRUE),
-                                          div(id = "above MVL",hr()),
-                                          numericInput(inputId = "MLL",
-                                                       label = "Minimum length limit (fishery)",
-                                                       value = 0.0,
-                                                       min = 0.0),
-                                          div(id = "aboveVisualiseRadioButtons", hr()),
-                                          radioButtons(inputId = "analyseLengthComposition",
-                                                       label = "Assessment - temporal basis",
-                                                       choices = c("all periods"), #, "by year"),
-                                                       selected = "all periods"
-                                          ),
-                                          #uiOutput(outputId = "btnPlotLengthComposition")
-                                          div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
-                                          fluidRow(
-                                            actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
-                                                         class = "btn-success"),
-                                          )
-                                   ),
-                                   column(width = 9,
-                                          plotlyOutput(outputId = "plotResponsiveLengthComposition",
-                                                       width = "100%",
-                                                       height = "600px")
-                                   )
-                                 ),
-                               ),
                       ),
                       navbarMenu("Model fit", 
                                  tabPanel("Length composition", value = "tabModelFit",
