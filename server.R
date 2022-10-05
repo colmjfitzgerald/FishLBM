@@ -1095,6 +1095,7 @@ server <- function(input, output, session){
                           labs(title = gg_titleplot) + # could have reactive?
                           theme_bw())
       })
+#    })
       
       # sliders for plot??
       # You can use a simple observeEvent to detect when button pressed, 
@@ -1102,12 +1103,8 @@ server <- function(input, output, session){
       # output$selectivityControls <- renderUI({
       #   
       # })
-      
-#    })
   
 
-  
-  
   # eventReactive??
   # slideLenBins <- reactive(
   #   {# eventually have a reactive StockPars object
@@ -1310,37 +1307,93 @@ server <- function(input, output, session){
                         label = paste0("Apply ", input$lengthBasedAssessmentMethod))
   })
   
+
+  # collate length data
+  lengthDataInput <- reactive({
+    # length data
+    length_records <- lengthRecordsFilter()
+    length_col <- newLengthCol()
+    length_records$isVulnerable <- length_records[,length_col] >= input$MLL
+    
+    # is year column present? rename as 'year' for facet_wrap
+    year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+    if(is.null(year_col) | input$analyseLengthComposition == "all periods"){
+      length_records <- length_records %>%
+        select(!!ensym(length_col), isVulnerable) %>%
+        mutate(year = "all periods")
+    } else {
+      names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)] <- "year"
+    }
+    
+    list("lengthRecords" = length_records,
+         "lengthCol" = length_col)
+  })
   
   # plot length composition of filtered data - change with slider input
   output$plotResponsiveLengthComposition <- 
     renderPlotly({
-      lengthData <- lengthRecordsFilter()
-      lengthData$isVulnerable <- lengthData[, newLengthCol()] >= input$MLL
+      lengthData <- lengthDataInput()$lengthRecords
+      lengthCol <- lengthDataInput()$lengthCol
+
       if(all(lengthData$isVulnerable, na.rm = TRUE)) {
         ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) +  
-          geom_histogram(mapping = aes_string(x = newLengthCol()), fill = "grey80",
+          geom_histogram(mapping = aes_string(x = lengthCol), fill = "grey80",
                          breaks = createLengthBins()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
+          facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, value = TRUE)," ~ ."))) +
           geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
           theme_bw()
       } else {
         ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) + 
-          geom_histogram(mapping = aes_string(x = newLengthCol(), fill = "isVulnerable"),
+          geom_histogram(mapping = aes_string(x = lengthCol, fill = "isVulnerable"),
                          breaks = createLengthBins()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
+          facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, value = TRUE)," ~ ."))) +
           scale_fill_manual(name = "fishery \n vulnerable", breaks = waiver(), values = c("grey20", "grey80")) + 
           geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
           theme_bw() + 
           theme(legend.position = "bottom")
       }
-      if(input$analyseLengthComposition == "annual"){ # was observeEvent or eventReactive 
-        ggLengthComp <- ggLengthComp + 
-          facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
-                                            value = TRUE)," ~ .")))
-      }
       expr = ggplotly(ggLengthComp)
     })
   
+  
+  output$plotLengthCompSelect <- renderPlotly({
+    ggdata <- selectionCurves()
+    if(req(input$specifySelectivity) == "Initial estimate" ){
+      gg_lty <- 2
+    } else if(input$specifySelectivity == "Fixed value") {
+      gg_lty <- 1
+    }
+    
+    lengthData <- lengthDataInput()$lengthRecords
+    lengthDataVul <- lengthData %>% filter(isVulnerable)
+    lengthCol <-  lengthDataInput()$lengthCol   
+
+    # maximum counts per year
+    lengthDataVul$lengthBin <- cut(lengthDataVul[, lengthCol], breaks = createLengthBins()$LenBins, right = FALSE)
+    maxCountPerYear <- apply(table(lengthDataVul$year, lengthDataVul$lengthBin), 1, max)
+    maxCounts <- data.frame(year = names(maxCountPerYear), maxCount = maxCountPerYear, row.names = NULL)
+    
+    # scale selectivity curves
+    ggyear <- expand.grid(lengthCol = ggdata$length, year = maxCounts$year)
+    ggyear$proportion <- rep(ggdata$proportion, length(maxCountPerYear))
+    ggyear$scaled_proportion <- as.vector(outer(ggdata$proportion,maxCountPerYear))
+    
+    pg <- ggplot(lengthDataVul) +
+      geom_histogram(mapping = aes_string(x = lengthCol), fill = "grey80",
+                     breaks = createLengthBins()$LenBins, # slideLenBins(),
+                     closed = "left", colour = "black") + 
+      geom_line(data = ggyear,
+                mapping = aes(x = lengthCol, y = scaled_proportion), 
+                linetype = gg_lty, colour = "red", size = 1) +
+      scale_size_identity() +
+      labs(y = "Count") +
+      facet_wrap(vars(year)) +
+      theme_bw()
+    expr = ggplotly(pg)
+  })
+
 
   # Fit LBA ####
   fitLBSPR <- eventReactive(

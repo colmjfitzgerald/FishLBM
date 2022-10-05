@@ -372,7 +372,7 @@ ui <- navbarPage(
                       tabPanel("Method parameters", value = "tabMethodParameters",
                                fluidPage(
                                  fluidRow(
-                                   column(width = 4,
+                                   column(width = 3,
                                           # shinydashboard::box(status = "info", 
                                           #     width = NULL,
                                           #     collapsible = FALSE,
@@ -507,13 +507,14 @@ ui <- navbarPage(
                                                                placement = "left", trigger = "hover",  options = list(container = "body"))
                                             )
                                           ),
-                                          div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
+                                          #div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
                                           actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
                                                        class = "btn-success"),
-                                   )#,
-                                   # column(width = 9,
-                                   # )
-                                 ) 
+                                   ),
+                                   column(width = 9,
+                                          plotlyOutput(outputId = "plotLengthCompSelect", height = "600px")
+                                   )
+                                 )
                                )
                       ),
                       navbarMenu("Model fit", 
