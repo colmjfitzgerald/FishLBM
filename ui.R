@@ -521,7 +521,10 @@ ui <- navbarPage(
                                  tabPanel("Length composition", value = "tabModelFit",
                                           fluidPage(
                                             fluidRow(
-                                              column(width = 12,
+                                              column(width = 3,
+                                                     tags$h3("Model inputs"),
+                                                     tableOutput(outputId = "tableStockParameters")),
+                                              column(width = 9,
                                                      plotlyOutput(outputId = "plotLBAModelFit",
                                                                   width = "100%",
                                                                   height = "600px")
@@ -547,13 +550,10 @@ ui <- navbarPage(
                                  ),
                                  tabPanel("Assessment summary",
                                           fluidRow(
-                                            column(width = 8,
+                                            column(width = 12,
                                                    tags$h3("Model estimates"),
                                                    div(style = 'overflow-x: scroll',tableOutput(outputId = "tableLBASummary"))
-                                            ),
-                                            column(width = 4,
-                                                   tags$h3("Model inputs"),
-                                                   tableOutput(outputId = "tableStockParameters"))
+                                            )
                                           )
                                  ),
                                  icon = icon("chart-line")
