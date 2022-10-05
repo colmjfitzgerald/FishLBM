@@ -2604,42 +2604,6 @@ server <- function(input, output, session){
     contentType = "image/png"
   )
 
-
-  output$plotPopLBSPR <- renderPlot({
-    NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
-    LPopUnfished <- NatL_LBSPR$popUnfished_at_length
-    LPopFished <- NatL_LBSPR$popFished_at_length
-    LenMids <- NatL_LBSPR$length_mid
-    
-    lbsprPars <- fitLBSPR()$lbsprPars  
-    SL50 <- lbsprPars$Estimate[lbsprPars$Parameter == "SL1"]
-    SL95 <- lbsprPars$Estimate[lbsprPars$Parameter == "SL2"]
-    SLmin <- SL50 - (SL95-SL50)
-    
-    par(mfrow = c(2,1), mgp = c(2,1,0), mar = c(4,3,3,1), cex = 1.15)
-    plot(LenMids, LPopFished, col = "grey25", pch = 1, lwd = 1.5,
-         xlab = newLengthCol(), ylab = "numbers per recruit",
-         main = "entire length range", font.main = 1)
-    lines(LenMids, LPopFished, col = "grey25", lty = 1, lwd = 1.5)
-    points(LenMids, LPopUnfished, col = "grey75", pch = 16, lwd = 1.5)
-    lines(LenMids, LPopUnfished, col = "grey75", lty = 1, lwd = 1.5)
-    legend("topright", c("fished", "unfished"), 
-           col = c("grey25", "grey75"), 
-           pch = c(1, 16))
-    
-    plot(LenMids, LPopFished, col = "grey25", pch = 1, lwd = 1.5,
-         xlab = newLengthCol(), ylab = "numbers per recruit",
-         xlim = c(SL50-(SL95-SL50), max(LenMids)),
-         ylim = c(0, 1.25*LPopUnfished[which(LenMids-SLmin == min(abs((LenMids-SLmin)))) ]),
-         main = "vulnerable length range", font.main = 1)
-    lines(LenMids, LPopFished, col = "grey25", lty = 1, lwd = 1.5)
-    points(LenMids, LPopUnfished, col = "grey75", pch = 16, lwd = 1.5)
-    lines(LenMids, LPopUnfished, col = "grey75", lty = 1, lwd = 1.5)
-    legend("topright", c("fished", "unfished"), 
-           col = c("grey25", "grey75"), 
-           pch = c(1, 16))
-    
-  })
   
   diagnosticData <- reactive({
     if(input$lengthBasedAssessmentMethod == "LIME") {
