@@ -1820,8 +1820,8 @@ server <- function(input, output, session){
                   fill = "salmon", alpha = 0.5) +
         geom_line(data = NatL_LBSPR,
                   mapping = aes(x = length_mid, y = selectivityF_at_length_count), 
-                  colour = "red", lwd = 1) + 
-        labs(title = titleFitPlot,
+                  colour = "red", lwd = 1) #+ 
+        labs(y = "count", #title = titleFitPlot,
              caption = paste("Data from", input$uploadFile[[1]], sep = " "))#+ 
       #scale_y_continuous(sec.axis = sec_axis(~  . /maxLenDat, name = "selectivity",
       #breaks = c(0, 1),
