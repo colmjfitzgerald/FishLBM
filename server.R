@@ -2610,7 +2610,6 @@ server <- function(input, output, session){
     LPopUnfished <- NatL_LBSPR$popUnfished_at_length
     LPopFished <- NatL_LBSPR$popFished_at_length
     LenMids <- NatL_LBSPR$length_mid
-    print(max(LenMids))
     
     lbsprPars <- fitLBSPR()$lbsprPars  
     SL50 <- lbsprPars$Estimate[lbsprPars$Parameter == "SL1"]
