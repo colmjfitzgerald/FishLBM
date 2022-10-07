@@ -1095,6 +1095,7 @@ server <- function(input, output, session){
                           labs(title = gg_titleplot) + # could have reactive?
                           theme_bw())
       })
+#    })
       
       # sliders for plot??
       # You can use a simple observeEvent to detect when button pressed, 
@@ -1102,12 +1103,8 @@ server <- function(input, output, session){
       # output$selectivityControls <- renderUI({
       #   
       # })
-      
-#    })
   
 
-  
-  
   # eventReactive??
   # slideLenBins <- reactive(
   #   {# eventually have a reactive StockPars object
@@ -1248,11 +1245,16 @@ server <- function(input, output, session){
                updateTabsetPanel(session, inputId = "tabMain", selected = "tabLHP"))  
   
   observeEvent(input$btnFixedFleetPars,
-               updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBA"))
+               updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabMethodParameters")
+               )
+
+  observeEvent(input$btnLengthComposition,
+              updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabSelectivity")
+  )
   
   # btnStockPars causes move to next tab
   observeEvent(input$btnStockPars, {
-    updateTabsetPanel(session, inputId = "tabMain", selected = "tabSelectivity")
+    updateTabsetPanel(session, inputId = "tabMain", selected = "tabLBA")
   })
   
   # visualise length composition by year - optional selection radio button
@@ -1305,37 +1307,93 @@ server <- function(input, output, session){
                         label = paste0("Apply ", input$lengthBasedAssessmentMethod))
   })
   
+
+  # collate length data
+  lengthDataInput <- reactive({
+    # length data
+    length_records <- lengthRecordsFilter()
+    length_col <- newLengthCol()
+    length_records$isVulnerable <- length_records[,length_col] >= input$MLL
+    
+    # is year column present? rename as 'year' for facet_wrap
+    year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+    if(is.null(year_col) | input$analyseLengthComposition == "all periods"){
+      length_records <- length_records %>%
+        select(!!ensym(length_col), isVulnerable) %>%
+        mutate(year = "all periods")
+    } else {
+      names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)] <- "year"
+    }
+    
+    list("lengthRecords" = length_records,
+         "lengthCol" = length_col)
+  })
   
   # plot length composition of filtered data - change with slider input
   output$plotResponsiveLengthComposition <- 
     renderPlotly({
-      lengthData <- lengthRecordsFilter()
-      lengthData$isVulnerable <- lengthData[, newLengthCol()] >= input$MLL
+      lengthData <- lengthDataInput()$lengthRecords
+      lengthCol <- lengthDataInput()$lengthCol
+
       if(all(lengthData$isVulnerable, na.rm = TRUE)) {
         ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) +  
-          geom_histogram(mapping = aes_string(x = newLengthCol()), fill = "grey80",
+          geom_histogram(mapping = aes_string(x = lengthCol), fill = "grey80",
                          breaks = createLengthBins()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
+          facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, value = TRUE)," ~ ."))) +
           geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
           theme_bw()
       } else {
         ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) + 
-          geom_histogram(mapping = aes_string(x = newLengthCol(), fill = "isVulnerable"),
+          geom_histogram(mapping = aes_string(x = lengthCol, fill = "isVulnerable"),
                          breaks = createLengthBins()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
+          facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, value = TRUE)," ~ ."))) +
           scale_fill_manual(name = "fishery \n vulnerable", breaks = waiver(), values = c("grey20", "grey80")) + 
           geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
           theme_bw() + 
           theme(legend.position = "bottom")
       }
-      if(input$analyseLengthComposition == "annual"){ # was observeEvent or eventReactive 
-        ggLengthComp <- ggLengthComp + 
-          facet_wrap(as.formula(paste0(grep("year", colnames(lengthRecordsFilter()), ignore.case = TRUE,
-                                            value = TRUE)," ~ .")))
-      }
       expr = ggplotly(ggLengthComp)
     })
   
+  
+  output$plotLengthCompSelect <- renderPlotly({
+    ggdata <- selectionCurves()
+    if(req(input$specifySelectivity) == "Initial estimate" ){
+      gg_lty <- 2
+    } else if(input$specifySelectivity == "Fixed value") {
+      gg_lty <- 1
+    }
+    
+    lengthData <- lengthDataInput()$lengthRecords
+    lengthDataVul <- lengthData %>% filter(isVulnerable)
+    lengthCol <-  lengthDataInput()$lengthCol   
+
+    # maximum counts per year
+    lengthDataVul$lengthBin <- cut(lengthDataVul[, lengthCol], breaks = createLengthBins()$LenBins, right = FALSE)
+    maxCountPerYear <- apply(table(lengthDataVul$year, lengthDataVul$lengthBin), 1, max)
+    maxCounts <- data.frame(year = names(maxCountPerYear), maxCount = maxCountPerYear, row.names = NULL)
+    
+    # scale selectivity curves
+    ggyear <- expand.grid(lengthCol = ggdata$length, year = maxCounts$year)
+    ggyear$proportion <- rep(ggdata$proportion, length(maxCountPerYear))
+    ggyear$scaled_proportion <- as.vector(outer(ggdata$proportion,maxCountPerYear))
+    
+    pg <- ggplot(lengthDataVul) +
+      geom_histogram(mapping = aes_string(x = lengthCol), fill = "grey80",
+                     breaks = createLengthBins()$LenBins, # slideLenBins(),
+                     closed = "left", colour = "black") + 
+      geom_line(data = ggyear,
+                mapping = aes(x = lengthCol, y = scaled_proportion), 
+                linetype = gg_lty, colour = "red", size = 1) +
+      scale_size_identity() +
+      labs(y = "Count") +
+      facet_wrap(vars(year)) +
+      theme_bw()
+    expr = ggplotly(pg)
+  })
+
 
   # Fit LBA ####
   fitLBSPR <- eventReactive(
@@ -1642,9 +1700,6 @@ server <- function(input, output, session){
   
   
   # move panel within navBarPage after fit
-  observeEvent(input$btnTechnicalStockPars,
-               updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabLengthComposition"))
-  
   observeEvent(input$fitLBA,
                {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")
                  if(input$lengthBasedAssessmentMethod == "LIME") {
@@ -1765,8 +1820,8 @@ server <- function(input, output, session){
                   fill = "salmon", alpha = 0.5) +
         geom_line(data = NatL_LBSPR,
                   mapping = aes(x = length_mid, y = selectivityF_at_length_count), 
-                  colour = "red", lwd = 1) + 
-        labs(title = titleFitPlot,
+                  colour = "red", lwd = 1) #+ 
+        labs(y = "count", #title = titleFitPlot,
              caption = paste("Data from", input$uploadFile[[1]], sep = " "))#+ 
       #scale_y_continuous(sec.axis = sec_axis(~  . /maxLenDat, name = "selectivity",
       #breaks = c(0, 1),
@@ -2161,108 +2216,6 @@ server <- function(input, output, session){
     expr <- pl_y
   })
   
-
-  output$plotPopFishedUnfished <- renderPlotly({
-    
-    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      # data
-      length_records <- lengthRecordsFilter()
-      length_col <- newLengthCol()
-      length_records$isVulnerable <- length_records[, newLengthCol()] >= input$MLL
-      
-      # theory
-      NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
-      head(NatL_LBSPR)
-      
-      # plotly
-      pl_y <- plotly_empty() %>% 
-        plotly:: config(staticPlot = TRUE)
-      
-    } else if(input$lengthBasedAssessmentMethod == "LIME") {
-
-      # LIME - life history and model fit data
-      fitLIMEout <- fitLIME()
-      lh_fit <- fitLIMEout$lh
-      limeFit <- fitLIMEout$lc_only
-      
-      Nyears_est <- limeFit$input$Nyears
-      SPR_Nyear <- limeFit$Report$SPR_t[Nyears_est]
-      
-      
-
-      # LIME fit of "probability of being in length bin" for final year
-      popFished_est <- limeFit$Report$N_ta %*% limeFit$Report$plba
-      NatL_LIME <- data.frame(length_mid = limeFit$input$mids,
-                              catchFished =  popFished_est[Nyears_est,])
-      
-      # simulate fishing/no-fishing equilibrium
-      # upper limit of 1.3*linf for length_mids/length_bins - more bins than in estimation model
-      # model fit selectivity-at-length parameters
-      # SigmaR = 0.1 for equilibrium recruitment
-      lh_sim <- create_lh_list(vbk= lh_fit$vbk,    # vb growth coefficient
-                               linf= lh_fit$linf,# vbg Linf
-                               t0= lh_fit$t0,  
-                               lwa= lh_fit$lwa,# length-weight W = aL^b: a  
-                               lwb= lh_fit$lwb, # length-weight W = aL^b: b
-                               S50= limeFit$Report$S50_f,  # selectivity-at-length 50%
-                               S95= limeFit$Report$S95_f,  # selectivity-at-length 95%
-                               selex_input= lh_fit$selex_input,# "length"
-                               selex_type= lh_fit$selex_type, # "logistic"/"dome"
-                               maturity_input=lh_fit$maturity_input,#lhParVals$maturity_input,
-                               M50= lh_fit$ML50,      # length at 50% maturity
-                               M= lh_fit$M,     # natural mortality
-                               binwidth=lh_fit$binwidth,
-                               CVlen=lh_fit$CVlen,  # coefficient of variation with length
-                               #technical parameters through output$tableTechnicalParameters
-                               SigmaR = 0.01, # effective equilibrium recruitment
-                               SigmaF= 0.01, # effective equilibrium fishing
-                               SigmaC=lh_fit$SigmaC,
-                               SigmaI=lh_fit$SigmaI,
-                               R0=lh_fit$R0,
-                               Frate=lh_fit$Frate,
-                               Fequil=lh_fit$Fequil,
-                               qcoef=lh_fit$qcoef,
-                               start_ages= 0, #not available from lh$
-                               rho=lh_fit$rho,
-                               theta=lh_fit$theta,
-                               nseasons=lh_fit$nseasons,
-                               nfleets=1)
-      
-      # simulate fishing with sim_pop
-      # @param lh list of life history attributes, output of create_lh_list
-      # @param comp_sample vector of number of individuals sampled each year (set as 1 for proportions)
-      # @param sample_type a character vector specifying if the length comps are sampled from the 'catch' (default) or from the population
-      
-      limeSimF0 <- sim_pop(lh_sim, Fdynamics = "None", Rdynamics = "Constant", 
-                           Nyears = 20, Nyears_comp = 1, comp_sample = 200, pool = TRUE,
-                           init_depl = 0.99, seed = 9999, sample_type = "population",
-                           mgt_type = 'F', fleet_proportions = 1, nareas = 1)
-      
-      limeSimF <- sim_pop(lh_sim, Fdynamics = "Constant", Rdynamics = "Constant", 
-                          Nyears = 20, Nyears_comp = 1, comp_sample = 200, pool = TRUE,
-                          init_depl = SPR_Nyear, seed = 9999, sample_type = "population",
-                          mgt_type = 'F', fleet_proportions = 1, nareas = 1)
-      
-      Nyears_sim <- limeSimF0$Nyears
-      catchUnfished <- limeSimF0$plb[[1]]/rowSums(limeSimF0$plb[[1]])
-      catchFished <- limeSimF0$plb[[1]]/rowSums(limeSimF$plb[[1]])
-      
-      NatL_LIME_Fsim <- data.frame(length_mid = limeSimF0$mids,
-                                   catchUnfished = limeSimF0$plb[[1]][Nyears_sim,],
-                                   catchFished = limeSimF$plb[[1]][Nyears_sim,])
-      
-      pl_y <- plot_ly(data = NatL_LIME, 
-                      x = ~ length_mid, y = ~ catchFished, name = "fished - model fit", 
-                      type = "scatter", mode = "lines+markers", frame = TRUE) %>%
-        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - sim",
-                  type = "scatter",mode = "lines+markers") %>% 
-        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - sim",
-                  type = "scatter",mode = "lines+markers")
-      pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
-                              yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
-    }
-    expr <- pl_y
-  })
   
   
   # fishing estimate data for download and plotting
@@ -2549,43 +2502,6 @@ server <- function(input, output, session){
     contentType = "image/png"
   )
 
-
-  output$plotPopLBSPR <- renderPlot({
-    NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
-    LPopUnfished <- NatL_LBSPR$popUnfished_at_length
-    LPopFished <- NatL_LBSPR$popFished_at_length
-    LenMids <- NatL_LBSPR$length_mid
-    print(max(LenMids))
-    
-    lbsprPars <- fitLBSPR()$lbsprPars  
-    SL50 <- lbsprPars$Estimate[lbsprPars$Parameter == "SL1"]
-    SL95 <- lbsprPars$Estimate[lbsprPars$Parameter == "SL2"]
-    SLmin <- SL50 - (SL95-SL50)
-    
-    par(mfrow = c(2,1), mgp = c(2,1,0), mar = c(4,3,3,1), cex = 1.15)
-    plot(LenMids, LPopFished, col = "grey25", pch = 1, lwd = 1.5,
-         xlab = newLengthCol(), ylab = "numbers per recruit",
-         main = "entire length range", font.main = 1)
-    lines(LenMids, LPopFished, col = "grey25", lty = 1, lwd = 1.5)
-    points(LenMids, LPopUnfished, col = "grey75", pch = 16, lwd = 1.5)
-    lines(LenMids, LPopUnfished, col = "grey75", lty = 1, lwd = 1.5)
-    legend("topright", c("fished", "unfished"), 
-           col = c("grey25", "grey75"), 
-           pch = c(1, 16))
-    
-    plot(LenMids, LPopFished, col = "grey25", pch = 1, lwd = 1.5,
-         xlab = newLengthCol(), ylab = "numbers per recruit",
-         xlim = c(SL50-(SL95-SL50), max(LenMids)),
-         ylim = c(0, 1.25*LPopUnfished[which(LenMids-SLmin == min(abs((LenMids-SLmin)))) ]),
-         main = "vulnerable length range", font.main = 1)
-    lines(LenMids, LPopFished, col = "grey25", lty = 1, lwd = 1.5)
-    points(LenMids, LPopUnfished, col = "grey75", pch = 16, lwd = 1.5)
-    lines(LenMids, LPopUnfished, col = "grey75", lty = 1, lwd = 1.5)
-    legend("topright", c("fished", "unfished"), 
-           col = c("grey25", "grey75"), 
-           pch = c(1, 16))
-    
-  })
   
   diagnosticData <- reactive({
     if(input$lengthBasedAssessmentMethod == "LIME") {

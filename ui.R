@@ -296,33 +296,6 @@ ui <- navbarPage(
                       # ),
            )
   ),
-  tabPanel("Gear selectivity", value = "tabSelectivity",
-           fluidRow(
-             column(width = 3,
-                    div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
-                    radioButtons(inputId = "chooseSelectivityPattern",
-                                 label = "Size-selectivity pattern",
-                                 choices = c("Asymptotic", "Dome-shaped"),
-                                 selected = "Asymptotic"
-                    ),
-                    radioButtons(inputId = "specifySelectivity",
-                                 label = "Fishery selectivity parameters",
-                                 choices = c("Estimate (model fit)", "Specify (user)"),
-                                 selected = c("Estimate (model fit)")),
-                    div(id = "sizeSelectivityCurve", hr()),
-                    uiOutput(outputId = "chooseSelectivityCurve"),
-                    #tags$div(id = "meshSizes"),  # for insertUI, removeUI
-                    uiOutput(outputId = "gearMeshSizes"),
-                    div(id = "specifySelectivityParameters", hr(), h4("Fishery selectivity parameters")),
-                    #textOutput(outputId = "selectivityNote"),
-                    uiOutput(outputId = "selectivityParameters")
-                    # specify parameters dependent on input
-             ),
-             column(width = 9, # 9
-                    plotlyOutput(outputId = "plotSelectivityPattern", height = "600px"),
-                    )
-           ),
-  ),
   tabPanel("Length-based assessment", value = "tabLBA",
            #         plotlyOutput(outputId = "lengthAge",
            #                      width = "90%"),
@@ -331,21 +304,79 @@ ui <- navbarPage(
                       header = tagList(
                         useShinydashboard()
                       ),
+                      tabPanel("Length composition", value = "tabLengthComposition",
+                               fluidPage(
+                                 fluidRow(
+                                   column(width = 3,
+                                          #div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
+                                          selectInput(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
+                                                      choices = c("LB-SPR", "LIME")),
+                                          sliderTextInput(inputId = "Linc",
+                                                          label = "Length bin width",
+                                                          selected = 1,
+                                                          choices = c(0.25, 0.5, 1, 2, 4, 5),
+                                                          grid = TRUE),
+                                          # sliderInput(inputId = "Linc", 
+                                          #             label = "Length bin width",
+                                          #             min = 0.5, max = 5, value = 1, step = 0.5, 
+                                          #             ticks = TRUE),
+                                          div(id = "above MVL",hr()),
+                                          numericInput(inputId = "MLL",
+                                                       label = "Minimum length limit (fishery)",
+                                                       value = 0.0,
+                                                       min = 0.0),
+                                          div(id = "aboveVisualiseRadioButtons", hr()),
+                                          radioButtons(inputId = "analyseLengthComposition",
+                                                       label = "Assessment - temporal basis",
+                                                       choices = c("all periods"), #, "by year"),
+                                                       selected = "all periods"
+                                          ),
+                                          actionButton(inputId = "btnLengthComposition", label = "Input length composition",
+                                                       class = "btn-success")
+                                   ),
+                                   column(width = 9,
+                                          plotlyOutput(outputId = "plotResponsiveLengthComposition",
+                                                       width = "100%",
+                                                       height = "600px")
+                                   )
+                                 ),
+                               ),
+                      ),
+                      tabPanel("Gear selectivity", value = "tabSelectivity",
+                               fluidRow(
+                                 column(width = 3,
+                                        div(id = "specifySelectivityPattern", h4("Fishery selectivity options")),
+                                        radioButtons(inputId = "chooseSelectivityPattern",
+                                                     label = "Size-selectivity pattern",
+                                                     choices = c("Asymptotic", "Dome-shaped"),
+                                                     selected = "Asymptotic"
+                                        ),
+                                        radioButtons(inputId = "specifySelectivity",
+                                                     label = "Fishery selectivity parameters",
+                                                     choices = c("Estimate (model fit)", "Specify (user)"),
+                                                     selected = c("Estimate (model fit)")),
+                                        div(id = "sizeSelectivityCurve", hr()),
+                                        uiOutput(outputId = "chooseSelectivityCurve"),
+                                        #tags$div(id = "meshSizes"),  # for insertUI, removeUI
+                                        uiOutput(outputId = "gearMeshSizes"),
+                                        div(id = "specifySelectivityParameters", hr(), h4("Fishery selectivity parameters")),
+                                        #textOutput(outputId = "selectivityNote"),
+                                        uiOutput(outputId = "selectivityParameters")
+                                        # specify parameters dependent on input
+                                 ),
+                                 column(width = 9, # 9
+                                        plotlyOutput(outputId = "plotSelectivityPattern", height = "600px"),
+                                 )
+                               ),
+                      ),
                       tabPanel("Method parameters", value = "tabMethodParameters",
                                fluidPage(
                                  fluidRow(
                                    column(width = 3,
-                                          shinydashboard::box(status = "info", 
-                                              width = NULL,
-                                              collapsible = FALSE,
-                                          #div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
-                                          selectInput(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
-                                                      choices = c("LB-SPR", "LIME")),
-                                          actionButton(inputId = "btnTechnicalStockPars", label = "Input parameters",
-                                                       class = "btn-success")
-                                          )
-                                   ),
-                                   column(width = 9,
+                                          # shinydashboard::box(status = "info", 
+                                          #     width = NULL,
+                                          #     collapsible = FALSE,
+                                          # ),
                                           tabsetPanel(
                                             id = "techPars",
                                             type = "hidden",
@@ -377,19 +408,19 @@ ui <- navbarPage(
                                                      # tooltips
                                                      bsTooltip(id = "FecB_in", 
                                                                title = "Fecundity-at-length exponent - set to 3 as fecundity is assumed to be proportional to body mass.", 
-                                                               placement = "left", trigger = "hover",  options = list(container = "body")),
+                                                               placement = "bottom", trigger = "hover",  options = list(container = "body")),
                                                      bsTooltip(id = "Steep_in", 
                                                                title = "Stock-recruitment steepness parameter, often denoted h in the literature.", 
-                                                               placement = "left", trigger = "hover",  options = list(container = "body")),
+                                                               placement = "bottom", trigger = "hover",  options = list(container = "body")),
                                                      bsTooltip(id = "Mpow_in", 
                                                                title = "Natural mortality-at-length exponent - set to 0 as mortality assumed constant across size.", 
-                                                               placement = "left", trigger = "hover",  options = list(container = "body")),
+                                                               placement = "bottom", trigger = "hover",  options = list(container = "body")),
                                                      bsTooltip(id = "NGTG_in", 
                                                                title = "Number of growth-type groups. Set to 13 as default in LBSPRsim_.r on github.com/AdrianHordyk/LBSPR.", 
-                                                               placement = "left", trigger = "hover",  options = list(container = "body")),
+                                                               placement = "bottom", trigger = "hover",  options = list(container = "body")),
                                                      bsTooltip(id = "GTGMax_in", 
                                                                title = "Maximum standard deviations of GTG Linfs about mean Linf. Set at 2 by default.", 
-                                                               placement = "left", trigger = "hover",  options = list(container = "body"))
+                                                               placement = "bottom", trigger = "hover",  options = list(container = "body"))
                                             ),
                                             tabPanel("LIME",
                                                      shinydashboard::box(
@@ -475,55 +506,25 @@ ui <- navbarPage(
                                                                title = "Number of time periods per year; default value = 1.", 
                                                                placement = "left", trigger = "hover",  options = list(container = "body"))
                                             )
-                                          ) #end tabsetPanel
-                                   )
-                                 ) 
-                               )
-                      ),
-                      tabPanel("Length composition", value = "tabLengthComposition",
-                               fluidPage(
-                                 fluidRow(
-                                   column(width = 3,
-                                          sliderTextInput(inputId = "Linc",
-                                                          label = "Length bin width",
-                                                          selected = 1,
-                                                          choices = c(0.25, 0.5, 1, 2, 4, 5),
-                                                          grid = TRUE),
-                                          # sliderInput(inputId = "Linc", 
-                                          #             label = "Length bin width",
-                                          #             min = 0.5, max = 5, value = 1, step = 0.5, 
-                                          #             ticks = TRUE),
-                                          div(id = "above MVL",hr()),
-                                          numericInput(inputId = "MLL",
-                                                       label = "Minimum length limit (fishery)",
-                                                       value = 0.0,
-                                                       min = 0.0),
-                                          div(id = "aboveVisualiseRadioButtons", hr()),
-                                          radioButtons(inputId = "analyseLengthComposition",
-                                                       label = "Assessment - temporal basis",
-                                                       choices = c("all periods"), #, "by year"),
-                                                       selected = "all periods"
                                           ),
-                                          #uiOutput(outputId = "btnPlotLengthComposition")
-                                          div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
-                                          fluidRow(
-                                            actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
-                                                         class = "btn-success"),
-                                          )
+                                          #div(id = 'buttonDiv', hr(), class = 'simpleDiv'),
+                                          actionButton("fitLBA", paste0("Apply LB-SPR"), icon = icon("chart-line"),
+                                                       class = "btn-success"),
                                    ),
                                    column(width = 9,
-                                          plotlyOutput(outputId = "plotResponsiveLengthComposition",
-                                                       width = "100%",
-                                                       height = "600px")
+                                          plotlyOutput(outputId = "plotLengthCompSelect", height = "600px")
                                    )
-                                 ),
-                               ),
+                                 )
+                               )
                       ),
                       navbarMenu("Model fit", 
                                  tabPanel("Length composition", value = "tabModelFit",
                                           fluidPage(
                                             fluidRow(
-                                              column(width = 12,
+                                              column(width = 3,
+                                                     tags$h3("Model inputs"),
+                                                     tableOutput(outputId = "tableStockParameters")),
+                                              column(width = 9,
                                                      plotlyOutput(outputId = "plotLBAModelFit",
                                                                   width = "100%",
                                                                   height = "600px")
@@ -549,13 +550,10 @@ ui <- navbarPage(
                                  ),
                                  tabPanel("Assessment summary",
                                           fluidRow(
-                                            column(width = 8,
+                                            column(width = 12,
                                                    tags$h3("Model estimates"),
                                                    div(style = 'overflow-x: scroll',tableOutput(outputId = "tableLBASummary"))
-                                            ),
-                                            column(width = 4,
-                                                   tags$h3("Model inputs"),
-                                                   tableOutput(outputId = "tableStockParameters"))
+                                            )
                                           )
                                  ),
                                  icon = icon("chart-line")
