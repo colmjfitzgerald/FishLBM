@@ -118,7 +118,7 @@ testServer(server, {
   cat("Life History Parameters\n")
   cat("natural mortality choices = ", natMestChoices(), "\n")
   session$setInputs(CVLinf = 0.1, Walpha = 0.00001, Wbeta = 3,
-                    Linf = 42, kLvb = 0.175, natMortality = "twoK")
+                    Linf = 42, kLvb = 0.175, natMortality = "twoK", slidert0 = -0.01)
   cat("natural mortality model: ", input$natMortality, " gives value =", updateMortality(), "\n")
   
   # assign mortality and length-at-maturity values using update... reactives
@@ -147,26 +147,60 @@ testServer(server, {
 
   
   # length-based stock assessment ####
-  # technical parameters
+  # LB-SPR technical parameters
   session$setInputs(FecB = 3, Steepness = 0.8, Mpow = 0, NGTG = 13, MaxSD = 2,
                     btnTechnicalStockPars = 1)
+  cat("LB-SPR technical parameters entered\n" )
+  
+  # LIME technical parameters
+  session$setInputs(
+    SigmaR = 0.737, SigmaF = 0.2, SigmaC = 0.1, SigmaI = 0.1, # variance terms for processes (R,F) and obs
+    R0 = 1, Frate = 0.1, Fequil = 0.25, qcoef = 1e-5, start_ages = 0, 
+    rho = 0.43, nseasons = 1, theta = 10)
+  cat("LIME technical parameters entered\n" )
+
   length_records <- lengthRecordsFilter()[, newLengthCol()]
   cat("NA length records:\n", length_records[is.na(lengthRecordsFilter()[, newLengthCol()])], "\n")
-  
+
   cat("setFleetPars = ", paste(setFleetPars(), sep = ","), "\n")
     
   # length bin and temporal discretisation
   session$setInputs(analyseLengthComposition = "annual", Linc = 1, MLL = 0)
-  
+    
   # check length bins
   cat(createLengthBins()$LenBins, "\n")
   
   # click button and check fit
   session$setInputs(fitLBA = 1)
-  
+
   # LB-SPR pars
   cat(fitLBSPR()$mlePars$log_FM, "\n")
   cat("sum of squared differences between fitLBSPR and benchmark run", 
       sum((fitLBSPR()$mlePars$log_FM - oder_assess_mle_logFM)^2), "\n")
+  
+  cat("createPlotLBAestimates reactive is.NULL", is.null(createPlotLBAestimates()), "\n")
+  
+  cat("************************** end of LB-SPR test *************************\n")
+  cat("***********************************************************************\n")
+  cat("***********************************************************************\n")
+  cat("***********************************************************************\n")
+
+  # LIME run ####
+  # fitLIME is **reactive** so we must set all parameters at the same time
+  session$setInputs(MLL = 19)
+  cat("MLL = ", input$MLL, "\n")
+  cat("************************** start LIME test ****************************\n")
+  session$setInputs(lengthBasedAssessmentMethod = "LIME")
+  cat("slidert0 =", input$slidert0, "\n")
+  
+  # click button
+  cat("click button\n")
+  #session$setInputs(fitLBA = 1)
+  #session$setInputs(sigmaR = 1.0)
+  
+  # sequence of events is out of sync perhaps?
+  # LIME technical parameters are specified at the same time as LB-SPR
+  # so we recreate this in test-oder
+  # examine if
 })
 
