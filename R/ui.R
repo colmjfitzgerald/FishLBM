@@ -540,7 +540,9 @@ ui <- navbarPage(
                                                                 width = "100%", height = "600px"),
                                                      div(),
                                                      textOutput(outputId = "textFishingEstimateOutput"),
-                                                     downloadButton(outputId = "downloadFishingData", label = "Download data",
+                                                     downloadButton(outputId = "downloadStockStatusData", label = "Download stock status",
+                                                                    class = "btn-link"),
+                                                     downloadButton(outputId = "downloadSelectivityData", label = "Download selectivity-at-length data",
                                                                     class = "btn-link"),
                                                      downloadButton(outputId = "downloadFishingPlot", label = "Download plot",
                                                                     class = "btn-link")

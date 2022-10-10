@@ -2468,26 +2468,24 @@ server <- function(input, output, session){
     }
   })
   
-  output$downloadFishingData <- downloadHandler(
+  output$downloadStockStatusData <- downloadHandler(
     filename = function() {
-      paste("FishingEstimatesData-", Sys.Date(), ".zip", sep="")
+      paste("stock_status_estimates-", Sys.Date(), ".csv", sep="")
     },
     content = function(fname) {
-      withr::with_dir(
-        tempdir(),
-        {
-          all_files <-  c("stock_status.csv", "fleet_selectivity.csv")
-          write.csv(fishingEstimates()$stock_status, file = "stock_status.csv", row.names = FALSE)
-          write.csv(fishingEstimates()$fleet_select, file = "fleet_selectivity.csv", row.names = FALSE)
-          
-          zip(zipfile = fname, files = all_files)
-          if(file.exists(paste0(fname, ".zip"))) {
-            file.rename(paste0(fname, ".zip"), fname)
-          }
-        }
-      )
+      write.csv(fishingEstimates()$stock_status, file = fname, row.names = FALSE)
     },
-    contentType = "application/zip"
+    contentType = "text/csv"
+  )
+  
+  output$downloadSelectivityData <- downloadHandler(
+    filename = function() {
+      paste("fleet_selectivity-", Sys.Date(), ".csv", sep="")
+    },
+    content = function(fname) {
+      write.csv(fishingEstimates()$fleet_select, file = fname, row.names = FALSE)
+    },
+    contentType = "text/csv"
   )
   
   output$downloadFishingPlot <- downloadHandler(
