@@ -23,8 +23,8 @@ source_gist(id = "https://gist.github.com/colmjfitzgerald/86feef722803dcc6c82b69
 # see https://archimer.ifremer.fr/doc/00390/50174/50795.pdf for details
 # courtesy of Coilin Minto at Marine Institute, Ireland
 
-source("./ui.R")
-source("./server.R")
+source("./R/ui.R")
+source("./R/server.R")
 
 
 shinyApp(ui, server)
