@@ -311,7 +311,7 @@ ui <- navbarPage(
                                           #div(id = "lbAssessment", hr()), # "Choose assessment" #  decide on length-based assessment
                                           selectInput(inputId = "lengthBasedAssessmentMethod", label = "Assessment method",
                                                       choices = c("LB-SPR", "LIME")),
-                                          sliderTextInput(inputId = "Linc",
+                                          shinyWidgets::sliderTextInput(inputId = "Linc",
                                                           label = "Length bin width",
                                                           selected = 1,
                                                           choices = c(0.25, 0.5, 1, 2, 4, 5),
