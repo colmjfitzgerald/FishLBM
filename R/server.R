@@ -1724,7 +1724,7 @@ server <- function(input, output, session){
       #lbsprPars[ ,colnames(lbsprPars)!= "SPR"] %>%
       mlePars %>%
         knitr::kable("html", digits = 3) %>%
-        kable_styling("striped", full_width = F, position = "float_left")
+        kableExtra::kable_styling("striped", full_width = F, position = "float_left")
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
       fitLIMEout <- fitLIME()$lc_only
       yearsLIME <- row.names(fitLIME()$LF)
@@ -1760,7 +1760,7 @@ server <- function(input, output, session){
       
       dfLIME %>%
          knitr::kable("html", digits = 3) %>%
-         kable_styling("striped", full_width = F, position = "float_left")
+         kableExtra::kable_styling("striped", full_width = F, position = "float_left")
     }
     }
   )
@@ -1987,16 +1987,16 @@ server <- function(input, output, session){
     }
     
     if(specifySelectivity == "Fixed value"){
-        tableData %>% kable("html") %>% 
-          kable_styling("striped", full_width = F, position = "float_left") %>%
-          pack_rows("Mortality", 1, 3) %>% 
-          pack_rows("Status", 4, 4)
+        tableData %>% knitr::kable("html") %>% 
+          kableExtra::kable_styling("striped", full_width = F, position = "float_left") %>%
+          kableExtra::pack_rows("Mortality", 1, 3) %>% 
+          kableExtra::pack_rows("Status", 4, 4)
     } else {
-        tableData %>% kable("html") %>% 
-          kable_styling("striped", full_width = F, position = "float_left") %>%
-          pack_rows("Mortality", 1, 3) %>% 
-          pack_rows("Selectivity", 4, 5) %>%
-          pack_rows("Status", 6, 6)
+        tableData %>% knitr::kable("html") %>% 
+          kableExtra::kable_styling("striped", full_width = F, position = "float_left") %>%
+          kableExtra::pack_rows("Mortality", 1, 3) %>% 
+          kableExtra::pack_rows("Selectivity", 4, 5) %>%
+          kableExtra::pack_rows("Status", 6, 6)
     }
     
     
@@ -2041,12 +2041,12 @@ server <- function(input, output, session){
     }
     
     tableData %>%
-      kable("html", digits = c(3,3,3,3,3, NA, rep(3,dim(tableData)[1] - 6))) %>%
+      knitr::kable("html", digits = c(3,3,3,3,3, NA, rep(3,dim(tableData)[1] - 6))) %>%
       kable_styling("striped", full_width = F, position = "float_left") %>%
-      pack_rows("Mortality", 1, 1) %>%
-      pack_rows("Growth", 2, 3) %>%
-      pack_rows("Maturity", 4, 5) %>%
-      pack_rows("Selectivity", 6, dim(tableData)[1]) 
+      kableExtra::pack_rows("Mortality", 1, 1) %>%
+      kableExtra::pack_rows("Growth", 2, 3) %>%
+      kableExtra::pack_rows("Maturity", 4, 5) %>%
+      kableExtra::pack_rows("Selectivity", 6, dim(tableData)[1]) 
   })
   
   
