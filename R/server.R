@@ -1334,7 +1334,7 @@ server <- function(input, output, session){
     renderPlotly({
       lengthData <- lengthDataInput()$lengthRecords
       lengthCol <- lengthDataInput()$lengthCol
-
+      
       if(all(lengthData$isVulnerable, na.rm = TRUE)) {
         ggLengthComp <- ggplot(lengthData %>% dplyr::filter(!is.na(!!sym(newLengthCol())))) +  
           geom_histogram(mapping = aes_string(x = lengthCol), fill = "grey80",
@@ -1676,7 +1676,8 @@ server <- function(input, output, session){
       
 
       # prepare LIME inputs
-      data_all <- list("years"=as.numeric(first(rownames(lfLIME))):as.numeric(last(rownames(lfLIME))), 
+      data_all <- list("years"=as.numeric(dplyr::first(rownames(lfLIME))):
+                         as.numeric(dplyr::last(rownames(lfLIME))), 
                        "LF"=LF,  
                        "neff_ft"= neff_ft)
 
@@ -1878,7 +1879,8 @@ server <- function(input, output, session){
         scale_color_brewer(palette="Set1", direction=-1) + 
         facet_wrap(as.formula(paste0(year_col," ~ .")))
       
-      expr = plotly::ggplotly(pg + theme_bw()) %>% layout(autosize = TRUE)
+      expr = plotly::ggplotly(pg + theme_bw()) %>% 
+        plotly::layout(autosize = TRUE)
     }
     
   })
@@ -2042,7 +2044,7 @@ server <- function(input, output, session){
     
     tableData %>%
       knitr::kable("html", digits = c(3,3,3,3,3, NA, rep(3,dim(tableData)[1] - 6))) %>%
-      kable_styling("striped", full_width = F, position = "float_left") %>%
+      kableExtra::kable_styling("striped", full_width = F, position = "float_left") %>%
       kableExtra::pack_rows("Mortality", 1, 1) %>%
       kableExtra::pack_rows("Growth", 2, 3) %>%
       kableExtra::pack_rows("Maturity", 4, 5) %>%
@@ -2107,7 +2109,7 @@ server <- function(input, output, session){
       
       # add annotations
       pl_y <- plotly::subplot(figs, nrows = nrows_ply, shareX = TRUE, titleY = FALSE, margin = margin_ply) %>%
-        layout(title = "Catch-length composition (standardised)",
+        plotly::layout(title = "Catch-length composition (standardised)",
                annotations = annotations_ply)
       # # plotly
       # pl_y <- plotly::plot_ly(data = NatL_LBSPR, 
@@ -2210,8 +2212,9 @@ server <- function(input, output, session){
                   type = "scatter",mode = "lines+markers") %>% 
         plotly::add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - equilibrium",
                   type = "scatter",mode = "lines+markers")
-      pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
-                              yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
+      pl_y <- pl_y %>% 
+        plotly::layout(xaxis = list(title = newLengthCol(), font = "f"), 
+                       yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
     }
     expr <- pl_y
   })
@@ -2360,7 +2363,7 @@ server <- function(input, output, session){
       
       DM <- fishingLBSPR %>% 
         dplyr::filter(quantity %in% c("F", "M")) %>% 
-        rename(mortality = quantity)
+        dplyr::rename(mortality = quantity)
       DSPR <- fishingLBSPR %>% 
         dplyr::filter(quantity == "SPR")
       
@@ -2421,10 +2424,11 @@ server <- function(input, output, session){
         
         yearsLBA <- fishingLBSPR$year[fishingLBSPR$quantity == "F"]
         
-        fishMortality <- DM %>% pivot_wider(id_cols = year, 
-                                            names_from = mortality, 
-                                            values_from = c("mean", "sderr", "lowerci", "upperci"), 
-                                            names_sep = "" )
+        fishMortality <- DM %>% 
+          tidyr::pivot_wider(id_cols = year, 
+                             names_from = mortality, 
+                             values_from = c("mean", "sderr", "lowerci", "upperci"), 
+                             names_sep = "" )
         
         # indicate unreliable variance estimates
         pch_plot <- rep(19, length(yearsLBA))
@@ -2600,7 +2604,7 @@ server <- function(input, output, session){
         theme_bw() + 
         theme(axis.text = element_text(size = 12),
               axis.title = element_text(size = 12))
-      pl_y <- plotly::ggplotly(p = pg) %>% highlight("plotly_selected")
+      pl_y <- plotly::ggplotly(p = pg) %>% plotly::highlight("plotly_selected")
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR") {
       parConstraintsLBSPR <- diagnostics$parConstraints
       diagnosticEstimatesLBSPR <- diagnostics$diagnosticEstimates
@@ -2647,7 +2651,7 @@ server <- function(input, output, session){
                               margin = c(0.05, 0.0, 0.0, 0.0), 
                               widths = c(0.31, 0.345, 0.345),
                               shareY = TRUE, titleX = TRUE) %>%
-        layout(xaxis = list(title = "estimate"), 
+        plotly::layout(xaxis = list(title = "estimate"), 
                xaxis2 = list(title = "estimate"), 
                xaxis3 = list(title = "estimate"), font = list(size = 14))
     }
