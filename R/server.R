@@ -2093,7 +2093,7 @@ server <- function(input, output, session){
         figs[[i_year]] <- 
           plotly::plot_ly(data = catchAtLength, x = ~length, y = ~catch_standardised, color = ~exploitation,
                   type = "scatter", mode = "lines+markers", colors = c('#ff7f0e', '#1f77b4'), 
-                  showlegend = showlegendstatus) #%>%add_trace(x = ~length, y = ~catchnfished_at_length)
+                  showlegend = showlegendstatus) #%>%plotly::add_trace(x = ~length, y = ~catchnfished_at_length)
         irow <- floor((i_year-1)/ncols_ply)
         icol <- (i_year-1) %% ncols_ply
         
@@ -2113,7 +2113,7 @@ server <- function(input, output, session){
       # pl_y <- plotly::plot_ly(data = NatL_LBSPR, 
       #                 x = ~ length_mid, y = ~ catchUnfished_at_length, name = "unfished", 
       #                 type = "scatter", mode = "lines+markers", frame = TRUE) %>% 
-      #   add_trace(y = ~ catchFished_at_length, name = "fished", mode = "lines+markers")
+      #   plotly::add_trace(y = ~ catchFished_at_length, name = "fished", mode = "lines+markers")
       # # adding histogram/bar data difficult in plot_ly
       # #lengthData <- binLengthData()
       # # %>% add_bars(data = lengthData,
@@ -2206,9 +2206,9 @@ server <- function(input, output, session){
       pl_y <- plotly::plot_ly(data = NatL_LIME, 
                       x = ~ length_mid, y = ~ catchFished, name = "fished - model fit", 
                       type = "scatter", mode = "lines+markers", frame = TRUE) %>%
-        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - equilibrium",
+        plotly::add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - equilibrium",
                   type = "scatter",mode = "lines+markers") %>% 
-        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - equilibrium",
+        plotly::add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - equilibrium",
                   type = "scatter",mode = "lines+markers")
       pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
                               yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
@@ -2347,7 +2347,7 @@ server <- function(input, output, session){
     if(input$lengthBasedAssessmentMethod == "LIME"){
       lc_only <- fitLIME()$lc_only
       lh <- fitLIME()$lh
-      p <- plot_output(Inputs=lc_only$Inputs,
+      p <- LIME::plot_output(Inputs=lc_only$Inputs,
                   Report=lc_only$Report,
                   Sdreport=lc_only$Sdreport,
                   lh=lh,
