@@ -332,7 +332,7 @@ server <- function(input, output, session){
   # visualise data ====
   output$lengthComposition <- renderPlotly({
     # catchdata_plot() eventReactive on input$selectCols
-    expr = ggplotly(p = catchdata_plot())
+    expr = plotly::ggplotly(p = catchdata_plot())
   })
   
   
@@ -621,9 +621,9 @@ server <- function(input, output, session){
     # consider: req(growthModel$nls$convInfo$isConv) & !is.null(req(growthModel$nls$convInfo$isConv))
     if(anyAgeData()){
     if(input$fitGrowth > 0) {
-      ggplotly(ggGrowth_CurveALData() + ggGrowthFitMean() + ggGrowthFitCI() + ggLinf())    
+      plotly::ggplotly(ggGrowth_CurveALData() + ggGrowthFitMean() + ggGrowthFitCI() + ggLinf())
     } else {
-      ggplotly(ggGrowth_CurveALData())
+      plotly::ggplotly(ggGrowth_CurveALData())
     }
     } else {
       lengthData <- lengthRecordsFilter()
@@ -640,7 +640,7 @@ server <- function(input, output, session){
         facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, 
                                           value = TRUE)," ~ .")))
       }
-      ggplotly(p)
+      plotly::ggplotly(p)
     }  
   })
   
@@ -1086,7 +1086,7 @@ server <- function(input, output, session){
                                    size = 2,
                                    quantity = "maturity")
         )
-        expr = ggplotly(ggplot(ggdata) + 
+        expr = plotly::ggplotly(ggplot(ggdata) + 
                           geom_line(aes( x = length, y = proportion, colour = quantity, size = size,
                                          linetype = quantity)) +
                           scale_colour_manual(values = c("red", "black")) +
@@ -1354,7 +1354,7 @@ server <- function(input, output, session){
           theme_bw() + 
           theme(legend.position = "bottom")
       }
-      expr = ggplotly(ggLengthComp)
+      expr = plotly::ggplotly(ggLengthComp)
     })
   
   
@@ -1391,7 +1391,7 @@ server <- function(input, output, session){
       labs(y = "Count") +
       facet_wrap(vars(year)) +
       theme_bw()
-    expr = ggplotly(pg)
+    expr = plotly::ggplotly(pg)
   })
 
 
@@ -1828,7 +1828,7 @@ server <- function(input, output, session){
       #labels = c("0", "1")
       #                                       ) )
       
-      expr = ggplotly(pg +  
+      expr = plotly::ggplotly(pg +  
                         scale_x_continuous(name = length_col) +
                         facet_wrap(vars(year)) + 
                         theme_bw())
@@ -1878,7 +1878,7 @@ server <- function(input, output, session){
         scale_color_brewer(palette="Set1", direction=-1) + 
         facet_wrap(as.formula(paste0(year_col," ~ .")))
       
-      expr = ggplotly(pg + theme_bw()) %>% layout(autosize = TRUE)
+      expr = plotly::ggplotly(pg + theme_bw()) %>% layout(autosize = TRUE)
     }
     
   })
@@ -1902,7 +1902,7 @@ server <- function(input, output, session){
   #               fill = "salmon", alpha = 0.5) + 
   #     facet_grid(rows = vars(quantity))
   #   
-  #   expr = ggplotly(p = pg + theme_bw(),
+  #   expr = plotly::ggplotly(p = pg + theme_bw(),
   #                   height = 400, width = 600)
   # })
 
@@ -2091,7 +2091,7 @@ server <- function(input, output, session){
                                           catch_standardised = NLY$catchUnfished_at_length, 
                                           exploitation = rep("unfished", dim(NLY)[1])))
         figs[[i_year]] <- 
-          plot_ly(data = catchAtLength, x = ~length, y = ~catch_standardised, color = ~exploitation,
+          plotly::plot_ly(data = catchAtLength, x = ~length, y = ~catch_standardised, color = ~exploitation,
                   type = "scatter", mode = "lines+markers", colors = c('#ff7f0e', '#1f77b4'), 
                   showlegend = showlegendstatus) #%>%add_trace(x = ~length, y = ~catchnfished_at_length)
         irow <- floor((i_year-1)/ncols_ply)
@@ -2110,7 +2110,7 @@ server <- function(input, output, session){
         layout(title = "Catch-length composition (standardised)",
                annotations = annotations_ply)
       # # plotly
-      # pl_y <- plot_ly(data = NatL_LBSPR, 
+      # pl_y <- plotly::plot_ly(data = NatL_LBSPR, 
       #                 x = ~ length_mid, y = ~ catchUnfished_at_length, name = "unfished", 
       #                 type = "scatter", mode = "lines+markers", frame = TRUE) %>% 
       #   add_trace(y = ~ catchFished_at_length, name = "fished", mode = "lines+markers")
@@ -2123,8 +2123,8 @@ server <- function(input, output, session){
       #                         yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
       # #title = "Per recruit theory - catch")
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
-      pl_y <- plotly_empty() %>% 
-        plotly:: config(staticPlot = TRUE)
+      pl_y <- plotly::plotly_empty() %>% 
+        plotly::config(staticPlot = TRUE)
       
       # LIME - life history and model fit data
       fitLIMEout <- fitLIME()
@@ -2203,7 +2203,7 @@ server <- function(input, output, session){
                                    catchUnfished = limeSimF0$plb[[1]][Nyears_sim,],
                                    catchFished = limeSimF$plb[[1]][Nyears_sim,])
       
-      pl_y <- plot_ly(data = NatL_LIME, 
+      pl_y <- plotly::plot_ly(data = NatL_LIME, 
                       x = ~ length_mid, y = ~ catchFished, name = "fished - model fit", 
                       type = "scatter", mode = "lines+markers", frame = TRUE) %>%
         add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - equilibrium",
@@ -2600,7 +2600,7 @@ server <- function(input, output, session){
         theme_bw() + 
         theme(axis.text = element_text(size = 12),
               axis.title = element_text(size = 12))
-      pl_y <- ggplotly(p = pg) %>% highlight("plotly_selected")  
+      pl_y <- plotly::ggplotly(p = pg) %>% highlight("plotly_selected")
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR") {
       parConstraintsLBSPR <- diagnostics$parConstraints
       diagnosticEstimatesLBSPR <- diagnostics$diagnosticEstimates
