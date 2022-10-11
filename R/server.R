@@ -1336,7 +1336,7 @@ server <- function(input, output, session){
       lengthCol <- lengthDataInput()$lengthCol
 
       if(all(lengthData$isVulnerable, na.rm = TRUE)) {
-        ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) +  
+        ggLengthComp <- ggplot(lengthData %>% dplyr::filter(!is.na(!!sym(newLengthCol())))) +  
           geom_histogram(mapping = aes_string(x = lengthCol), fill = "grey80",
                          breaks = createLengthBins()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
@@ -1344,7 +1344,7 @@ server <- function(input, output, session){
           geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
           theme_bw()
       } else {
-        ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) + 
+        ggLengthComp <- ggplot(lengthData %>% dplyr::filter(!is.na(!!sym(newLengthCol())))) + 
           geom_histogram(mapping = aes_string(x = lengthCol, fill = "isVulnerable"),
                          breaks = createLengthBins()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
@@ -1367,7 +1367,7 @@ server <- function(input, output, session){
     }
     
     lengthData <- lengthDataInput()$lengthRecords
-    lengthDataVul <- lengthData %>% filter(isVulnerable)
+    lengthDataVul <- lengthData %>% dplyr::filter(isVulnerable)
     lengthCol <-  lengthDataInput()$lengthCol   
 
     # maximum counts per year
@@ -1809,7 +1809,7 @@ server <- function(input, output, session){
       
       
       # create ggplot with data...
-      pg <- ggplot(length_records %>% filter(isVulnerable)) + 
+      pg <- ggplot(length_records %>% dplyr::filter(isVulnerable)) + 
         geom_histogram(mapping = aes_string(x = length_col), breaks = LenBins, 
                        closed = "left", colour = "black", fill = "grey75")
       
@@ -1868,10 +1868,10 @@ server <- function(input, output, session){
       pred_df2 <- pred_df %>% dplyr::mutate("Type"="Predicted") %>% dplyr::mutate("Model"="LIME")
       
       # plot_LCfits adaption
-      pg <- ggplot(length_records %>% filter(isVulnerable)) + 
+      pg <- ggplot(length_records %>% dplyr::filter(isVulnerable)) + 
         geom_histogram(aes_string(x = length_col, y = "..density..*..width..", fill = "isVulnerable"),
                        colour = "black", size = 0.25, breaks = LenBins, closed = "left") + 
-        geom_line(data=pred_df2 %>% filter(Type=="Predicted"), 
+        geom_line(data=pred_df2 %>% dplyr::filter(Type=="Predicted"), 
                   aes(x=!!ensym(length_col), y=proportion, color=Model), alpha = 0.5, lwd=1.2) +
         scale_fill_manual(name = "observed \n data", values = c("grey75"), breaks = waiver(), guide = NULL) +
         labs(y = "catch proportion") +
@@ -2359,10 +2359,10 @@ server <- function(input, output, session){
       selectLBSPR <- fishingEstimates()$fleet_select
       
       DM <- fishingLBSPR %>% 
-        filter(quantity %in% c("F", "M")) %>% 
+        dplyr::filter(quantity %in% c("F", "M")) %>% 
         rename(mortality = quantity)
       DSPR <- fishingLBSPR %>% 
-        filter(quantity == "SPR")
+        dplyr::filter(quantity == "SPR")
       
       p <- plot.new()
       if(input$analyseLengthComposition == "all periods"){
