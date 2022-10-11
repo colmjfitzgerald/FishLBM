@@ -70,7 +70,7 @@ ui <- navbarPage(
            fluidPage(
              fluidRow(
                h3("Catch data by attribute"),
-               DTOutput(outputId = "catchDataTable", height = "auto")
+               DT::DTOutput(outputId = "catchDataTable", height = "auto")
              ),
              fluidRow(
                div(id = "unitConversionOption", hr()),

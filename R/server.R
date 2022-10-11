@@ -321,8 +321,8 @@ server <- function(input, output, session){
   # useful when you want to manipulate the widget before rendering it in 
   # Shiny, e.g. you may apply a formatting function to a table widget"
   output$catchDataTable <- 
-    renderDT(
-      expr = datatable(catchdata_table(), 
+    DT::renderDT(
+      expr = DT::datatable(catchdata_table(), 
                        options = list(autowidth = TRUE, pageLength = 10, scrollX = TRUE, scrollY = FALSE,
                                       orderClasses = TRUE), # position of options? 
                        filter = "top", 
