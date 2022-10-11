@@ -1589,7 +1589,7 @@ server <- function(input, output, session){
         dome_sd <- fleetParVals$dome_sd
       }
 
-      lh <- create_lh_list(vbk= lhParVals$K,    # vb growth coefficient
+      lh <- LIME::create_lh_list(vbk= lhParVals$K,    # vb growth coefficient
                            linf= lhParVals$Linf,  # vbg Linf
                            t0= input$slidert0,  
                            lwa=lhParVals$Walpha,     # length-weight W = aL^b: a  
@@ -1685,7 +1685,7 @@ server <- function(input, output, session){
       
       #  run_LIME ####
       start <- Sys.time()
-      lc_only <- run_LIME(modpath=NULL, 
+      lc_only <- LIME::run_LIME(modpath=NULL, 
                           input=inputs_all,
                           data_avail="LC", 
                           est_selex_f = fleetParVals$est_selex_f,
@@ -2150,7 +2150,7 @@ server <- function(input, output, session){
       # upper limit of 1.3*linf for length_mids/length_bins - more bins than in estimation model
       # model fit selectivity-at-length parameters
       # SigmaR = 0.1 for equilibrium recruitment
-      lh_sim <- create_lh_list(vbk= lh_fit$vbk,    # vb growth coefficient
+      lh_sim <- LIME::create_lh_list(vbk= lh_fit$vbk,    # vb growth coefficient
                      linf= lh_fit$linf,# vbg Linf
                      t0= lh_fit$t0,  
                      lwa= lh_fit$lwa,# length-weight W = aL^b: a  
@@ -2185,12 +2185,12 @@ server <- function(input, output, session){
       # @param comp_sample vector of number of individuals sampled each year (set as 1 for proportions)
       # @param sample_type a character vector specifying if the length comps are sampled from the 'catch' (default) or from the population
       
-      limeSimF0 <- sim_pop(lh_sim, Fdynamics = "None", Rdynamics = "Constant", 
+      limeSimF0 <- LIME::sim_pop(lh_sim, Fdynamics = "None", Rdynamics = "Constant", 
                            Nyears = 20, Nyears_comp = 1, comp_sample = 200, pool = TRUE,
                            init_depl = 0.99, seed = 9999, sample_type = "catch",
                            mgt_type = 'F', fleet_proportions = 1, nareas = 1)
       
-      limeSimF <- sim_pop(lh_sim, Fdynamics = "Constant", Rdynamics = "Constant", 
+      limeSimF <- LIME::sim_pop(lh_sim, Fdynamics = "Constant", Rdynamics = "Constant", 
                            Nyears = 20, Nyears_comp = 1, comp_sample = 200, pool = TRUE,
                            init_depl = SPR_Nyear, seed = 9999, sample_type = "catch",
                            mgt_type = 'F', fleet_proportions = 1, nareas = 1)
