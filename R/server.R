@@ -288,7 +288,7 @@ server <- function(input, output, session){
     { 
       lengthScale <- lengthRecordsScale()
       length_records <- catchdata_table()[input$catchDataTable_rows_all,,drop = FALSE] %>% #select(input$lengthColSelect) %>% 
-        mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
+        dplyr::mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
       length_records
     }
   )
@@ -1319,8 +1319,8 @@ server <- function(input, output, session){
     year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
     if(is.null(year_col) | input$analyseLengthComposition == "all periods"){
       length_records <- length_records %>%
-        select(!!ensym(length_col), isVulnerable) %>%
-        mutate(year = "all periods")
+        dplyr::select(!!ensym(length_col), isVulnerable) %>%
+        dplyr::mutate(year = "all periods")
     } else {
       names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)] <- "year"
     }
@@ -1644,11 +1644,11 @@ server <- function(input, output, session){
       # # ---------------> lh$linf*(1 + lh$CVlen)
       # # or ------------> lh$binwidth*ceiling(lh$linf*(1 + lh$CVlen)/lh$binwidth)
       # lrLIME <- length_records[, c(yearCol, lengthCol)] %>% na.omit() %>%
-      #   mutate(lengthBin = cut(!!ensym(lengthCol), breaks = lengthBins, 
+      #   dplyr::mutate(lengthBin = cut(!!ensym(lengthCol), breaks = lengthBins, 
       #                          right = FALSE),
       #          year = factor(!!ensym(yearCol), levels = seq(year_min, year_max, 1)))  %>% # lengthMids??
-      #   group_by(year, lengthBin) %>%
-      #   summarise(nFish = n())
+      #   dplyr::group_by(year, lengthBin) %>%
+      #   dplyr::summarise(nFish = n())
       # 
       # 
       # # configure length data for LIME
@@ -1784,8 +1784,8 @@ server <- function(input, output, session){
     # is year column present?
     if(is.null(year_col) | input$analyseLengthComposition == "all periods"){
       length_records <- length_records %>%
-        select(!!ensym(length_col), isVulnerable) %>%
-        mutate(year = "all periods")
+        dplyr::select(!!ensym(length_col), isVulnerable) %>%
+        dplyr::mutate(year = "all periods")
     } else {
       #rename as year or facetting
       names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)] <- "year"
@@ -1865,7 +1865,7 @@ server <- function(input, output, session){
         pred_df$proportion <-  as.numeric(pred_df$proportion)
         pred_df$fleet <- factor(pred_df$fleet)
       }
-      pred_df2 <- pred_df %>% mutate("Type"="Predicted") %>% mutate("Model"="LIME")
+      pred_df2 <- pred_df %>% dplyr::mutate("Type"="Predicted") %>% dplyr::mutate("Model"="LIME")
       
       # plot_LCfits adaption
       pg <- ggplot(length_records %>% filter(isVulnerable)) + 
@@ -2515,16 +2515,16 @@ server <- function(input, output, session){
       
       
       # parameter constraints
-      parConstraints <- diagnosticLIME %>% select(Param, Lower, Upper, final_gradient) %>%
-        mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
+      parConstraints <- diagnosticLIME %>% dplyr::select(Param, Lower, Upper, final_gradient) %>%
+        dplyr::mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
                Upper = ifelse(is.finite(Upper), Upper, 100),
                Domain = "lightgreen")
       
       # parameter estimates
       diagnosticEstimates <- diagnosticLIME %>%
-        rename(InitialEstimate = starting_value, MaximumLikelihoodEstimate = MLE) %>% 
-        pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
-        select(Param, Estimate, Value)
+        dplyr::rename(InitialEstimate = starting_value, MaximumLikelihoodEstimate = MLE) %>% 
+        tidyr::pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+        dplyr::select(Param, Estimate, Value)
       
       # estimate confidence intervals from standard error from covariance matrix
       ciEstimates <- data.frame(Param = diagnosticLIME$Param,
@@ -2546,7 +2546,7 @@ server <- function(input, output, session){
                    Upper = rep(0, dim(fitLBSPR$MLE)[1]))
       parConstraints$Upper[grepl("log(F/M)", parConstraints$Parameter, fixed = TRUE)] <- Inf
       parConstraints <- parConstraints %>% 
-        mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
+        dplyr::mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
                Upper = ifelse(is.finite(Upper), Upper, 100),
                Domain = "lightgreen")
       
@@ -2555,9 +2555,9 @@ server <- function(input, output, session){
       diagnosticEstimates$Parameter <- parNames
       diagnosticEstimates$Year <- parYears
       diagnosticEstimates <- diagnosticEstimates %>% 
-        rename(InitialEstimate = Initial, MaximumLikelihoodEstimate = Estimate) %>%
-        pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
-        select(Parameter, Year, Estimate, Value)
+        dplyr::rename(InitialEstimate = Initial, MaximumLikelihoodEstimate = Estimate) %>%
+        tidyr::pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+        dplyr::select(Parameter, Year, Estimate, Value)
       
       # confidence intervals - standard error from covariance matrix
       ciEstimates <- data.frame(Parameter = parNames,
