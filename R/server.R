@@ -8,10 +8,20 @@ server <- function(input, output, session){
     req(file_in)
     
     # data from file
-    catch_data <- switch(ext,
-                        xlsx = read.xlsx(xlsxFile = file_in$datapath, sheet = 1, check.names = TRUE),
-                        xls = read_xls(path = file_in$datapath, sheet = 1),
-                        csv = read.csv(file = file_in$datapath, header = TRUE))
+    if(ext == "csv" || ext == ".CSV"){
+      catch_data <- read.csv(file = file_in$datapath, header = TRUE)
+    } else if(ext == "xlsx" || ext == "XLSX"){
+      if(requireNamespace("openxlsx", quietly = FASLE)){
+        catch_data <- openxlsx::read.xlsx(xlsxFile = file_in$datapath, sheet = 1, check.names = TRUE)
+      }
+    } else if(ext == "xls" || ext == "XLS"){
+      if(requireNamespace("readxl", quietly = FASLE)){
+        catch_data <- readxl::read_xls(path = file_in$datapath, sheet = 1)
+      }
+    } else{
+      error("file extension not supported")
+    }
+    catch_data
   })
   
   
