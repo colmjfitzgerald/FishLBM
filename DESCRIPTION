@@ -1,0 +1,35 @@
+Package: shinyFishLBSA
+Title: Shiny App Interfacing with LB-SPR and LIME data-limited methods
+Version: 0.0.0.9000
+Authors@R: 
+    person("Colm", "Fitzgerald", , "colm.fitzgerald@fisheriesireland.ie", 
+	role = c("aut", "cre"), comment = c(ORCID = "0000-0001-9341-0348"))
+Description: A shiny app to input, visualise, filter and assess fish capture 
+	length data. Two length-based methods are supported: Length-Based Spawning 
+	Potential Ratio (LB-SPR) and Length-based Integrated Mixed Effects model 
+	(LIME) model. LVB growth analysis is also supported where fish ages are 
+	also provided. 
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.0
+Depends:
+	LIME,
+	LBSPRDome
+Imports: 
+	shiny,
+    ggplot2,
+	plotly,
+    shinyBS,
+    shinydashboard,
+    shinyWidgets,
+	dplyr,
+	tidyr,
+	DT,
+	knitr,
+	kableExtra,
+	rlang,
+	devtools
+Suggests: 
+    openxlsx,
+    readxl
