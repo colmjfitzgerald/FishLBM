@@ -11,15 +11,15 @@ server <- function(input, output, session){
     if(ext == "csv" || ext == ".CSV"){
       catch_data <- read.csv(file = file_in$datapath, header = TRUE)
     } else if(ext == "xlsx" || ext == "XLSX"){
-      if(requireNamespace("openxlsx", quietly = FASLE)){
+      if(requireNamespace("openxlsx", quietly = FALSE)){
         catch_data <- openxlsx::read.xlsx(xlsxFile = file_in$datapath, sheet = 1, check.names = TRUE)
       }
     } else if(ext == "xls" || ext == "XLS"){
-      if(requireNamespace("readxl", quietly = FASLE)){
+      if(requireNamespace("readxl", quietly = FALSE)){
         catch_data <- readxl::read_xls(path = file_in$datapath, sheet = 1)
       }
     } else{
-      error("file extension not supported")
+      stop("file extension not supported")
     }
     catch_data
   })
@@ -1691,7 +1691,7 @@ server <- function(input, output, session){
                        "LF"=LF,  
                        "neff_ft"= neff_ft)
 
-      inputs_all <- create_inputs(lh=lh, input_data=data_all)
+      inputs_all <- LIME::create_inputs(lh=lh, input_data=data_all)
 
       
       #  run_LIME ####
@@ -1903,7 +1903,7 @@ server <- function(input, output, session){
   #   
   #   # pivot_longer
   #   NatL_long <- NatL_LBSPR %>%
-  #     pivot_longer(cols = ends_with("at_length"),
+  #     pivot_longer(cols = dplyr::ends_with("at_length"),
   #                  names_to = "quantity",
   #                  names_pattern = "(.*)_at_length",
   #                  values_to = "numbers_per_recruit")
@@ -2537,7 +2537,7 @@ server <- function(input, output, session){
       # parameter estimates
       diagnosticEstimates <- diagnosticLIME %>%
         dplyr::rename(InitialEstimate = starting_value, MaximumLikelihoodEstimate = MLE) %>% 
-        tidyr::pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+        tidyr::pivot_longer(cols = dplyr::ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
         dplyr::select(Param, Estimate, Value)
       
       # estimate confidence intervals from standard error from covariance matrix
@@ -2570,7 +2570,7 @@ server <- function(input, output, session){
       diagnosticEstimates$Year <- parYears
       diagnosticEstimates <- diagnosticEstimates %>% 
         dplyr::rename(InitialEstimate = Initial, MaximumLikelihoodEstimate = Estimate) %>%
-        tidyr::pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+        tidyr::pivot_longer(cols = dplyr::ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
         dplyr::select(Parameter, Year, Estimate, Value)
       
       # confidence intervals - standard error from covariance matrix
