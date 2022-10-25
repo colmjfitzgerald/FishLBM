@@ -10,6 +10,6 @@ devtools::source_gist(id = "https://gist.github.com/colmjfitzgerald/86feef722803
 # source("./R/ui.R")
 # source("./R/server.R")
 
-shinyFishLbsaApp <- function(){
+myFishApp <- function(){
   shinyApp(ui, server)
 }
