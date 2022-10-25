@@ -335,7 +335,7 @@ ui <- navbarPage(
                                                        class = "btn-success")
                                    ),
                                    column(width = 9,
-                                          plotlyOutput(outputId = "plotResponsiveLengthComposition",
+                                          plotly::plotlyOutput(outputId = "plotResponsiveLengthComposition",
                                                        width = "100%",
                                                        height = "600px")
                                    )
@@ -365,7 +365,7 @@ ui <- navbarPage(
                                         # specify parameters dependent on input
                                  ),
                                  column(width = 9, # 9
-                                        plotlyOutput(outputId = "plotSelectivityPattern", height = "600px"),
+                                        plotly::plotlyOutput(outputId = "plotSelectivityPattern", height = "600px"),
                                  )
                                ),
                       ),
@@ -512,7 +512,7 @@ ui <- navbarPage(
                                                        class = "btn-success"),
                                    ),
                                    column(width = 9,
-                                          plotlyOutput(outputId = "plotLengthCompSelect", height = "600px")
+                                          plotly::plotlyOutput(outputId = "plotLengthCompSelect", height = "600px")
                                    )
                                  )
                                )
@@ -525,7 +525,7 @@ ui <- navbarPage(
                                                      tags$h3("Model inputs"),
                                                      tableOutput(outputId = "tableStockParameters")),
                                               column(width = 9,
-                                                     plotlyOutput(outputId = "plotLBAModelFit",
+                                                     plotly::plotlyOutput(outputId = "plotLBAModelFit",
                                                                   width = "100%",
                                                                   height = "600px")
                                               )
@@ -565,13 +565,13 @@ ui <- navbarPage(
                                           fluidPage(
                                             fluidRow(
                                               column(width = 12,
-                                                     plotlyOutput(outputId = "plotCatchFishedUnfished",
+                                                     plotly::plotlyOutput(outputId = "plotCatchFishedUnfished",
                                                                   width = "100%", height = "600px"),
                                               )
                                             )#,
                                             # fluidRow(
                                             # column(width = 12,
-                                            #        plotlyOutput(outputId = "plotPopFishedUnfished"),
+                                            #        plotly::plotlyOutput(outputId = "plotPopFishedUnfished"),
                                             # )
                                             # )
                                           )
@@ -582,7 +582,7 @@ ui <- navbarPage(
                                           fluidRow(
                                             column(width = 9,
                                                    #                                                     h3("Parameter estimates, confidence intervals, bounds"),
-                                                   plotlyOutput(outputId = "diagnosticParameterFits",
+                                                   plotly::plotlyOutput(outputId = "diagnosticParameterFits",
                                                                 width = "100%",
                                                                 height = "500px"),
                                             ),
