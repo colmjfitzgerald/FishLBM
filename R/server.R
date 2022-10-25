@@ -8,10 +8,20 @@ server <- function(input, output, session){
     req(file_in)
     
     # data from file
-    catch_data <- switch(ext,
-                        xlsx = read.xlsx(xlsxFile = file_in$datapath, sheet = 1, check.names = TRUE),
-                        xls = read_xls(path = file_in$datapath, sheet = 1),
-                        csv = read.csv(file = file_in$datapath, header = TRUE))
+    if(ext == "csv" || ext == ".CSV"){
+      catch_data <- read.csv(file = file_in$datapath, header = TRUE)
+    } else if(ext == "xlsx" || ext == "XLSX"){
+      if(requireNamespace("openxlsx", quietly = FALSE)){
+        catch_data <- openxlsx::read.xlsx(xlsxFile = file_in$datapath, sheet = 1, check.names = TRUE)
+      }
+    } else if(ext == "xls" || ext == "XLS"){
+      if(requireNamespace("readxl", quietly = FALSE)){
+        catch_data <- readxl::read_xls(path = file_in$datapath, sheet = 1)
+      }
+    } else{
+      stop("file extension not supported")
+    }
+    catch_data
   })
   
   
@@ -288,7 +298,7 @@ server <- function(input, output, session){
     { 
       lengthScale <- lengthRecordsScale()
       length_records <- catchdata_table()[input$catchDataTable_rows_all,,drop = FALSE] %>% #select(input$lengthColSelect) %>% 
-        mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
+        dplyr::mutate("{newLengthCol()}" := .data[[input$lengthColSelect]]*lengthScale)
       length_records
     }
   )
@@ -321,8 +331,8 @@ server <- function(input, output, session){
   # useful when you want to manipulate the widget before rendering it in 
   # Shiny, e.g. you may apply a formatting function to a table widget"
   output$catchDataTable <- 
-    renderDT(
-      expr = datatable(catchdata_table(), 
+    DT::renderDT(
+      expr = DT::datatable(catchdata_table(), 
                        options = list(autowidth = TRUE, pageLength = 10, scrollX = TRUE, scrollY = FALSE,
                                       orderClasses = TRUE), # position of options? 
                        filter = "top", 
@@ -332,7 +342,7 @@ server <- function(input, output, session){
   # visualise data ====
   output$lengthComposition <- renderPlotly({
     # catchdata_plot() eventReactive on input$selectCols
-    expr = ggplotly(p = catchdata_plot())
+    expr = plotly::ggplotly(p = catchdata_plot())
   })
   
   
@@ -621,9 +631,9 @@ server <- function(input, output, session){
     # consider: req(growthModel$nls$convInfo$isConv) & !is.null(req(growthModel$nls$convInfo$isConv))
     if(anyAgeData()){
     if(input$fitGrowth > 0) {
-      ggplotly(ggGrowth_CurveALData() + ggGrowthFitMean() + ggGrowthFitCI() + ggLinf())    
+      plotly::ggplotly(ggGrowth_CurveALData() + ggGrowthFitMean() + ggGrowthFitCI() + ggLinf())
     } else {
-      ggplotly(ggGrowth_CurveALData())
+      plotly::ggplotly(ggGrowth_CurveALData())
     }
     } else {
       lengthData <- lengthRecordsFilter()
@@ -640,7 +650,7 @@ server <- function(input, output, session){
         facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, 
                                           value = TRUE)," ~ .")))
       }
-      ggplotly(p)
+      plotly::ggplotly(p)
     }  
   })
   
@@ -1086,7 +1096,7 @@ server <- function(input, output, session){
                                    size = 2,
                                    quantity = "maturity")
         )
-        expr = ggplotly(ggplot(ggdata) + 
+        expr = plotly::ggplotly(ggplot(ggdata) + 
                           geom_line(aes( x = length, y = proportion, colour = quantity, size = size,
                                          linetype = quantity)) +
                           scale_colour_manual(values = c("red", "black")) +
@@ -1319,8 +1329,8 @@ server <- function(input, output, session){
     year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
     if(is.null(year_col) | input$analyseLengthComposition == "all periods"){
       length_records <- length_records %>%
-        select(!!ensym(length_col), isVulnerable) %>%
-        mutate(year = "all periods")
+        dplyr::select(!!ensym(length_col), isVulnerable) %>%
+        dplyr::mutate(year = "all periods")
     } else {
       names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)] <- "year"
     }
@@ -1334,9 +1344,9 @@ server <- function(input, output, session){
     renderPlotly({
       lengthData <- lengthDataInput()$lengthRecords
       lengthCol <- lengthDataInput()$lengthCol
-
+      
       if(all(lengthData$isVulnerable, na.rm = TRUE)) {
-        ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) +  
+        ggLengthComp <- ggplot(lengthData %>% dplyr::filter(!is.na(!!sym(newLengthCol())))) +  
           geom_histogram(mapping = aes_string(x = lengthCol), fill = "grey80",
                          breaks = createLengthBins()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
@@ -1344,7 +1354,7 @@ server <- function(input, output, session){
           geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
           theme_bw()
       } else {
-        ggLengthComp <- ggplot(lengthData %>% filter(!is.na(!!sym(newLengthCol())))) + 
+        ggLengthComp <- ggplot(lengthData %>% dplyr::filter(!is.na(!!sym(newLengthCol())))) + 
           geom_histogram(mapping = aes_string(x = lengthCol, fill = "isVulnerable"),
                          breaks = createLengthBins()$LenBins, # slideLenBins(),
                          closed = "left", colour = "black") +
@@ -1354,7 +1364,7 @@ server <- function(input, output, session){
           theme_bw() + 
           theme(legend.position = "bottom")
       }
-      expr = ggplotly(ggLengthComp)
+      expr = plotly::ggplotly(ggLengthComp)
     })
   
   
@@ -1367,7 +1377,7 @@ server <- function(input, output, session){
     }
     
     lengthData <- lengthDataInput()$lengthRecords
-    lengthDataVul <- lengthData %>% filter(isVulnerable)
+    lengthDataVul <- lengthData %>% dplyr::filter(isVulnerable)
     lengthCol <-  lengthDataInput()$lengthCol   
 
     # maximum counts per year
@@ -1391,7 +1401,7 @@ server <- function(input, output, session){
       labs(y = "Count") +
       facet_wrap(vars(year)) +
       theme_bw()
-    expr = ggplotly(pg)
+    expr = plotly::ggplotly(pg)
   })
 
 
@@ -1589,7 +1599,7 @@ server <- function(input, output, session){
         dome_sd <- fleetParVals$dome_sd
       }
 
-      lh <- create_lh_list(vbk= lhParVals$K,    # vb growth coefficient
+      lh <- LIME::create_lh_list(vbk= lhParVals$K,    # vb growth coefficient
                            linf= lhParVals$Linf,  # vbg Linf
                            t0= input$slidert0,  
                            lwa=lhParVals$Walpha,     # length-weight W = aL^b: a  
@@ -1644,11 +1654,11 @@ server <- function(input, output, session){
       # # ---------------> lh$linf*(1 + lh$CVlen)
       # # or ------------> lh$binwidth*ceiling(lh$linf*(1 + lh$CVlen)/lh$binwidth)
       # lrLIME <- length_records[, c(yearCol, lengthCol)] %>% na.omit() %>%
-      #   mutate(lengthBin = cut(!!ensym(lengthCol), breaks = lengthBins, 
+      #   dplyr::mutate(lengthBin = cut(!!ensym(lengthCol), breaks = lengthBins, 
       #                          right = FALSE),
       #          year = factor(!!ensym(yearCol), levels = seq(year_min, year_max, 1)))  %>% # lengthMids??
-      #   group_by(year, lengthBin) %>%
-      #   summarise(nFish = n())
+      #   dplyr::group_by(year, lengthBin) %>%
+      #   dplyr::summarise(nFish = n())
       # 
       # 
       # # configure length data for LIME
@@ -1676,16 +1686,17 @@ server <- function(input, output, session){
       
 
       # prepare LIME inputs
-      data_all <- list("years"=as.numeric(first(rownames(lfLIME))):as.numeric(last(rownames(lfLIME))), 
+      data_all <- list("years"=as.numeric(dplyr::first(rownames(lfLIME))):
+                         as.numeric(dplyr::last(rownames(lfLIME))), 
                        "LF"=LF,  
                        "neff_ft"= neff_ft)
 
-      inputs_all <- create_inputs(lh=lh, input_data=data_all)
+      inputs_all <- LIME::create_inputs(lh=lh, input_data=data_all)
 
       
       #  run_LIME ####
       start <- Sys.time()
-      lc_only <- run_LIME(modpath=NULL, 
+      lc_only <- LIME::run_LIME(modpath=NULL, 
                           input=inputs_all,
                           data_avail="LC", 
                           est_selex_f = fleetParVals$est_selex_f,
@@ -1724,7 +1735,7 @@ server <- function(input, output, session){
       #lbsprPars[ ,colnames(lbsprPars)!= "SPR"] %>%
       mlePars %>%
         knitr::kable("html", digits = 3) %>%
-        kable_styling("striped", full_width = F, position = "float_left")
+        kableExtra::kable_styling("striped", full_width = F, position = "float_left")
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
       fitLIMEout <- fitLIME()$lc_only
       yearsLIME <- row.names(fitLIME()$LF)
@@ -1760,7 +1771,7 @@ server <- function(input, output, session){
       
       dfLIME %>%
          knitr::kable("html", digits = 3) %>%
-         kable_styling("striped", full_width = F, position = "float_left")
+         kableExtra::kable_styling("striped", full_width = F, position = "float_left")
     }
     }
   )
@@ -1784,8 +1795,8 @@ server <- function(input, output, session){
     # is year column present?
     if(is.null(year_col) | input$analyseLengthComposition == "all periods"){
       length_records <- length_records %>%
-        select(!!ensym(length_col), isVulnerable) %>%
-        mutate(year = "all periods")
+        dplyr::select(!!ensym(length_col), isVulnerable) %>%
+        dplyr::mutate(year = "all periods")
     } else {
       #rename as year or facetting
       names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)] <- "year"
@@ -1809,7 +1820,7 @@ server <- function(input, output, session){
       
       
       # create ggplot with data...
-      pg <- ggplot(length_records %>% filter(isVulnerable)) + 
+      pg <- ggplot(length_records %>% dplyr::filter(isVulnerable)) + 
         geom_histogram(mapping = aes_string(x = length_col), breaks = LenBins, 
                        closed = "left", colour = "black", fill = "grey75")
       
@@ -1828,7 +1839,7 @@ server <- function(input, output, session){
       #labels = c("0", "1")
       #                                       ) )
       
-      expr = ggplotly(pg +  
+      expr = plotly::ggplotly(pg +  
                         scale_x_continuous(name = length_col) +
                         facet_wrap(vars(year)) + 
                         theme_bw())
@@ -1865,20 +1876,21 @@ server <- function(input, output, session){
         pred_df$proportion <-  as.numeric(pred_df$proportion)
         pred_df$fleet <- factor(pred_df$fleet)
       }
-      pred_df2 <- pred_df %>% mutate("Type"="Predicted") %>% mutate("Model"="LIME")
+      pred_df2 <- pred_df %>% dplyr::mutate("Type"="Predicted") %>% dplyr::mutate("Model"="LIME")
       
       # plot_LCfits adaption
-      pg <- ggplot(length_records %>% filter(isVulnerable)) + 
+      pg <- ggplot(length_records %>% dplyr::filter(isVulnerable)) + 
         geom_histogram(aes_string(x = length_col, y = "..density..*..width..", fill = "isVulnerable"),
                        colour = "black", size = 0.25, breaks = LenBins, closed = "left") + 
-        geom_line(data=pred_df2 %>% filter(Type=="Predicted"), 
+        geom_line(data=pred_df2 %>% dplyr::filter(Type=="Predicted"), 
                   aes(x=!!ensym(length_col), y=proportion, color=Model), alpha = 0.5, lwd=1.2) +
         scale_fill_manual(name = "observed \n data", values = c("grey75"), breaks = waiver(), guide = NULL) +
         labs(y = "catch proportion") +
         scale_color_brewer(palette="Set1", direction=-1) + 
         facet_wrap(as.formula(paste0(year_col," ~ .")))
       
-      expr = ggplotly(pg + theme_bw()) %>% layout(autosize = TRUE)
+      expr = plotly::ggplotly(pg + theme_bw()) %>% 
+        plotly::layout(autosize = TRUE)
     }
     
   })
@@ -1891,7 +1903,7 @@ server <- function(input, output, session){
   #   
   #   # pivot_longer
   #   NatL_long <- NatL_LBSPR %>%
-  #     pivot_longer(cols = ends_with("at_length"),
+  #     pivot_longer(cols = dplyr::ends_with("at_length"),
   #                  names_to = "quantity",
   #                  names_pattern = "(.*)_at_length",
   #                  values_to = "numbers_per_recruit")
@@ -1902,7 +1914,7 @@ server <- function(input, output, session){
   #               fill = "salmon", alpha = 0.5) + 
   #     facet_grid(rows = vars(quantity))
   #   
-  #   expr = ggplotly(p = pg + theme_bw(),
+  #   expr = plotly::ggplotly(p = pg + theme_bw(),
   #                   height = 400, width = 600)
   # })
 
@@ -1987,16 +1999,16 @@ server <- function(input, output, session){
     }
     
     if(specifySelectivity == "Fixed value"){
-        tableData %>% kable("html") %>% 
-          kable_styling("striped", full_width = F, position = "float_left") %>%
-          pack_rows("Mortality", 1, 3) %>% 
-          pack_rows("Status", 4, 4)
+        tableData %>% knitr::kable("html") %>% 
+          kableExtra::kable_styling("striped", full_width = F, position = "float_left") %>%
+          kableExtra::pack_rows("Mortality", 1, 3) %>% 
+          kableExtra::pack_rows("Status", 4, 4)
     } else {
-        tableData %>% kable("html") %>% 
-          kable_styling("striped", full_width = F, position = "float_left") %>%
-          pack_rows("Mortality", 1, 3) %>% 
-          pack_rows("Selectivity", 4, 5) %>%
-          pack_rows("Status", 6, 6)
+        tableData %>% knitr::kable("html") %>% 
+          kableExtra::kable_styling("striped", full_width = F, position = "float_left") %>%
+          kableExtra::pack_rows("Mortality", 1, 3) %>% 
+          kableExtra::pack_rows("Selectivity", 4, 5) %>%
+          kableExtra::pack_rows("Status", 6, 6)
     }
     
     
@@ -2041,12 +2053,12 @@ server <- function(input, output, session){
     }
     
     tableData %>%
-      kable("html", digits = c(3,3,3,3,3, NA, rep(3,dim(tableData)[1] - 6))) %>%
-      kable_styling("striped", full_width = F, position = "float_left") %>%
-      pack_rows("Mortality", 1, 1) %>%
-      pack_rows("Growth", 2, 3) %>%
-      pack_rows("Maturity", 4, 5) %>%
-      pack_rows("Selectivity", 6, dim(tableData)[1]) 
+      knitr::kable("html", digits = c(3,3,3,3,3, NA, rep(3,dim(tableData)[1] - 6))) %>%
+      kableExtra::kable_styling("striped", full_width = F, position = "float_left") %>%
+      kableExtra::pack_rows("Mortality", 1, 1) %>%
+      kableExtra::pack_rows("Growth", 2, 3) %>%
+      kableExtra::pack_rows("Maturity", 4, 5) %>%
+      kableExtra::pack_rows("Selectivity", 6, dim(tableData)[1]) 
   })
   
   
@@ -2091,9 +2103,9 @@ server <- function(input, output, session){
                                           catch_standardised = NLY$catchUnfished_at_length, 
                                           exploitation = rep("unfished", dim(NLY)[1])))
         figs[[i_year]] <- 
-          plot_ly(data = catchAtLength, x = ~length, y = ~catch_standardised, color = ~exploitation,
+          plotly::plot_ly(data = catchAtLength, x = ~length, y = ~catch_standardised, color = ~exploitation,
                   type = "scatter", mode = "lines+markers", colors = c('#ff7f0e', '#1f77b4'), 
-                  showlegend = showlegendstatus) #%>%add_trace(x = ~length, y = ~catchnfished_at_length)
+                  showlegend = showlegendstatus) #%>%plotly::add_trace(x = ~length, y = ~catchnfished_at_length)
         irow <- floor((i_year-1)/ncols_ply)
         icol <- (i_year-1) %% ncols_ply
         
@@ -2107,13 +2119,13 @@ server <- function(input, output, session){
       
       # add annotations
       pl_y <- plotly::subplot(figs, nrows = nrows_ply, shareX = TRUE, titleY = FALSE, margin = margin_ply) %>%
-        layout(title = "Catch-length composition (standardised)",
+        plotly::layout(title = "Catch-length composition (standardised)",
                annotations = annotations_ply)
       # # plotly
-      # pl_y <- plot_ly(data = NatL_LBSPR, 
+      # pl_y <- plotly::plot_ly(data = NatL_LBSPR, 
       #                 x = ~ length_mid, y = ~ catchUnfished_at_length, name = "unfished", 
       #                 type = "scatter", mode = "lines+markers", frame = TRUE) %>% 
-      #   add_trace(y = ~ catchFished_at_length, name = "fished", mode = "lines+markers")
+      #   plotly::add_trace(y = ~ catchFished_at_length, name = "fished", mode = "lines+markers")
       # # adding histogram/bar data difficult in plot_ly
       # #lengthData <- binLengthData()
       # # %>% add_bars(data = lengthData,
@@ -2123,8 +2135,8 @@ server <- function(input, output, session){
       #                         yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
       # #title = "Per recruit theory - catch")
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
-      pl_y <- plotly_empty() %>% 
-        plotly:: config(staticPlot = TRUE)
+      pl_y <- plotly::plotly_empty() %>% 
+        plotly::config(staticPlot = TRUE)
       
       # LIME - life history and model fit data
       fitLIMEout <- fitLIME()
@@ -2150,7 +2162,7 @@ server <- function(input, output, session){
       # upper limit of 1.3*linf for length_mids/length_bins - more bins than in estimation model
       # model fit selectivity-at-length parameters
       # SigmaR = 0.1 for equilibrium recruitment
-      lh_sim <- create_lh_list(vbk= lh_fit$vbk,    # vb growth coefficient
+      lh_sim <- LIME::create_lh_list(vbk= lh_fit$vbk,    # vb growth coefficient
                      linf= lh_fit$linf,# vbg Linf
                      t0= lh_fit$t0,  
                      lwa= lh_fit$lwa,# length-weight W = aL^b: a  
@@ -2185,12 +2197,12 @@ server <- function(input, output, session){
       # @param comp_sample vector of number of individuals sampled each year (set as 1 for proportions)
       # @param sample_type a character vector specifying if the length comps are sampled from the 'catch' (default) or from the population
       
-      limeSimF0 <- sim_pop(lh_sim, Fdynamics = "None", Rdynamics = "Constant", 
+      limeSimF0 <- LIME::sim_pop(lh_sim, Fdynamics = "None", Rdynamics = "Constant", 
                            Nyears = 20, Nyears_comp = 1, comp_sample = 200, pool = TRUE,
                            init_depl = 0.99, seed = 9999, sample_type = "catch",
                            mgt_type = 'F', fleet_proportions = 1, nareas = 1)
       
-      limeSimF <- sim_pop(lh_sim, Fdynamics = "Constant", Rdynamics = "Constant", 
+      limeSimF <- LIME::sim_pop(lh_sim, Fdynamics = "Constant", Rdynamics = "Constant", 
                            Nyears = 20, Nyears_comp = 1, comp_sample = 200, pool = TRUE,
                            init_depl = SPR_Nyear, seed = 9999, sample_type = "catch",
                            mgt_type = 'F', fleet_proportions = 1, nareas = 1)
@@ -2203,15 +2215,16 @@ server <- function(input, output, session){
                                    catchUnfished = limeSimF0$plb[[1]][Nyears_sim,],
                                    catchFished = limeSimF$plb[[1]][Nyears_sim,])
       
-      pl_y <- plot_ly(data = NatL_LIME, 
+      pl_y <- plotly::plot_ly(data = NatL_LIME, 
                       x = ~ length_mid, y = ~ catchFished, name = "fished - model fit", 
                       type = "scatter", mode = "lines+markers", frame = TRUE) %>%
-        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - equilibrium",
+        plotly::add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - equilibrium",
                   type = "scatter",mode = "lines+markers") %>% 
-        add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - equilibrium",
+        plotly::add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - equilibrium",
                   type = "scatter",mode = "lines+markers")
-      pl_y <- pl_y %>% layout(xaxis = list(title = newLengthCol(), font = "f"),
-                              yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
+      pl_y <- pl_y %>% 
+        plotly::layout(xaxis = list(title = newLengthCol(), font = "f"), 
+                       yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
     }
     expr <- pl_y
   })
@@ -2347,7 +2360,7 @@ server <- function(input, output, session){
     if(input$lengthBasedAssessmentMethod == "LIME"){
       lc_only <- fitLIME()$lc_only
       lh <- fitLIME()$lh
-      p <- plot_output(Inputs=lc_only$Inputs,
+      p <- LIME::plot_output(Inputs=lc_only$Inputs,
                   Report=lc_only$Report,
                   Sdreport=lc_only$Sdreport,
                   lh=lh,
@@ -2359,10 +2372,10 @@ server <- function(input, output, session){
       selectLBSPR <- fishingEstimates()$fleet_select
       
       DM <- fishingLBSPR %>% 
-        filter(quantity %in% c("F", "M")) %>% 
-        rename(mortality = quantity)
+        dplyr::filter(quantity %in% c("F", "M")) %>% 
+        dplyr::rename(mortality = quantity)
       DSPR <- fishingLBSPR %>% 
-        filter(quantity == "SPR")
+        dplyr::filter(quantity == "SPR")
       
       p <- plot.new()
       if(input$analyseLengthComposition == "all periods"){
@@ -2421,10 +2434,11 @@ server <- function(input, output, session){
         
         yearsLBA <- fishingLBSPR$year[fishingLBSPR$quantity == "F"]
         
-        fishMortality <- DM %>% pivot_wider(id_cols = year, 
-                                            names_from = mortality, 
-                                            values_from = c("mean", "sderr", "lowerci", "upperci"), 
-                                            names_sep = "" )
+        fishMortality <- DM %>% 
+          tidyr::pivot_wider(id_cols = year, 
+                             names_from = mortality, 
+                             values_from = c("mean", "sderr", "lowerci", "upperci"), 
+                             names_sep = "" )
         
         # indicate unreliable variance estimates
         pch_plot <- rep(19, length(yearsLBA))
@@ -2515,16 +2529,16 @@ server <- function(input, output, session){
       
       
       # parameter constraints
-      parConstraints <- diagnosticLIME %>% select(Param, Lower, Upper, final_gradient) %>%
-        mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
+      parConstraints <- diagnosticLIME %>% dplyr::select(Param, Lower, Upper, final_gradient) %>%
+        dplyr::mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
                Upper = ifelse(is.finite(Upper), Upper, 100),
                Domain = "lightgreen")
       
       # parameter estimates
       diagnosticEstimates <- diagnosticLIME %>%
-        rename(InitialEstimate = starting_value, MaximumLikelihoodEstimate = MLE) %>% 
-        pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
-        select(Param, Estimate, Value)
+        dplyr::rename(InitialEstimate = starting_value, MaximumLikelihoodEstimate = MLE) %>% 
+        tidyr::pivot_longer(cols = dplyr::ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+        dplyr::select(Param, Estimate, Value)
       
       # estimate confidence intervals from standard error from covariance matrix
       ciEstimates <- data.frame(Param = diagnosticLIME$Param,
@@ -2546,7 +2560,7 @@ server <- function(input, output, session){
                    Upper = rep(0, dim(fitLBSPR$MLE)[1]))
       parConstraints$Upper[grepl("log(F/M)", parConstraints$Parameter, fixed = TRUE)] <- Inf
       parConstraints <- parConstraints %>% 
-        mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
+        dplyr::mutate(Lower = ifelse(is.finite(Lower), Lower, -100),
                Upper = ifelse(is.finite(Upper), Upper, 100),
                Domain = "lightgreen")
       
@@ -2555,9 +2569,9 @@ server <- function(input, output, session){
       diagnosticEstimates$Parameter <- parNames
       diagnosticEstimates$Year <- parYears
       diagnosticEstimates <- diagnosticEstimates %>% 
-        rename(InitialEstimate = Initial, MaximumLikelihoodEstimate = Estimate) %>%
-        pivot_longer(cols = ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
-        select(Parameter, Year, Estimate, Value)
+        dplyr::rename(InitialEstimate = Initial, MaximumLikelihoodEstimate = Estimate) %>%
+        tidyr::pivot_longer(cols = dplyr::ends_with("Estimate"), names_to = "Estimate", values_to = "Value", names_pattern = "(.*)Estimate") %>% 
+        dplyr::select(Parameter, Year, Estimate, Value)
       
       # confidence intervals - standard error from covariance matrix
       ciEstimates <- data.frame(Parameter = parNames,
@@ -2600,7 +2614,7 @@ server <- function(input, output, session){
         theme_bw() + 
         theme(axis.text = element_text(size = 12),
               axis.title = element_text(size = 12))
-      pl_y <- ggplotly(p = pg) %>% highlight("plotly_selected")  
+      pl_y <- plotly::ggplotly(p = pg) %>% plotly::highlight("plotly_selected")
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR") {
       parConstraintsLBSPR <- diagnostics$parConstraints
       diagnosticEstimatesLBSPR <- diagnostics$diagnosticEstimates
@@ -2647,7 +2661,7 @@ server <- function(input, output, session){
                               margin = c(0.05, 0.0, 0.0, 0.0), 
                               widths = c(0.31, 0.345, 0.345),
                               shareY = TRUE, titleX = TRUE) %>%
-        layout(xaxis = list(title = "estimate"), 
+        plotly::layout(xaxis = list(title = "estimate"), 
                xaxis2 = list(title = "estimate"), 
                xaxis3 = list(title = "estimate"), font = list(size = 14))
     }
