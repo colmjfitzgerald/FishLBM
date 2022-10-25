@@ -340,7 +340,7 @@ server <- function(input, output, session){
       )
   
   # visualise data ====
-  output$lengthComposition <- renderPlotly({
+  output$lengthComposition <- plotly::renderPlotly({
     # catchdata_plot() eventReactive on input$selectCols
     expr = plotly::ggplotly(p = catchdata_plot())
   })
@@ -627,7 +627,7 @@ server <- function(input, output, session){
   
   
   # growth outputs ####
-  output$lvbGrowthCurve <- renderPlotly({#expr =
+  output$lvbGrowthCurve <- plotly::renderPlotly({#expr =
     # consider: req(growthModel$nls$convInfo$isConv) & !is.null(req(growthModel$nls$convInfo$isConv))
     if(anyAgeData()){
     if(input$fitGrowth > 0) {
@@ -1080,7 +1080,7 @@ server <- function(input, output, session){
 
   #observeEvent(
   #  input$btnFixedFleetPars, {
-      output$plotSelectivityPattern <- renderPlotly({
+      output$plotSelectivityPattern <- plotly::renderPlotly({
         isolate(length_vals <- seq(min(lengthRecordsFilter()[,newLengthCol()], na.rm = TRUE), 
                            input$Linf, length.out = 201))
         if(req(input$specifySelectivity) == "Initial estimate" ){
@@ -1341,7 +1341,7 @@ server <- function(input, output, session){
   
   # plot length composition of filtered data - change with slider input
   output$plotResponsiveLengthComposition <- 
-    renderPlotly({
+    plotly::renderPlotly({
       lengthData <- lengthDataInput()$lengthRecords
       lengthCol <- lengthDataInput()$lengthCol
       
@@ -1368,7 +1368,7 @@ server <- function(input, output, session){
     })
   
   
-  output$plotLengthCompSelect <- renderPlotly({
+  output$plotLengthCompSelect <- plotly::renderPlotly({
     ggdata <- selectionCurves()
     if(req(input$specifySelectivity) == "Initial estimate" ){
       gg_lty <- 2
@@ -1785,7 +1785,7 @@ server <- function(input, output, session){
   #   expr = print(fitLBSPR()$opModelOut)
   # })
   
-  output$plotLBAModelFit <- renderPlotly({
+  output$plotLBAModelFit <- plotly::renderPlotly({
     # length data
     length_records <- lengthRecordsFilter()
     length_col <- newLengthCol()
@@ -1897,7 +1897,7 @@ server <- function(input, output, session){
   
   
 
-  # output$plotOpLBSPR <- renderPlotly({
+  # output$plotOpLBSPR <- plotly::renderPlotly({
   #   # operating model output based on estimating model fit
   #   NatL_LBSPR <- fitLBSPR()$NatL_LBSPR
   #   
@@ -2064,7 +2064,7 @@ server <- function(input, output, session){
   
   # interpretation panel
   # visual comparison of exploited and unexploited fish populations
-  output$plotCatchFishedUnfished <- renderPlotly({
+  output$plotCatchFishedUnfished <- plotly::renderPlotly({
     
     if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       # data
@@ -2585,7 +2585,7 @@ server <- function(input, output, session){
          "ciEstimates" = ciEstimates)
   })
   
-  output$diagnosticParameterFits <- renderPlotly({
+  output$diagnosticParameterFits <- plotly::renderPlotly({
     diagnostics <- diagnosticData()  
     if(input$lengthBasedAssessmentMethod == "LIME") {
       parConstraintsLIME <- diagnostics$parConstraints
