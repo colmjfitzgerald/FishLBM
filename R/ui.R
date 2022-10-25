@@ -59,7 +59,7 @@ ui <- navbarPage(
              ),
              column(width = 6,
                     h5("Length composition by attribute"),
-                    plotlyOutput(outputId = "lengthComposition",
+                    plotly::plotlyOutput(outputId = "lengthComposition",
                                  width = "100%",
                                  height = "800px")
              )
@@ -217,7 +217,7 @@ ui <- navbarPage(
                       tabPanel("Growth", value = "tabLengthAtAgeFit",
                                fluidRow(
                                  column(width = 8,
-                                        plotlyOutput(outputId = "lvbGrowthCurve", width = "100%", height = "400px")
+                                        plotly::plotlyOutput(outputId = "lvbGrowthCurve", width = "100%", height = "400px")
                                  ),
                                  column(width = 4, 
                                         h3("von Bertalanffy growth", id = "vbg_header"),
@@ -297,7 +297,7 @@ ui <- navbarPage(
            )
   ),
   tabPanel("Length-based assessment", value = "tabLBA",
-           #         plotlyOutput(outputId = "lengthAge",
+           #         plotly::plotlyOutput(outputId = "lengthAge",
            #                      width = "90%"),
            navbarPage(title = "Assessment steps",
                       id = "methodLBSPR",
