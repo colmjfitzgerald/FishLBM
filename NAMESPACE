@@ -9,7 +9,7 @@ importFrom(ggplot2, ggplot, geom_histogram, geom_line, geom_rug,
 	facet_grid, facet_wrap, theme, theme_bw, element_text)
 importFrom(plotly, renderPlotly, plotlyOutput)
 importFrom(dplyr, "%>%")
-importFrom(rlang, "!!")
+importFrom(rlang, "!!", ":=", ".data")
 importFrom(shinydashboard, box)
 importFrom(LIME, create_lh_list, run_LIME, sim_pop, plot_output)
 importFrom(LBSPRDome, optLBSPRDome, simLBSPRDome)
@@ -21,4 +21,5 @@ importFrom("graphics", "abline", "arrows", "axis", "barplot", "hist",
     "lines", "par", "plot.new", "points", "polygon")
 importFrom("stats", "as.formula", "coef", "fitted", "na.omit", "nls",
            "nls.control", "predict", "quantile", "resid")
-importFrom("utils", "read.csv", "str", "write.csv")
+importFrom("utils", "read.csv", "str", "write.csv", "globalVariables")
+importFrom("reshape2", "melt")

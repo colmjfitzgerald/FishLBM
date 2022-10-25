@@ -19,10 +19,10 @@ Depends:
 	shinyBS
 Imports: 
 	shiny,
-    ggplot2,
+	ggplot2,
 	plotly,
-    shinydashboard,
-    shinyWidgets,
+	shinydashboard,
+	shinyWidgets,
 	dplyr,
 	tidyr,
 	DT,
@@ -33,7 +33,8 @@ Imports:
 	grDevices,
 	graphics,
 	utils,
-	stats
+	stats,
+	reshape2
 Suggests: 
     openxlsx,
     readxl
