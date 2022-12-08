@@ -20,7 +20,8 @@ importFrom("grDevices", "dev.off")
 importFrom("graphics", "abline", "arrows", "axis", "barplot", "hist",
     "lines", "par", "plot.new", "points", "polygon")
 importFrom("stats", "as.formula", "coef", "fitted", "na.omit", "nls",
-           "nls.control", "predict", "quantile", "resid")
+           "nls.control", "predict", "quantile", "resid", "lm", "coefficients",
+		   "sigma")
 importFrom("utils", "read.csv", "str", "write.csv", "globalVariables")
 importFrom("reshape2", "melt")
 export(myFishApp)

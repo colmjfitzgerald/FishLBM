@@ -247,12 +247,18 @@ ui <- navbarPage(
                                  )
                                ),
                       ),
-                      # tabPanel("Maturity",
-                      #          fluidRow(
-                      #            column(width = 12,
-                      #                   NULL)
-                      #          )
-                      # ),
+                      tabPanel("Weight/mass-at-length",
+                              fluidRow(
+                                column(width = 8,
+                                       plotly::plotlyOutput("lengthWeightData")),
+                                column(width = 4,
+                                       fitWeightLengthInput("wlCurve"))
+                              ),
+                              fluidRow(
+                                column(width = 12,
+                                       fitWeightLengthOutput("wlCurve"))
+                              )
+                      ),
                       # tags$head(
                       #   tags$style(
                       #     'thead {

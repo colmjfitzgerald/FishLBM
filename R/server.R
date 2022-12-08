@@ -658,6 +658,60 @@ server <- function(input, output, session){
     expr = print(summary(growthFrequentistFit()$nls, correlation = TRUE))
   })
   
+  # weight-at-length ####
+  anyWeightData <- reactive({
+    ifelse(is.null(input$checkboxCatchData), FALSE, any(grepl("weight", input$checkboxCatchData, ignore.case = TRUE)))
+  })
+  
+  gatherFishWeightLengthData <- reactive({
+    lengthColChr <- paste0(newLengthCol())
+    lengthData <- lengthRecordsFilter()
+    sexCol <- grep("sex", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
+    lengthWeightData <- NULL
+    if(anyWeightData()){
+      weightCol <- grep("weight", input$checkboxCatchData, ignore.case = TRUE, value = TRUE)
+      #browser()
+      if(is.character(lengthData[, weightCol])){
+        lengthData[, weightCol] <- as.numeric(gsub("\\+", "", lengthData[, weightCol])) 
+      }
+      lengthWeight <- data.frame(lengthData[, c(lengthColChr)],
+                                 lengthData[, weightCol],
+                                 lengthData[, sexCol])
+      colnames(lengthWeight) <- c(lengthColChr, weightCol, sexCol)
+      lengthWeightData <- lengthWeight[!is.na(lengthWeight[, weightCol]) & !is.na(lengthWeight[, lengthColChr]),]
+      colnames(lengthWeightData) <- c("length", "weight", sexCol)
+    } else{
+      lengthWeight <- data.frame(lengthData[, c(lengthColChr)], 
+                                 lengthData[, sexCol])
+      colnames(lengthWeightData) <- c("length", sexCol)
+    }
+    lengthWeightData
+  })
+  
+  geom_weight_length_data <- reactive({
+    if(anyWeightData()){
+      p_geom <- geom_point(data = gatherFishWeightLengthData(), 
+                           aes(x = length, y = weight)) #fill = sexCol  
+    } else {
+      p_geom <- geom_blank()
+    }
+    p_geom
+  })
+  
+  lwFit <- fitWeightLengthServer("wlCurve", gatherFishWeightLengthData)$lwFit
+  geom_line_lw_fit <- fitWeightLengthServer("wlCurve", gatherFishWeightLengthData)$geom_line_lw_fit
+  
+  
+  # output length, weight columns from module?
+  output$lengthWeightData <- plotly::renderPlotly({
+    p <- ggplot() +
+      geom_weight_length_data() + 
+      geom_line_lw_fit() + 
+      theme_bw()# idea: set sexCol to NI
+    plotly::ggplotly(p)
+  }
+  )
+  
   
   # LB-SPR assessment ====
   
@@ -763,6 +817,13 @@ server <- function(input, output, session){
     updateNumericInput(session, "Lm50", value = updateMaturity())
     updateNumericInput(session, "Lm95", value = updateMaturity95())
   })
+  
+  # weight-at-length coefficients
+  observe({
+    updateNumericInput(session, "Walpha", value = signif(lwFit()$walpha, 4))
+    updateNumericInput(session, "Wbeta", value = signif(lwFit()$wbeta, 4))
+  })
+  
   
   
   # reactive list for biological inputs
