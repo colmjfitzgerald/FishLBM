@@ -1932,7 +1932,7 @@ server <- function(input, output, session){
         names(pred_df) <- c(year_col , length_col, "proportion", "fleet")
         pred_df <- pred_df %>%
           dplyr::group_by(!!ensym(year_col), !!ensym(length_col), proportion, fleet)
-        pred_df[[year_col]] <- factor(pred_df[[year_col]])
+        pred_df[[year_col]] <- as.integer(pred_df[[year_col]])
         pred_df[[length_col]] <- as.numeric(pred_df[[length_col]])
         pred_df$proportion <-  as.numeric(pred_df$proportion)
         pred_df$fleet <- factor(pred_df$fleet)
@@ -1941,8 +1941,8 @@ server <- function(input, output, session){
       
       # plot_LCfits adaption
       pg <- ggplot(length_records %>% dplyr::filter(isVulnerable)) + 
-        geom_histogram(aes_string(x = length_col, y = "..density..*..width..", fill = "isVulnerable"),
-                       colour = "black", size = 0.25, breaks = LenBins, closed = "left") + 
+        geom_histogram(aes(x = !!ensym(length_col), y = after_stat(density*width), fill = isVulnerable),
+                       colour = "black", size = 0.25, breaks = lengthBins, closed = "left") +
         geom_line(data=pred_df2 %>% dplyr::filter(Type=="Predicted"), 
                   aes(x=!!ensym(length_col), y=proportion, color=Model), alpha = 0.5, lwd=1.2) +
         scale_fill_manual(name = "observed \n data", values = c("grey75"), breaks = waiver(), guide = NULL) +

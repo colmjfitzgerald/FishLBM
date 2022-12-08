@@ -6,7 +6,7 @@ importFrom(ggplot2, ggplot, geom_histogram, geom_line, geom_rug,
 	scale_colour_manual, scale_fill_manual, label_wrap_gen, margin, 
 	scale_x_continuous, scale_y_continuous, scale_color_brewer,
 	scale_y_discrete, scale_shape_manual, coord_cartesian, waiver,
-	facet_grid, facet_wrap, theme, theme_bw, element_text)
+	facet_grid, facet_wrap, theme, theme_bw, element_text, after_stat)
 importFrom(plotly, renderPlotly, plotlyOutput)
 importFrom(dplyr, "%>%")
 importFrom(rlang, "!!", ":=", ".data")
