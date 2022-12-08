@@ -1942,7 +1942,7 @@ server <- function(input, output, session){
       # plot_LCfits adaption
       pg <- ggplot(length_records %>% dplyr::filter(isVulnerable)) + 
         geom_histogram(aes(x = !!ensym(length_col), y = after_stat(density*width), fill = isVulnerable),
-                       colour = "black", size = 0.25, breaks = lengthBins, closed = "left") +
+                       colour = "black", size = 0.25, breaks = LenBins, closed = "left") +
         geom_line(data=pred_df2 %>% dplyr::filter(Type=="Predicted"), 
                   aes(x=!!ensym(length_col), y=proportion, color=Model), alpha = 0.5, lwd=1.2) +
         scale_fill_manual(name = "observed \n data", values = c("grey75"), breaks = waiver(), guide = NULL) +
