@@ -35,6 +35,7 @@ Imports:
 	utils,
 	stats,
 	reshape2
+Remotes: colmjfitzgerald/LIME
 Suggests: 
     openxlsx,
     readxl
