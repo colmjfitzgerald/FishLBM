@@ -1775,9 +1775,12 @@ server <- function(input, output, session){
   observeEvent(input$fitLBA,
                {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")
                  if(input$lengthBasedAssessmentMethod == "LIME") {
+                   limeFitStatus <-  all(is.na(fitLIME()$lc_only$opt$final_gradient)) & !("Convergence_check" %in% names(fitLIME()$lc_only$opt))
                    showModal(modalDialog(
                      title = "TMBhelper convergence check",
-                     fitLIME()$lc_only$opt$Convergence_check,
+                     ifelse(limeFitStatus, 
+                            paste("Model not converged:", names(fitLIME()$lc_only$opt), "=", fitLIME()$lc_only$opt$final_gradient, sep = " "), 
+                            fitLIME()$lc_only$opt$Convergence_check),
                      easyClose = TRUE,
                      size = "m"), session)
                  }
@@ -1798,38 +1801,43 @@ server <- function(input, output, session){
         knitr::kable("html", digits = 3) %>%
         kableExtra::kable_styling("striped", full_width = F, position = "float_left")
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
-      fitLIMEout <- fitLIME()$lc_only
+      limeFit <- fitLIME()$lc_only
       yearsLIME <- row.names(fitLIME()$LF)
-      
-      # fishing mortality
-      log_fishing <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="lF_y"),]
-      
-      # recruitment parameter
-      log_sigma_R <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_sigma_R"),]
-      
-      # Dirichlet-multinomial parameter
-      log_theta <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_theta"),]
-      
-      # length-at-selectivity parameters
-      if(input$specifySelectivity == "Initial estimate"){
-        log_S50_f <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_S50_f"), ]
-        log_Sdelta_f <- summary(fitLIMEout$Sdreport)[which(rownames(summary(fitLIMEout$Sdreport))=="log_Sdelta_f"),]
+
+      dfLIME <- data.frame(year = c(yearsLIME, rep("all",4)),
+                           quantity = c(rep("logF", length(yearsLIME)), "log_S50_f", "log_Sdelta_f", "log_sigma_R", "log_theta"),
+                           estimate = NA,
+                           std_error = NA)
+      if(!all(is.null(limeFit$Report)) & !all(is.na(limeFit$Report))){
+        # fishing mortality
+        log_fishing <- summary(limeFit$Sdreport)[which(rownames(summary(limeFit$Sdreport))=="lF_y"),]
         
-        dfLIME <- data.frame(year = c(yearsLIME, rep("all",4)),
-                             quantity = c(rep("logF", length(yearsLIME)), "log_S50_f", "log_Sdelta_f", "log_sigma_R", "log_theta"),
-                             estimate = c(log_fishing[ ,"Estimate"], log_S50_f["Estimate"], log_Sdelta_f["Estimate"],
-                                          log_sigma_R["Estimate"], log_theta["Estimate"]),
-                             std_error = c(log_fishing[ ,"Std. Error"], log_S50_f["Std. Error"], log_Sdelta_f["Std. Error"],
-                                           log_sigma_R["Std. Error"], log_theta["Std. Error"])
-        )
-      } else if(input$specifySelectivity == "Fixed value") {
-        dfLIME <- data.frame(year = c(yearsLIME, rep("all",2)),
-                             quantity = c(rep("logF", length(yearsLIME)), "log_sigma_R", "log_theta"),
-                             estimate = c(log_fishing[ ,"Estimate"], log_sigma_R["Estimate"], log_theta["Estimate"]),
-                             std_error = c(log_fishing[ ,"Std. Error"], log_sigma_R["Std. Error"], log_theta["Std. Error"])
-        )
+        # recruitment parameter
+        log_sigma_R <- summary(limeFit$Sdreport)[which(rownames(summary(limeFit$Sdreport))=="log_sigma_R"),]
+        
+        # Dirichlet-multinomial parameter
+        log_theta <- summary(limeFit$Sdreport)[which(rownames(summary(limeFit$Sdreport))=="log_theta"),]
+        
+        # length-at-selectivity parameters
+        if(input$specifySelectivity == "Initial estimate"){
+          log_S50_f <- summary(limeFit$Sdreport)[which(rownames(summary(limeFit$Sdreport))=="log_S50_f"), ]
+          log_Sdelta_f <- summary(limeFit$Sdreport)[which(rownames(summary(limeFit$Sdreport))=="log_Sdelta_f"),]
+          
+          dfLIME <- data.frame(year = c(yearsLIME, rep("all",4)),
+                               quantity = c(rep("logF", length(yearsLIME)), "log_S50_f", "log_Sdelta_f", "log_sigma_R", "log_theta"),
+                               estimate = c(log_fishing[ ,"Estimate"], log_S50_f["Estimate"], log_Sdelta_f["Estimate"],
+                                            log_sigma_R["Estimate"], log_theta["Estimate"]),
+                               std_error = c(log_fishing[ ,"Std. Error"], log_S50_f["Std. Error"], log_Sdelta_f["Std. Error"],
+                                             log_sigma_R["Std. Error"], log_theta["Std. Error"])
+          )
+        } else if(input$specifySelectivity == "Fixed value") {
+          dfLIME <- data.frame(year = c(yearsLIME, rep("all",2)),
+                               quantity = c(rep("logF", length(yearsLIME)), "log_sigma_R", "log_theta"),
+                               estimate = c(log_fishing[ ,"Estimate"], log_sigma_R["Estimate"], log_theta["Estimate"]),
+                               std_error = c(log_fishing[ ,"Std. Error"], log_sigma_R["Std. Error"], log_theta["Std. Error"])
+          )
+        }
       }
-      
       dfLIME %>%
          knitr::kable("html", digits = 3) %>%
          kableExtra::kable_styling("striped", full_width = F, position = "float_left")
@@ -1905,21 +1913,29 @@ server <- function(input, output, session){
                         facet_wrap(vars(year)) + 
                         theme_bw())
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
-      fitLIMEobj <- fitLIME()
+      limeFit <- fitLIME()
       
       # length data and year attribute
-      length_records <- fitLIMEobj$length_data_raw
+      length_records <- limeFit$length_data_raw
       year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
       length_records$isVulnerable <- length_records[, length_col] >= input$MLL
 
       # predictions - code extracted from https://github.com/merrillrudd/LIME/blob/master/R/plot_LCfits.R
-      Inputs <- fitLIMEobj$lc_only$Inputs
-      Report <- fitLIMEobj$lc_only$Report
-      nf <- fitLIMEobj$lc_only$input$nfleets
-      Tyrs <- fitLIMEobj$lc_only$input$years
+      nf <- limeFit$lc_only$input$nfleets
+      Tyrs <- limeFit$lc_only$input$years
+      
+      pg <- ggplot(length_records %>% dplyr::filter(isVulnerable)) + 
+        geom_histogram(aes(x = !!ensym(length_col), y = after_stat(density*width), fill = isVulnerable),
+                       colour = "black", size = 0.25, breaks = LenBins, closed = "left") +
+        scale_fill_manual(name = "observed \n data", values = c("grey75"), breaks = waiver(), guide = NULL) +
+        labs(y = "catch proportion") +
+        facet_wrap(as.formula(paste0(year_col," ~ .")))
       
       # Plot_LCfits code (modified)
-      if(all(is.null(Report))==FALSE){
+      if(!all(is.null(limeFit$lc_only$Report)) & !all(is.na(limeFit$lc_only$Report))){
+        Inputs <- limeFit$lc_only$Inputs
+        Report <- limeFit$lc_only$Report
+        
         # pred <- Report$plb
         pred <- lapply(1:nf, function(x){
           sub <- matrix(Report$plb[,,x], nrow=length(Tyrs))
@@ -1936,20 +1952,14 @@ server <- function(input, output, session){
         pred_df[[length_col]] <- as.numeric(pred_df[[length_col]])
         pred_df$proportion <-  as.numeric(pred_df$proportion)
         pred_df$fleet <- factor(pred_df$fleet)
+        pred_df2 <- pred_df %>% dplyr::mutate("Type"="Predicted") %>% dplyr::mutate("Model"="LIME")
+        # plot_LCfits adaption
+        pg <- pg + 
+          geom_line(data=pred_df2 %>% dplyr::filter(Type=="Predicted"), 
+                    aes(x=!!ensym(length_col), y=proportion, color=Model), alpha = 0.5, lwd=1.2) +
+          scale_color_brewer(palette="Set1", direction=-1)
       }
-      pred_df2 <- pred_df %>% dplyr::mutate("Type"="Predicted") %>% dplyr::mutate("Model"="LIME")
-      
-      # plot_LCfits adaption
-      pg <- ggplot(length_records %>% dplyr::filter(isVulnerable)) + 
-        geom_histogram(aes(x = !!ensym(length_col), y = after_stat(density*width), fill = isVulnerable),
-                       colour = "black", size = 0.25, breaks = LenBins, closed = "left") +
-        geom_line(data=pred_df2 %>% dplyr::filter(Type=="Predicted"), 
-                  aes(x=!!ensym(length_col), y=proportion, color=Model), alpha = 0.5, lwd=1.2) +
-        scale_fill_manual(name = "observed \n data", values = c("grey75"), breaks = waiver(), guide = NULL) +
-        labs(y = "catch proportion") +
-        scale_color_brewer(palette="Set1", direction=-1) + 
-        facet_wrap(as.formula(paste0(year_col," ~ .")))
-      
+
       expr = plotly::ggplotly(pg + theme_bw()) %>% 
         plotly::layout(autosize = TRUE)
     }
@@ -2039,23 +2049,32 @@ server <- function(input, output, session){
             SPR[iyear])
       }
     } else if(lbaMethod == "LIME") {
-      lime_data <- fitLIME()$lc_only
-      # lime_data$input$selex_type, lime_data$Report$F_t, yearsLBA = row.names(fitLIME()$LF)
+      limeFit <- fitLIME()$lc_only
+      # limeFit$input$selex_type, limeFit$Report$F_t, yearsLBA = row.names(fitLIME()$LF)
       # ML95/M95 "length" calculated in create_lh_list() if not specified
-      yearsLBA <- row.names(fitLIME()$LF) # could we obtain from lime_data??
+      yearsLBA <- row.names(fitLIME()$LF) # could we obtain from limeFit??
       nYears <- length(yearsLBA)
-      if(specifySelectivity == "Fixed value"){
-        tableData[, yearsLBA] = rbind(rep(lime_data$input$M, nYears), 
-                                      signif(lime_data$Report$F_t, 3),
-                                      format(lime_data$Report$F_t + lime_data$input$M, digits = 3),
-                                      signif(lime_data$Report$SPR_t, 3))
+      
+      if(!all(is.null(limeFit$Report)) & !all(is.na(limeFit$Report))){
+        F_t <- signif(limeFit$Report$F_t, 3)
+        Z_t <- format(limeFit$Report$F_t + limeFit$input$M, digits = 3)
+        SPR_t <- signif(limeFit$Report$SPR_t, 3)
       } else {
-        tableData[, yearsLBA] = rbind(rep(lime_data$input$M, nYears), 
-                                      signif(lime_data$Report$F_t, 3),
-                                      format(lime_data$Report$F_t + lime_data$input$M, digits = 3),
-                                      rep(signif(lime_data$Report$S50_f, 3), nYears),
-                                      rep(signif(lime_data$Report$S95_f, 3), nYears),
-                                      signif(lime_data$Report$SPR_t, 3))
+        F_t <- rep(NA, nYears)
+        Z_t <- rep(NA, nYears)
+        SPR_t <- rep(NA, nYears)
+      }
+      if(specifySelectivity == "Fixed value"){
+        tableData[, yearsLBA] = rbind(rep(limeFit$input$M, nYears), F_t, Z_t, SPR_t)
+      } else {
+        if(!all(is.null(limeFit$Report)) & !all(is.na(limeFit$Report))){
+          tableData[, yearsLBA] = rbind(rep(limeFit$input$M, nYears), F_t, Z_t, 
+                                        rep(signif(limeFit$Report$S50_f, 3), nYears),
+                                        rep(signif(limeFit$Report$S95_f, 3), nYears),
+                                        SPR_t)
+        } else {
+          tableData[, yearsLBA] = rbind(rep(limeFit$input$M, nYears), F_t, Z_t, rep(NA, nYears), rep(NA, nYears), SPR_t)
+        }
       }
     }
     
@@ -2093,7 +2112,7 @@ server <- function(input, output, session){
       tableData[tableData$Notation == "MLL",]$Value <- format(ifelse(is.null(lbsprGearInput$SLMin), input$MLL, lbsprGearInput$SLMin), 
                                                               digits = 3)
     } else if(input$lengthBasedAssessmentMethod == "LIME") {
-      lime_data <- fitLIME()$lc_only
+      limeFit <- fitLIME()$lc_only
       tableData[tableData$Notation == "MLL",]$Value <- signif(input$MLL, digits = 3)
     }
     
@@ -2200,92 +2219,94 @@ server <- function(input, output, session){
         plotly::config(staticPlot = TRUE)
       
       # LIME - life history and model fit data
-      fitLIMEout <- fitLIME()
-      lh_fit <- fitLIMEout$lh
-      limeFit <- fitLIMEout$lc_only
+      limeFit <- fitLIME()
+      lh_fit <- limeFit$lh
+      limeFit <- limeFit$lc_only
       
-      Nyears_est <- limeFit$input$Nyears
-      SPR_Nyear <- limeFit$Report$SPR_t[Nyears_est]
-      
-      
-      lengthBins <- isolate(createLengthBins()$LenBins)
-      lengthMids <- isolate(createLengthBins()$LenMids)
-      
-      # observation years (would prefer a better way - fleet independent)
-      years_o <- which(limeFit$input$neff_ft != 0)
-  
-      # LIME fit of "probability of being in length bin" for final year
-      catchFishedEst <- (limeFit$Report$plb[, ,1])/rowSums(limeFit$Report$plb[, ,1])
-      NatL_LIME <- data.frame(length_mid = lengthMids,
-                              catchFished =  catchFishedEst[Nyears_est,])
-      
-      # simulate fishing/no-fishing equilibrium
-      # upper limit of 1.3*linf for length_mids/length_bins - more bins than in estimation model
-      # model fit selectivity-at-length parameters
-      # SigmaR = 0.1 for equilibrium recruitment
-      lh_sim <- LIME::create_lh_list(vbk= lh_fit$vbk,    # vb growth coefficient
-                     linf= lh_fit$linf,# vbg Linf
-                     t0= lh_fit$t0,  
-                     lwa= lh_fit$lwa,# length-weight W = aL^b: a  
-                     lwb= lh_fit$lwb, # length-weight W = aL^b: b
-                     S50= limeFit$Report$S50_f,  # selectivity-at-length 50%
-                     S95= limeFit$Report$S95_f,  # selectivity-at-length 95%
-                     dome_sd = lh_fit$dome_sd,
-                     selex_input= lh_fit$selex_input,# "length"
-                     selex_type= lh_fit$selex_type, # "logistic"/"dome"
-                     maturity_input=lh_fit$maturity_input,#lhParVals$maturity_input,
-                     M50= lh_fit$ML50,      # length at 50% maturity
-                     M= lh_fit$M,     # natural mortality
-                     binwidth=lh_fit$binwidth,
-                     CVlen=lh_fit$CVlen,  # coefficient of variation with length
-                     #technical parameters through output$tableTechnicalParameters
-                     SigmaR = 0.01, # effective equilibrium recruitment
-                     SigmaF= 0.01, # effective equilibrium fishing
-                     SigmaC=lh_fit$SigmaC,
-                     SigmaI=lh_fit$SigmaI,
-                     R0=lh_fit$R0,
-                     Frate=lh_fit$Frate,
-                     Fequil=lh_fit$Fequil,
-                     qcoef=lh_fit$qcoef,
-                     start_ages= 0, #not available from lh$
-                     rho=lh_fit$rho,
-                     theta=lh_fit$theta,
-                     nseasons=lh_fit$nseasons,
-                     nfleets=1)
-
-      # simulate fishing with sim_pop
-      # @param lh list of life history attributes, output of create_lh_list
-      # @param comp_sample vector of number of individuals sampled each year (set as 1 for proportions)
-      # @param sample_type a character vector specifying if the length comps are sampled from the 'catch' (default) or from the population
-      
-      limeSimF0 <- LIME::sim_pop(lh_sim, Fdynamics = "None", Rdynamics = "Constant", 
-                           Nyears = 20, Nyears_comp = 1, comp_sample = 200, pool = TRUE,
-                           init_depl = 0.99, seed = 9999, sample_type = "catch",
-                           mgt_type = 'F', fleet_proportions = 1, nareas = 1)
-      
-      limeSimF <- LIME::sim_pop(lh_sim, Fdynamics = "Constant", Rdynamics = "Constant", 
-                           Nyears = 20, Nyears_comp = 1, comp_sample = 200, pool = TRUE,
-                           init_depl = SPR_Nyear, seed = 9999, sample_type = "catch",
-                           mgt_type = 'F', fleet_proportions = 1, nareas = 1)
-      
-      Nyears_sim <- limeSimF0$Nyears
-      catchUnfished <- limeSimF0$plb[[1]]/rowSums(limeSimF0$plb[[1]])
-      catchFished <- limeSimF0$plb[[1]]/rowSums(limeSimF$plb[[1]])
-      
-      NatL_LIME_Fsim <- data.frame(length_mid = limeSimF0$mids,
-                                   catchUnfished = limeSimF0$plb[[1]][Nyears_sim,],
-                                   catchFished = limeSimF$plb[[1]][Nyears_sim,])
-      
-      pl_y <- plotly::plot_ly(data = NatL_LIME, 
-                      x = ~ length_mid, y = ~ catchFished, name = "fished - model fit", 
-                      type = "scatter", mode = "lines+markers", frame = TRUE) %>%
-        plotly::add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - equilibrium",
-                  type = "scatter",mode = "lines+markers") %>% 
-        plotly::add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - equilibrium",
-                  type = "scatter",mode = "lines+markers")
-      pl_y <- pl_y %>% 
-        plotly::layout(xaxis = list(title = newLengthCol(), font = "f"), 
-                       yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
+      if(!all(is.null(limeFit$Report)) & !all(is.na(limeFit$Report))){
+        Nyears_est <- limeFit$input$Nyears
+        SPR_Nyear <- limeFit$Report$SPR_t[Nyears_est]
+        
+        
+        lengthBins <- isolate(createLengthBins()$LenBins)
+        lengthMids <- isolate(createLengthBins()$LenMids)
+        
+        # observation years (would prefer a better way - fleet independent)
+        years_o <- which(limeFit$input$neff_ft != 0)
+        
+        # LIME fit of "probability of being in length bin" for final year
+        catchFishedEst <- (limeFit$Report$plb[, ,1])/rowSums(limeFit$Report$plb[, ,1])
+        NatL_LIME <- data.frame(length_mid = lengthMids,
+                                catchFished =  catchFishedEst[Nyears_est,])
+        
+        # simulate fishing/no-fishing equilibrium
+        # upper limit of 1.3*linf for length_mids/length_bins - more bins than in estimation model
+        # model fit selectivity-at-length parameters
+        # SigmaR = 0.1 for equilibrium recruitment
+        lh_sim <- LIME::create_lh_list(vbk= lh_fit$vbk,    # vb growth coefficient
+                                       linf= lh_fit$linf,# vbg Linf
+                                       t0= lh_fit$t0,  
+                                       lwa= lh_fit$lwa,# length-weight W = aL^b: a  
+                                       lwb= lh_fit$lwb, # length-weight W = aL^b: b
+                                       S50= limeFit$Report$S50_f,  # selectivity-at-length 50%
+                                       S95= limeFit$Report$S95_f,  # selectivity-at-length 95%
+                                       dome_sd = lh_fit$dome_sd,
+                                       selex_input= lh_fit$selex_input,# "length"
+                                       selex_type= lh_fit$selex_type, # "logistic"/"dome"
+                                       maturity_input=lh_fit$maturity_input,#lhParVals$maturity_input,
+                                       M50= lh_fit$ML50,      # length at 50% maturity
+                                       M= lh_fit$M,     # natural mortality
+                                       binwidth=lh_fit$binwidth,
+                                       CVlen=lh_fit$CVlen,  # coefficient of variation with length
+                                       #technical parameters through output$tableTechnicalParameters
+                                       SigmaR = 0.01, # effective equilibrium recruitment
+                                       SigmaF= 0.01, # effective equilibrium fishing
+                                       SigmaC=lh_fit$SigmaC,
+                                       SigmaI=lh_fit$SigmaI,
+                                       R0=lh_fit$R0,
+                                       Frate=lh_fit$Frate,
+                                       Fequil=lh_fit$Fequil,
+                                       qcoef=lh_fit$qcoef,
+                                       start_ages= 0, #not available from lh$
+                                       rho=lh_fit$rho,
+                                       theta=lh_fit$theta,
+                                       nseasons=lh_fit$nseasons,
+                                       nfleets=1)
+        
+        # simulate fishing with sim_pop
+        # @param lh list of life history attributes, output of create_lh_list
+        # @param comp_sample vector of number of individuals sampled each year (set as 1 for proportions)
+        # @param sample_type a character vector specifying if the length comps are sampled from the 'catch' (default) or from the population
+        
+        limeSimF0 <- LIME::sim_pop(lh_sim, Fdynamics = "None", Rdynamics = "Constant", 
+                                   Nyears = 20, Nyears_comp = 1, comp_sample = 200, pool = TRUE,
+                                   init_depl = 0.99, seed = 9999, sample_type = "catch",
+                                   mgt_type = 'F', fleet_proportions = 1, nareas = 1)
+        
+        limeSimF <- LIME::sim_pop(lh_sim, Fdynamics = "Constant", Rdynamics = "Constant", 
+                                  Nyears = 20, Nyears_comp = 1, comp_sample = 200, pool = TRUE,
+                                  init_depl = SPR_Nyear, seed = 9999, sample_type = "catch",
+                                  mgt_type = 'F', fleet_proportions = 1, nareas = 1)
+        
+        Nyears_sim <- limeSimF0$Nyears
+        catchUnfished <- limeSimF0$plb[[1]]/rowSums(limeSimF0$plb[[1]])
+        catchFished <- limeSimF0$plb[[1]]/rowSums(limeSimF$plb[[1]])
+        
+        NatL_LIME_Fsim <- data.frame(length_mid = limeSimF0$mids,
+                                     catchUnfished = limeSimF0$plb[[1]][Nyears_sim,],
+                                     catchFished = limeSimF$plb[[1]][Nyears_sim,])
+        
+        pl_y <- plotly::plot_ly(data = NatL_LIME, 
+                                x = ~ length_mid, y = ~ catchFished, name = "fished - model fit", 
+                                type = "scatter", mode = "lines+markers", frame = TRUE) %>%
+          plotly::add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchUnfished, name = "unfished - equilibrium",
+                            type = "scatter",mode = "lines+markers") %>% 
+          plotly::add_trace(data = NatL_LIME_Fsim, x = ~ length_mid, y = ~ catchFished, name = "fished - equilibrium",
+                            type = "scatter",mode = "lines+markers")
+        pl_y <- pl_y %>% 
+          plotly::layout(xaxis = list(title = newLengthCol(), font = "f"), 
+                         yaxis = list(title = "numbers-at-length (standardised)", font = "f"))
+      }
     }
     expr <- pl_y
   })
@@ -2298,6 +2319,15 @@ server <- function(input, output, session){
       limeFit <- fitLIME()$lc_only
       limeLH <- fitLIME()$lh
       
+      yearLIME <- limeFit$input$years
+      fishingMt <- rep(NA, length(yearLIME))
+      Rt <- rep(NA, length(yearLIME))
+      SPRt <- rep(NA, length(yearLIME))
+      SBt <- rep(NA,length(yearLIME))
+      MLt <- rep(NA,length(yearLIME))
+      fleet_select <- data.frame(l_mid = limeLH$mids,
+                                 S_l = NA)
+      if(!all(is.na(limeFit$Sdeport)) & !all(is.null(limeFit$Report))){
       # fishing mortality
       indexFt <- names(limeFit$Sdreport$value) == "lF_t" # or lF_y
       # recruitment
@@ -2313,7 +2343,7 @@ server <- function(input, output, session){
       indexS50 <- names(limeFit$Sdreport$value) == "S50_f"
       indexS95 <- names(limeFit$Sdreport$value) == "S95_f"
       
-      yearLIME <- limeFit$input$years
+
       
       stock_status <- rbind(
         data.frame(year = yearLIME,
@@ -2345,7 +2375,7 @@ server <- function(input, output, session){
       
       fleet_select <- data.frame(l_mid = limeLH$mids,
                                  S_l = t(limeFit$Report$S_fl))
-                   
+      }
       
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){  
       lbsprPars <- fitLBSPR()$lbsprPars
@@ -2421,13 +2451,25 @@ server <- function(input, output, session){
     if(input$lengthBasedAssessmentMethod == "LIME"){
       lc_only <- fitLIME()$lc_only
       lh <- fitLIME()$lh
-      p <- LIME::plot_output(Inputs=lc_only$Inputs,
-                  Report=lc_only$Report,
-                  Sdreport=lc_only$Sdreport,
-                  lh=lh,
-                  True=NULL,
-                  plot=c("Fish","Rec","SPR","ML","SB","Selex"),
-                  set_ylim=list("Fish"=c(0,mean(lc_only$Report$F_t)*2),"SPR"=c(0,1)))
+      if(!all(is.na(lc_only$Report)) & !all(is.null(lc_only$Report))){
+        p <- LIME::plot_output(Inputs=lc_only$Inputs,
+                               Report=lc_only$Report,
+                               Sdreport=lc_only$Sdreport,
+                               lh=lh,
+                               True=NULL,
+                               plot=c("Fish","Rec","SPR","ML","SB","Selex"),
+                               set_ylim=list("Fish"=c(0,mean(lc_only$Report$F_t)*2),"SPR"=c(0,1)))
+      } else {
+        p <- LIME::plot_output(Inputs=lc_only$Inputs,
+                               Report=NULL,
+                               Sdreport=NULL,
+                               lh=lh,
+                               True=NULL,
+                               plot=c("Fish","Rec","SPR","ML","SB","Selex"),
+                               set_ylim=list("Fish" = c(0,1),"SPR" = c(0,1), "Rec" = c(0,1), 
+                                             "ML" = c(0,100), "SB" = c(0,1), "Selex" = c(0,1)))
+      }
+      
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
       fishingLBSPR <- fishingEstimates()$stock_status
       selectLBSPR <- fishingEstimates()$fleet_select
@@ -2579,9 +2621,9 @@ server <- function(input, output, session){
   diagnosticData <- reactive({
     if(input$lengthBasedAssessmentMethod == "LIME") {
       # LIME - life history and model fit data
-      fitLIMEout <- fitLIME()
-      #lh_fit <- fitLIMEout$lh
-      limeFit <- fitLIMEout$lc_only
+      limeFit <- fitLIME()$lc_only
+      #lh_fit <- limeFit$lh
+      #limeFit <- limeFit$lc_only
       years_lime <- limeFit$input$years
       
       diagnosticLIME <- as.data.frame(limeFit$opt$diagnostics)
