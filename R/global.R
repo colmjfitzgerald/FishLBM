@@ -5,7 +5,8 @@ utils::globalVariables(c("Estimate", "Initial", "Lower", "LowerCI", "Model", "Pa
                          "length_p_025", "length_p_500", "length_p_975", "mortality", "proportion", 
                          "weight_p_500", "weight", "density", "width",
                          "quantity", "scaled_proportion", "selectivityF_at_length_count", "sex", 
-                         "size", "starting_value", "varFishingAtLength", "varSPR", "year"))
+                         "size", "starting_value", "varFishingAtLength", "varSPR", "year",
+                         "lci", "uci", "selectivity"))
 
 
 # weight-length module ####
@@ -96,3 +97,113 @@ fitWeightLengthServer <-
       } 
     )
   }
+
+# ggplot LIME output addition ####
+collate_lime_output <- function(inputLIME, report, sdreport){
+  
+  years <- as.integer(colnames(inputLIME$neff_ft))
+  years_i <- 1:(inputLIME$Nyears) 
+  years_o <- years_i[which(inputLIME$neff_ft > 0)]
+  
+  
+  # fishing mortality
+  Ft_mean <- exp(sdreport$value[grep("lF_t", names(sdreport$value))])
+  limeF <- data.frame(year = years,
+                      quantity = "fishing mortality",
+                      Ft_mean = exp(sdreport$value[grep("lF_t", names(sdreport$value))]),
+                      Ft_lci = Ft_mean*exp(-1.96*sdreport$sd[grep("lF_t", names(sdreport$value))]),
+                      Ft_uci = Ft_mean*exp(1.96*sdreport$sd[grep("lF_t", names(sdreport$value))])
+  )
+  
+  # SPR
+  SPRt_mean <- sdreport$value[grep("SPR_t", names(sdreport$value))]
+  limeSPR <- data.frame(year = years,
+                        quantity = "SPR",
+                        SPRt_mean = sdreport$value[grep("SPR_t", names(sdreport$value))],
+                        SPRt_lci = pmax(SPRt_mean-1.96*sdreport$sd[grep("SPR_t", names(sdreport$value))],0),
+                        SPRt_uci = pmin(SPRt_mean+1.96*sdreport$sd[grep("SPR_t", names(sdreport$value))],1)
+  )
+  
+  # spawning stock biomass
+  rSBt_mean <- exp(sdreport$value[grep("lF_t", names(sdreport$value))])/report$SB0
+  limeSB <- data.frame(year = years,
+                       quantity = "SSB (relative)",
+                       rSBt_mean,
+                       rSBt_lci = rSBt_mean*exp(-1.96*sdreport$sd[grep("lSB_t", names(sdreport$value))]),
+                       rSBt_uci = rSBt_mean*exp(+1.96*sdreport$sd[grep("lSB_t", names(sdreport$value))])
+  )
+  
+  # recruitment
+  limeRecruit <- data.frame(year = years,
+                            quantity = "recruitment",
+                            R_t_mean = report$R_t,
+                            R_t_lCI = exp(log(report$R_t) - 1.96*report$sigma_R),
+                            R_t_uCI = exp(log(report$R_t) + 1.96*report$sigma_R ))
+  
+  # mean length
+  limeML <- data.frame(year = years,
+                       quantity = "mean length (catch)",
+                       ML_mean = sdreport$value[grep("ML_ft_hat",names(sdreport$value))],
+                       ML_lCI =sdreport$value[grep("ML_ft_hat",names(sdreport$value))] - 1.96*sdreport$sd[grep("ML_ft_hat",names(sdreport$value))],
+                       ML_uCI = sdreport$value[grep("ML_ft_hat",names(sdreport$value))] + 1.96*sdreport$sd[grep("ML_ft_hat",names(sdreport$value))])
+  
+  # selectivity
+  lmin <- min(inputLIME$lows)
+  lmax <- max(inputLIME$highs)
+  fishlength <- seq(lmin,lmax, inputLIME$binwidth/4)
+  limeSelexF <- data.frame(length = fishlength,
+                           selectivity = 1/(1+exp(-(fishlength - report$S50_f)/(report$S95_f-report$S50_f)))
+  )
+  
+  # collate outputs
+  names_replace<- function(limeOut) {
+    prefix <- strsplit(names(limeOut)[grepl("(.*)_mean$", names(limeOut))], split = "_mean")[[1]]
+    names(limeOut)[grepl(prefix, names(limeOut))] <- c("mean", "lci", "uci")
+    limeOut
+  }
+  limeTH <- list("limeF" = limeF, "limeSPR" = limeSPR, "limeSB" = limeSB, 
+                  "limeRecruit" = limeRecruit, "limeML" = limeML)
+  limeTH <- lapply(limeTH, FUN = names_replace)
+  
+  limeI_t <- do.call("rbind", limeTH)
+  limeI_t$quantity <- factor(limeI_t$quantity, 
+                             levels = c("fishing mortality", "SSB (relative)", "mean length (catch)",
+                                        "SPR", "recruitment"))
+  limeO_t <- lapply(limeTH, FUN = "[", years_o, 1:5)
+  limeO_t <- do.call("rbind", limeO_t)
+  limeO_t$quantity <- factor(limeO_t$quantity, 
+                             levels = c("fishing mortality", "SSB (relative)", "mean length (catch)",
+                                        "SPR", "recruitment"))
+  
+  return(list("limeTH" = limeTH,
+              "limeSelexF" = limeSelexF,
+              "limeI_t" = limeI_t,
+              "limeO_t" = limeO_t,
+              "years_o" = years_o)
+  )
+}
+
+gg_lime_time <- function(limeTH, i_yrs_obs){
+  pg <- ggplot(limeTH) + 
+    geom_ribbon(aes(x = year, ymin = lci, ymax = uci), fill = "green4", alpha = 0.2 ) +
+    geom_line(aes(x = year, y = mean), colour = "green4", linewidth = 1) + 
+    geom_point(data = limeTH[i_yrs_obs,], 
+               mapping = aes(x= year ,y = mean), colour = "green4", size = 2) + 
+    scale_x_continuous(breaks = limeTH$year) + 
+    labs(y = unique(limeTH$quantity)) + 
+    expand_limits(y = 0)+
+    theme_bw() + 
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  if(unique(limeTH$quantity) == "SPR"){
+    pg <- pg + expand_limits(y = c(0,1))
+  }
+  return(pg)
+}
+
+ggplotly_config <- function(pg, fname){
+  stopifnot(ggplot2::is.ggplot(pg), is.character(fname))
+  plotly::ggplotly(pg) %>% 
+    plotly::config(toImageButtonOptions = 
+                     list(format= 'jpeg', filename= fname, scale= 5)
+    )
+}

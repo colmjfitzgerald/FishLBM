@@ -541,19 +541,41 @@ ui <- navbarPage(
                                  tabPanel("Fishing estimates",
                                           fluidPage(
                                             fluidRow(
-                                              column(width = 12,
-                                                     plotOutput(outputId = "plotLBAestimate",
-                                                                width = "100%", height = "600px"),
-                                                     div(),
-                                                     textOutput(outputId = "textFishingEstimateOutput"),
-                                                     downloadButton(outputId = "downloadStockStatusData", label = "Download stock status",
-                                                                    class = "btn-link"),
-                                                     downloadButton(outputId = "downloadSelectivityData", label = "Download selectivity-at-length data",
-                                                                    class = "btn-link"),
-                                                     downloadButton(outputId = "downloadFishingPlot", label = "Download plot",
-                                                                    class = "btn-link")
+                                              column(width = 4, # plotly::plotlyOutput(outputId = "plotFFit",
+                                                     #plotOutput(outputId = "plotFFit",
+                                                     plotly::plotlyOutput(outputId = "plotFFit", width = "100%", height = "400px")
+                                              ), 
+                                              column(width = 4, # plotly::plotlyOutput(outputId = "plotSPRFit",
+                                                     #plotOutput(outputId = "plotSPRFit",
+                                                     plotly::plotlyOutput(outputId = "plotSPRFit", width = "100%", height = "400px")
+                                              ),
+                                              column(width = 4, # plotly::plotlyOutput(outputId = "plotSelexFit",
+                                                     #plotOutput(outputId = "plotSelexFit",
+                                                     plotly::plotlyOutput(outputId = "plotSelexFit", width = "100%", height = "400px")
+                                              ),
+                                            ),
+                                            fluidRow(
+                                              column(width = 4, # plotly::plotlyOutput(outputId = "plotMLFit",
+                                                     #plotOutput(outputId = "plotMLFit",
+                                                     plotly::plotlyOutput(outputId = "plotMLFit", width = "100%", height = "400px")
+                                              ),
+                                              column(width = 4, # plotly::plotlyOutput(outputId = "plotSSBFit",
+                                                     #plotOutput(outputId = "plotSSBFit",
+                                                     plotly::plotlyOutput(outputId = "plotSSBFit", width = "100%", height = "400px")
+                                              ),
+                                              column(width = 4, # 
+                                                     #plotOutput(outputId = "plotRFit",
+                                                     plotly::plotlyOutput(outputId = "plotRFit", width = "100%", height = "400px")  
                                               )
-                                            )
+                                            ),
+                                            div(),
+                                            # textOutput(outputId = "textFishingEstimateOutput"),
+                                            downloadButton(outputId = "downloadStockStatusData", label = "Download stock status",
+                                                             class = "btn-link"),
+                                            downloadButton(outputId = "downloadSelectivityData", label = "Download selectivity-at-length data",
+                                                             class = "btn-link")#,
+                                            # downloadButton(outputId = "downloadFishingPlot", label = "Download plot",
+                                            #                class = "btn-link")
                                           )
                                  ),
                                  tabPanel("Assessment summary",

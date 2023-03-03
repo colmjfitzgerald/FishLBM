@@ -2327,6 +2327,7 @@ server <- function(input, output, session){
       MLt <- rep(NA,length(yearLIME))
       fleet_select <- data.frame(l_mid = limeLH$mids,
                                  S_l = NA)
+
       if(!all(is.na(limeFit$Sdeport)) & !all(is.null(limeFit$Report))){
       # fishing mortality
       indexFt <- names(limeFit$Sdreport$value) == "lF_t" # or lF_y
@@ -2452,22 +2453,34 @@ server <- function(input, output, session){
       lc_only <- fitLIME()$lc_only
       lh <- fitLIME()$lh
       if(!all(is.na(lc_only$Report)) & !all(is.null(lc_only$Report))){
-        p <- LIME::plot_output(Inputs=lc_only$Inputs,
-                               Report=lc_only$Report,
-                               Sdreport=lc_only$Sdreport,
-                               lh=lh,
-                               True=NULL,
-                               plot=c("Fish","Rec","SPR","ML","SB","Selex"),
-                               set_ylim=list("Fish"=c(0,mean(lc_only$Report$F_t)*2),"SPR"=c(0,1)))
+        # Ft_uci <- max(lc_only$Report$F_t + 1.96*exp(lc_only$Sdreport$value[which(names(lc_only$Sdreport$value) == "lF_t")]))
+        # p <- LIME::plot_output(Inputs=lc_only$Inputs,
+        #                        Report=lc_only$Report,
+        #                        Sdreport=lc_only$Sdreport,
+        #                        lh=lh,
+        #                        True=NULL,
+        #                        plot=c("Fish","Rec","SPR","ML","SB","Selex"),
+        #                        set_ylim=list("Fish"=c(0,Ft_uci*1.1),"SPR"=c(0,1)))
+        outLIME <- collate_lime_output(lc_only$input, lc_only$Report, lc_only$Sdreport)
+        lime_plots_th <- lapply(outLIME$limeTH, FUN = "gg_lime_time", outLIME$years_o)
+        lime_plots_sel <- ggplot(outLIME$limeSelexF) +
+          geom_line(aes(x = length, y = selectivity), colour = "green4", linewidth = 1) + 
+          theme_bw()
+        p <- append(lime_plots_th, list("limeSelexF" = lime_plots_sel))
       } else {
-        p <- LIME::plot_output(Inputs=lc_only$Inputs,
-                               Report=NULL,
-                               Sdreport=NULL,
-                               lh=lh,
-                               True=NULL,
-                               plot=c("Fish","Rec","SPR","ML","SB","Selex"),
-                               set_ylim=list("Fish" = c(0,1),"SPR" = c(0,1), "Rec" = c(0,1), 
-                                             "ML" = c(0,100), "SB" = c(0,1), "Selex" = c(0,1)))
+        # p <- LIME::plot_output(Inputs=lc_only$Inputs,
+        #                        Report=NULL,
+        #                        Sdreport=NULL,
+        #                        lh=lh,
+        #                        True=NULL,
+        #                        plot=c("Fish","Rec","SPR","ML","SB","Selex"),
+        #                        set_ylim=list("Fish" = c(0,1),"SPR" = c(0,1), "Rec" = c(0,1), 
+        #                                      "ML" = c(0,100), "SB" = c(0,1), "Selex" = c(0,1)))
+        # p <- ggplot() + 
+        #   geom_blank()
+        p <- list(ggplot() + geom_blank(), ggplot() + geom_blank(), 
+             ggplot() + geom_blank(), ggplot() + geom_blank(), 
+             ggplot() + geom_blank(), ggplot() + geom_blank())
       }
       
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
@@ -2573,9 +2586,31 @@ server <- function(input, output, session){
     p
   })
   
-  output$plotLBAestimate <- renderPlot({
-    print(createPlotLBAestimates())
-  })
+  # output$plotLBAestimate <- renderPlotly({
+  #   browser()
+  #   ply_gg <- lapply(createPlotLBAestimates(), plotly::ggplotly)
+  #   subplot(ply_gg, nrows = 3)
+  # })
+  # renderPlotly
+  output$plotFFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[1]], 
+                                                  names(createPlotLBAestimates())[[1]]))
+  output$plotSPRFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[2]],
+                                                    names(createPlotLBAestimates())[[2]]))
+  output$plotSSBFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[3]],
+                                    names(createPlotLBAestimates())[[3]]))
+  output$plotRFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[4]],
+                                                  names(createPlotLBAestimates())[[4]]))
+  output$plotMLFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[5]],
+                                                    names(createPlotLBAestimates())[[5]]))
+  output$plotSelexFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[6]],
+                                                       names(createPlotLBAestimates())[[6]]))
+  # # renderPlot
+  # output$plotFFit <- renderPlot(createPlotLBAestimates()[[1]])
+  # output$plotSPRFit <- renderPlot(createPlotLBAestimates()[[2]])
+  # output$plotSSBFit <- renderPlot(createPlotLBAestimates()[[3]])
+  # output$plotRFit <- renderPlot(createPlotLBAestimates()[[4]])
+  # output$plotMLFit <- renderPlot(createPlotLBAestimates()[[5]])
+  # output$plotSelexFit <- renderPlot(createPlotLBAestimates()[[6]])
   
   output$textFishingEstimateOutput <- renderText({
     if(input$lengthBasedAssessmentMethod == "LIME"){
