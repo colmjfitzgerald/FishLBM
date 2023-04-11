@@ -2463,10 +2463,11 @@ server <- function(input, output, session){
         #                        set_ylim=list("Fish"=c(0,Ft_uci*1.1),"SPR"=c(0,1)))
         outLIME <- collate_lime_output(lc_only$input, lc_only$Report, lc_only$Sdreport)
         lime_plots_th <- lapply(outLIME$limeTH, FUN = "gg_lime_time", outLIME$years_o)
+        names(lime_plots_th) <- sub("lime", "plot", names(lime_plots_th))
         lime_plots_sel <- ggplot(outLIME$limeSelexF) +
           geom_line(aes(x = length, y = selectivity), colour = "green4", linewidth = 1) + 
           theme_bw()
-        p <- append(lime_plots_th, list("limeSelexF" = lime_plots_sel))
+        p <- append(lime_plots_th, list("plotSelexF" = lime_plots_sel))
       } else {
         # p <- LIME::plot_output(Inputs=lc_only$Inputs,
         #                        Report=NULL,
@@ -2478,9 +2479,7 @@ server <- function(input, output, session){
         #                                      "ML" = c(0,100), "SB" = c(0,1), "Selex" = c(0,1)))
         # p <- ggplot() + 
         #   geom_blank()
-        p <- list(ggplot() + geom_blank(), ggplot() + geom_blank(), 
-             ggplot() + geom_blank(), ggplot() + geom_blank(), 
-             ggplot() + geom_blank(), ggplot() + geom_blank())
+        p <- rep(list(ggplot() + geom_blank()), 6)
       }
       
     } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
@@ -2493,95 +2492,8 @@ server <- function(input, output, session){
       DSPR <- fishingLBSPR %>% 
         dplyr::filter(quantity == "SPR")
       
-      p <- plot.new()
-      if(input$analyseLengthComposition == "all periods"){
-        par(mfrow = c(1,3), mgp = c(4,1.5,0), mar = c(5.5,6,3,2.5) + 0.1,
-            lwd = 2, cex.axis = 2.25, cex.lab = 2.25)
-        
-        yearsLBA <- unique(fishingLBSPR$year)
-        #LenMids <- isolate(createLengthBins())$LenMids
-        
-        # fishing mortality
-        # fishing mortality vs natural mortality
-        plot(x = seq_along(DM$mortality), y = DM$mean, type = "n",   
-             xaxs = "i", yaxs = "i", xaxt = "n",
-             xlim = seq_along(DM$mortality) + c(-0.5,0.5), 
-             ylim = c(0, 1.1*max(DM$mean, DM$upperci, na.rm = TRUE)),
-             xlab = "mortality", ylab = "instantaneous rate")
-        points(seq_along(DM$mortality), y = DM$mean,  pch = 19, lwd = 10, col = c("black", "red"))
-        axis(side = 1, at = seq_along(DM$mortality), labels = DM$mortality,
-             tick = TRUE, lty = 1, lwd.ticks = 2, lwd = 2)
-        arrows(1, DM[DM$mortality == "F", "lowerci"], 
-               1, DM[DM$mortality == "F", "upperci"], length=0.15, angle=90, code=3, col = c("black", "red"))
-        abline(h = fishingLBSPR$mean[fishingLBSPR$quantity == "M"], col = "red", lty = 2, lwd = 2)
-        graphics::box(which = "plot", lty = "solid", lwd = 2)
-        #browser()
-        # SPR
-        barplot(DSPR$mean, width = 0.4, names.arg = yearsLBA, axes = TRUE, axisnames = TRUE,
-                ylab = "SPR", xlim = c(0,length(yearsLBA)), ylim = c(0,1), space = 0.75)
-        arrows(0.5, DSPR$lowerci, 0.5, DSPR$upperci, length=0.15, angle=90, code=3, col = c("black"))
-        abline(h = 0.4, col = "red", lty = 2, lwd = 2)
-        graphics::box(which = "plot", lty = "solid", lwd = 2)
-        
-        # selectivity-at-length
-        plot(x=1, y=1, type="n", xlim = c(setLHPars()$Linf*0.1, setLHPars()$Linf*0.9), ylim = c(0,1),
-             xlab = "length", ylab = "selectivity", col = "black", lwd = 2) #main = yearsLBA,
-        lines(selectLBSPR$lengthMid, selectLBSPR$meanSL, lwd = 2)
-        points(selectLBSPR$lengthMid, selectLBSPR$meanSL, lwd = 2, pch = 1)
-        graphics::box(which = "plot", lty = "solid", lwd = 2)
-        
-        # calculate selectivity variance
-        # "logistic" in if statement also
-        if(input$specifySelectivity == "Initial estimate" & !is.null(input$specifySelectivity)){
-          # calculate variance, derive lower and upper (95%) confidence intervals
-          # selectLBSPR$sderrSL <- sqrt(NatL_LBSPR$varSelectivityF_at_length)
-          # selectLBSPR$lowerciSL <- pmax(selectLBSPR$meanSL - 1.96*selectLBSPR$sderrSL, 0.0)
-          # selectLBSPRL$upperciSL <- pmin(selectLBSPR$meanSL + 1.96*selectLBSPR$sderrSL, 1.0)
-          polygon(x = c(selectLBSPR$lengthMid, rev(selectLBSPR$lengthMid)), 
-                  y = c(selectLBSPR$lowerciSL, rev(selectLBSPR$upperciSL)),
-                  col = "#228B2240", border = NA)
-        }
-        
-      } else {
-        par(mfrow = c(3,1), mgp = c(3.5,1.4,0), mar = c(5.5,5.5,1,1)+0.1,
-            lwd = 2, cex.axis = 2.25, cex.lab = 2.25)
-        fishingLBSPR$year <- as.integer(fishingLBSPR$year)
-        selectLBSPR$year <- as.integer(selectLBSPR$year)
-        
-        yearsLBA <- fishingLBSPR$year[fishingLBSPR$quantity == "F"]
-        
-        fishMortality <- DM %>% 
-          tidyr::pivot_wider(id_cols = year, 
-                             names_from = mortality, 
-                             values_from = c("mean", "sderr", "lowerci", "upperci"), 
-                             names_sep = "" )
-        
-        # indicate unreliable variance estimates
-        pch_plot <- rep(19, length(yearsLBA))
-        pch_plot[is.na(fishingLBSPR$sderr[fishingLBSPR$quantity == "F"])] <- 1
-
-        # fishing mortality
-        plot(x = yearsLBA, y = fishingLBSPR$mean[fishingLBSPR$quantity == "F"],
-             type = "p", cex = 2.5, pch = pch_plot, xlab = "year", ylab = "F", 
-             ylim = c(0, 1.1*max(DM$upperci, DM$mean, na.rm = TRUE)))
-        arrows(yearsLBA, fishingLBSPR$lowerci[fishingLBSPR$quantity == "F"], 
-               yearsLBA, fishingLBSPR$upperci[fishingLBSPR$quantity == "F"], length=0.15, angle=90, code=3)
-        abline(h = setLHPars()$M, col = "red", lty = 2, lwd = 2)
-        
-        # SPR
-        plot(yearsLBA, DSPR$mean, 
-             type = "p", cex = 2.5, pch = pch_plot, xlab = "year", ylab = "SPR", ylim = c(0,1))
-        abline(h = 0.4, col = "red", lty = 2, lwd = 2)
-        arrows(yearsLBA, DSPR$lowerci, yearsLBA, DSPR$upperci, length=0.15, angle=90, code=3, col = c("black"))
-
-        # selectivity-at-length
-        plot(x=1, y=1, type="n", xlim = range(selectLBSPR$lengthMid), ylim = c(0,1),
-             xlab = "length", ylab = "selectivity", col = "black", lwd = 2)
-        for (year_plot in yearsLBA){
-          lines(selectLBSPR$lengthMid[selectLBSPR$year == year_plot], selectLBSPR$meanSL[selectLBSPR$year == year_plot], lwd = 2)
-          points(selectLBSPR$lengthMid[selectLBSPR$year == year_plot], selectLBSPR$meanSL[selectLBSPR$year == year_plot], lwd = 2, pch = 1)
-        }
-      }
+      p <- ggplot_lbspr(DM, DSPR, DSLX = selectLBSPR, input$specifySelectivity, input$newLengthUnits, 
+                        add_facet = FALSE)
     }
     p
   })
@@ -2592,25 +2504,18 @@ server <- function(input, output, session){
   #   subplot(ply_gg, nrows = 3)
   # })
   # renderPlotly
-  output$plotFFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[1]], 
-                                                  names(createPlotLBAestimates())[[1]]))
-  output$plotSPRFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[2]],
-                                                    names(createPlotLBAestimates())[[2]]))
-  output$plotSSBFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[3]],
-                                    names(createPlotLBAestimates())[[3]]))
-  output$plotRFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[4]],
-                                                  names(createPlotLBAestimates())[[4]]))
-  output$plotMLFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[5]],
-                                                    names(createPlotLBAestimates())[[5]]))
-  output$plotSelexFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()[[6]],
-                                                       names(createPlotLBAestimates())[[6]]))
-  # # renderPlot
-  # output$plotFFit <- renderPlot(createPlotLBAestimates()[[1]])
-  # output$plotSPRFit <- renderPlot(createPlotLBAestimates()[[2]])
-  # output$plotSSBFit <- renderPlot(createPlotLBAestimates()[[3]])
-  # output$plotRFit <- renderPlot(createPlotLBAestimates()[[4]])
-  # output$plotMLFit <- renderPlot(createPlotLBAestimates()[[5]])
-  # output$plotSelexFit <- renderPlot(createPlotLBAestimates()[[6]])
+  output$plotFFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotF, 
+                                                  names(createPlotLBAestimates()$plotF)))
+  output$plotSPRFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotSPR,
+                                                    names(createPlotLBAestimates()$plotSPR)))
+  output$plotSelexFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotSelexF,
+                                                      names(createPlotLBAestimates()$plotSelexF)))
+  output$plotMLFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotML,
+                                                   names(createPlotLBAestimates()$plotML)))
+  output$plotSSBFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotSB,
+                                                    names(createPlotLBAestimates()$plotSB)))
+  output$plotRFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotRecruit,
+                                                  names(createPlotLBAestimates()$plotRecruit)))
   
   output$textFishingEstimateOutput <- renderText({
     if(input$lengthBasedAssessmentMethod == "LIME"){

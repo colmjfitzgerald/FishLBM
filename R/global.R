@@ -6,7 +6,8 @@ utils::globalVariables(c("Estimate", "Initial", "Lower", "LowerCI", "Model", "Pa
                          "weight_p_500", "weight", "density", "width",
                          "quantity", "scaled_proportion", "selectivityF_at_length_count", "sex", 
                          "size", "starting_value", "varFishingAtLength", "varSPR", "year",
-                         "lci", "uci", "selectivity"))
+                         "lci", "uci", "selectivity",
+                         "lengthMid", "meanSL", "lowerci", "upperci", "lowerciSL", "upperciSL"))
 
 
 # weight-length module ####
@@ -98,7 +99,11 @@ fitWeightLengthServer <-
     )
   }
 
-# ggplot LIME output addition ####
+# non-reactive functions available to each user session ====
+
+# LIME model ####
+
+# collate output
 collate_lime_output <- function(inputLIME, report, sdreport){
   
   years <- as.integer(colnames(inputLIME$neff_ft))
@@ -183,6 +188,7 @@ collate_lime_output <- function(inputLIME, report, sdreport){
   )
 }
 
+# ggplot time histories
 gg_lime_time <- function(limeTH, i_yrs_obs){
   pg <- ggplot(limeTH) + 
     geom_ribbon(aes(x = year, ymin = lci, ymax = uci), fill = "green4", alpha = 0.2 ) +
@@ -200,10 +206,63 @@ gg_lime_time <- function(limeTH, i_yrs_obs){
   return(pg)
 }
 
+# ggplotly config
 ggplotly_config <- function(pg, fname){
-  stopifnot(ggplot2::is.ggplot(pg), is.character(fname))
-  plotly::ggplotly(pg) %>% 
-    plotly::config(toImageButtonOptions = 
-                     list(format= 'jpeg', filename= fname, scale= 5)
-    )
+  if(!is.null(pg) & !is.null(fname)){
+    stopifnot(ggplot2::is.ggplot(pg), is.character(fname))
+    plotly::ggplotly(pg) %>% 
+      plotly::config(toImageButtonOptions = 
+                       list(format= 'jpeg', filename= fname, scale= 5)
+      )
+  } else {
+    plotly::ggplotly(ggplot() + geom_blank() + theme_bw()) %>% 
+      plotly::config(toImageButtonOptions = 
+                       list(format= 'jpeg', filename= fname, scale= 5)
+      )
+  }
+}
+
+
+# lbspr model ####
+ggplot_lbspr <- function(DM, DSPR, DSLX, specifySelectivity, length_units, add_facet = FALSE){
+  # mortality
+  pgM <- ggplot(DM[DM$mortality == "F",]) + 
+    geom_point(aes(x= year, y = mean), colour = "black", size = 2.5) + 
+    geom_errorbar(aes(x = year, ymin = lowerci, ymax = upperci), colour = "black", width = 0.25) +
+    geom_hline(yintercept = unique(DM$mean[DM$mortality == "M"]), colour = "red", linetype = 2, linewidth = 1) + #linetype = 5
+    labs(x = "", y = "fishing mortality F (1/yr)") + 
+    lims(y = c(0, 1.25*max(DM$upperci, DM$mean, na.rm = TRUE))) +
+    theme_bw()
+  
+  # SPR
+  pgSPR <- ggplot(DSPR) + 
+    geom_point(aes(x = year, y = mean), colour = "black", size = 2.5) + #geom_col(aes(x = year, y = mean), fill = "#228B2240", colour = "black", width = 0.6) +
+    geom_errorbar(aes(x = year, ymin = lowerci, ymax = upperci ), width = 0.25) +
+    geom_hline(yintercept = 0.4, colour = "red", linetype = 2, linewidth = 1) +
+    geom_hline(yintercept = 0.3, colour = "red", linetype = 1, linewidth = 1) +
+    labs(y = "SPR", x = "") +
+    ylim(c(0,1)) +
+    theme_bw()
+  
+  # add_facet?
+  if(add_facet){
+    pgM <- pgM + facet_wrap(vars(mortality))
+    pgSPR <- pgSPR + facet_wrap(vars(quantity))
+  }
+  
+  # selectivity
+  pgSelex <- ggplot(DSLX) + 
+    geom_point(aes(x = lengthMid, y = meanSL, colour = as.factor(year)), size = 2.5) + 
+    geom_line(aes(x = lengthMid, y = meanSL, colour = as.factor(year)), linewidth = 1.25) +
+    labs(x = paste0("length (", length_units, ")"), y = "gear selectivity") +
+    scale_colour_grey(name = "year") + 
+    theme_bw()
+  if(specifySelectivity == "Initial estimate" & !is.null(specifySelectivity)){
+    pgSelex <- pgSelex + 
+      geom_ribbon(aes(x = lengthMid, ymin = lowerciSL, ymax = upperciSL, fill = as.factor(year)),
+                  alpha = 0.25) +
+      scale_fill_grey(guide = NULL)
+  }
+  
+  return(list("plotF" = pgM, "plotSPR" = pgSPR, "plotSelexF" = pgSelex))
 }
