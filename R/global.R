@@ -99,6 +99,70 @@ fitWeightLengthServer <-
     )
   }
 
+
+# module to add-remove LIME/LB-SPR outputs ####
+# basic ui structure into and from which we inset and remove ui objects
+insertRemovePlotOutput <- function(id, label = "lengthBasedMethodOutput"){
+  ns <- NS(id)
+  tagList(
+    fluidRow(
+      column(width = 4, div(id = ns("outMLFit"))),
+      column(width = 4, div(id = ns("outSSBFit"))),
+      column(width = 4, div(id = ns("outRFit")))
+    )
+  )
+}
+
+insertRemovePlotServer <- 
+  function(id, lbsaMethod, lbsaOutput, btnLbsaFit) {
+    moduleServer(
+      id, 
+      function(input, output, session){
+        stopifnot(is.reactive(lbsaMethod), is.reactive(lbsaOutput), is.reactive(btnLbsaFit))
+        
+        addPlotRows <- reactiveVal(0)
+        # insertUI with tags$div(): has the advantage that you can give it an id to make it easier to reference or remove it later on
+        ns <- session$ns
+        observeEvent(req(lbsaMethod()), 
+                     { if(addPlotRows() == 0 && lbsaMethod() == "LIME"){
+                       insertUI(selector = paste0("#", ns("outMLFit")),
+                                where = "afterBegin",
+                                tags$div(id = ns("plotMLFit"), plotlyOutput(outputId = ns("plotMLFit")))
+                       )
+                       insertUI(selector = paste0("#", ns("outSSBFit")),
+                                where = "afterBegin",
+                                tags$div(id = ns("plotSSBFit"), plotlyOutput(outputId = ns("plotSSBFit")))
+                       )
+                       insertUI(selector = paste0("#", ns("outRFit")),
+                                where = "afterBegin",
+                                tags$div(id = ns("plotRecFit"), plotlyOutput(outputId = ns("plotRecFit")))
+                       )
+                       addPlotRows(1)
+                       } else if (addPlotRows() == 1 && lbsaMethod() == "LB-SPR")
+                     { removeUI(selector = paste0("#", ns("plotMLFit")))
+                       removeUI(selector = paste0("#", ns("plotSSBFit")))
+                       removeUI(selector = paste0("#", ns("plotRecFit")))
+                       addPlotRows(0)
+                     }
+        
+        })
+        
+        observeEvent(req(lbsaMethod()) == "LIME" && btnLbsaFit(),
+                     { #browser()
+                     output$plotMLFit <- renderPlotly(
+                       ggplotly_config(lbsaOutput()$plotML, 
+                                       paste0(tolower(sub("-", "", lbsaMethod())), "PlotML")))
+                     output$plotSSBFit <- renderPlotly(
+                       ggplotly_config(lbsaOutput()$plotSB, 
+                                       paste0(tolower(sub("-", "", lbsaMethod())), "PlotSB")))
+                     output$plotRecFit <- renderPlotly(
+                       ggplotly_config(lbsaOutput()$plotRecruit, 
+                                       paste0(tolower(sub("-", "", lbsaMethod())), "PlotRecruit")))
+      })
+      }
+    )  
+  }
+
 # non-reactive functions available to each user session ====
 
 # LIME model ####

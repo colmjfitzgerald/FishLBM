@@ -1640,7 +1640,6 @@ server <- function(input, output, session){
       lhParVals <- isolate(setLHPars()) # only evaluated if fitLIME called
       fleetParVals <- isolate(setFleetPars()) 
       binwidth <- isolate(input$Linc)
-
       # selectivity parameters fitted or estimated
       titleFitPlot <- "Model-estimated selectivity parameters"
       if(input$specifySelectivity == "Fixed value"){
@@ -2504,18 +2503,19 @@ server <- function(input, output, session){
   #   subplot(ply_gg, nrows = 3)
   # })
   # renderPlotly
-  output$plotFFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotF, 
-                                                  names(createPlotLBAestimates()$plotF)))
-  output$plotSPRFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotSPR,
-                                                    names(createPlotLBAestimates()$plotSPR)))
-  output$plotSelexFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotSelexF,
-                                                      names(createPlotLBAestimates()$plotSelexF)))
-  output$plotMLFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotML,
-                                                   names(createPlotLBAestimates()$plotML)))
-  output$plotSSBFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotSB,
-                                                    names(createPlotLBAestimates()$plotSB)))
-  output$plotRFit <- renderPlotly(ggplotly_config(createPlotLBAestimates()$plotRecruit,
-                                                  names(createPlotLBAestimates()$plotRecruit)))
+  output$plotFFit <- renderPlotly(
+    ggplotly_config(createPlotLBAestimates()$plotF, 
+                    paste0(tolower(sub("-", "", input$lengthBasedAssessmentMethod)), "PlotF")))
+  output$plotSPRFit <- renderPlotly(
+    ggplotly_config(createPlotLBAestimates()$plotSPR,
+                    paste0(tolower(sub("-", "", input$lengthBasedAssessmentMethod)), "PlotSPR")))
+  output$plotSelexFit <- renderPlotly(
+    ggplotly_config(createPlotLBAestimates()$plotSelexF,
+                    paste0(tolower(sub("-", "", input$lengthBasedAssessmentMethod)), "PlotSelexF")))
+
+  # run insertRemovePlotServer code
+  insertRemovePlotServer("limeLBSPR", reactive(input$lengthBasedAssessmentMethod), 
+                         createPlotLBAestimates, reactive({input$fitLBA}))
   
   output$textFishingEstimateOutput <- renderText({
     if(input$lengthBasedAssessmentMethod == "LIME"){
