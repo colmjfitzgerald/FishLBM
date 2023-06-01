@@ -59,7 +59,7 @@ ui <- navbarPage(
              ),
              column(width = 6,
                     h5("Length composition by attribute"),
-                    plotly::plotlyOutput(outputId = "lengthComposition",
+                    plotOutput(outputId = "plotSpeciesLengthComposition",
                                  width = "100%",
                                  height = "800px")
              )
@@ -341,7 +341,7 @@ ui <- navbarPage(
                                                        class = "btn-success")
                                    ),
                                    column(width = 9,
-                                          plotly::plotlyOutput(outputId = "plotResponsiveLengthComposition",
+                                          plotly::plotlyOutput(outputId = "plotLengthComposition",
                                                        width = "100%",
                                                        height = "600px")
                                    )

@@ -248,7 +248,8 @@ server <- function(input, output, session){
         pg <- pg + geom_histogram(aes_(x = lengthCol), fill ="grey50",
                              closed = "left", boundary = 0, bins = 40)
       }
-      pg + theme_bw() + theme(strip.text.x = element_text(margin = margin(0.125,0.25,0.25,0.25, "cm")))
+      pg + theme_bw() + theme(text = element_text(size = 12),
+                              strip.text.x = element_text(margin = margin(0.125,0.25,0.25,0.25, "cm")))
     })
   
   # print head of raw catch data
@@ -340,9 +341,9 @@ server <- function(input, output, session){
       )
   
   # visualise data ====
-  output$lengthComposition <- plotly::renderPlotly({
+  output$plotSpeciesLengthComposition <- renderPlot({
     # catchdata_plot() eventReactive on input$selectCols
-    expr = plotly::ggplotly(p = catchdata_plot())
+    catchdata_plot()
   })
   
   
@@ -839,17 +840,6 @@ server <- function(input, output, session){
                      L95 = ifelse(!is.null(input$Lm95), input$Lm95, NULL), # M95
                      CVLinf = input$CVLinf  # CVlen
     )  
-    if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-      lhp_list <- c(lhp_list, 
-                    list(FecB = input$FecB, 
-                         Steepness = input$Steepness,
-                         Mpow = input$Mpow,
-                         MaxSD = input$MaxSD,
-                         NGTG = input$NGTG)) # "technical" parameter?
-    } else if(input$lengthBasedAssessmentMethod == "LIME") {
-      lhp_list <- c(lhp_list, list(maturity_input="length"))
-    }
-    expr = lhp_list
   })
   
 
@@ -1401,7 +1391,7 @@ server <- function(input, output, session){
   })
   
   # plot length composition of filtered data - change with slider input
-  output$plotResponsiveLengthComposition <- 
+  output$plotLengthComposition <- 
     plotly::renderPlotly({
       lengthData <- lengthDataInput()$lengthRecords
       lengthCol <- lengthDataInput()$lengthCol
@@ -1472,6 +1462,12 @@ server <- function(input, output, session){
     {
       StockPars <- setLHPars()
       StockPars$MK <- StockPars$M/StockPars$K
+      StockPars <- append(StockPars, 
+                    list(FecB = input$FecB, 
+                         Steepness = input$Steepness,
+                         Mpow = input$Mpow,
+                         MaxSD = input$MaxSD,
+                         NGTG = input$NGTG)) # "technical" parameter?
       
       fixedFleetPars <- NULL
       allFleetPars <- setFleetPars()
@@ -1638,6 +1634,7 @@ server <- function(input, output, session){
   fitLIME <- reactive(
     {
       lhParVals <- isolate(setLHPars()) # only evaluated if fitLIME called
+      lhParVals$maturity_input <- "length"
       fleetParVals <- isolate(setFleetPars()) 
       binwidth <- isolate(input$Linc)
       # selectivity parameters fitted or estimated
@@ -2327,7 +2324,7 @@ server <- function(input, output, session){
       fleet_select <- data.frame(l_mid = limeLH$mids,
                                  S_l = NA)
 
-      if(!all(is.na(limeFit$Sdeport)) & !all(is.null(limeFit$Report))){
+      if(!all(is.na(limeFit$Sdreport)) & !all(is.null(limeFit$Report))){
       # fishing mortality
       indexFt <- names(limeFit$Sdreport$value) == "lF_t" # or lF_y
       # recruitment
@@ -2527,7 +2524,7 @@ server <- function(input, output, session){
   
   output$downloadStockStatusData <- downloadHandler(
     filename = function() {
-      paste("stock_status_estimates-", Sys.Date(), ".csv", sep="")
+      paste0(input$lengthBasedAssessmentMethod, "_stock_status_estimates-", Sys.Date(), ".csv")
     },
     content = function(fname) {
       write.csv(fishingEstimates()$stock_status, file = fname, row.names = FALSE)
@@ -2537,7 +2534,7 @@ server <- function(input, output, session){
   
   output$downloadSelectivityData <- downloadHandler(
     filename = function() {
-      paste("fleet_selectivity-", Sys.Date(), ".csv", sep="")
+      paste0(input$lengthBasedAssessmentMethod, "_fleet_selectivity-", Sys.Date(), ".csv")
     },
     content = function(fname) {
       write.csv(fishingEstimates()$fleet_select, file = fname, row.names = FALSE)
