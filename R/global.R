@@ -266,6 +266,8 @@ gg_lime_time <- function(limeTH, i_yrs_obs){
     theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
   if(unique(limeTH$quantity) == "SPR"){
     pg <- pg + expand_limits(y = c(0,1))
+  } else if (unique(limeTH$quantity) == "fishing mortality") {
+    pg <- pg + coord_cartesian(ylim = c(0, min(3.0, max(limeTH$uci, na.rm = TRUE))))
   }
   return(pg)
 }

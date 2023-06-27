@@ -58,7 +58,7 @@ server <- function(input, output, session){
                            data = catchdata_read(),
                            selected = ifelse(any(grepl("length", colnames(catchdata_read()), ignore.case = TRUE)),
                                              grep("length", colnames(catchdata_read()), ignore.case = TRUE, value = TRUE),
-                                             NULL))
+                                             NA))
       })
   
   # updates checkboxCatchData after lengthColSelect changes
@@ -109,6 +109,8 @@ server <- function(input, output, session){
           catchdata[, dateCol] <- as.Date(catchdata[, dateCol], tryFormats = c("%d/%m/%Y", "%Y-%m-%d"))
           catchdata$yearDate <- format(catchdata[, dateCol], "%Y")
         }
+        # character columns, except date, as factor
+        catchdata[, setdiff(charCols, union(dateCol, yearCol))] <- as.factor(catchdata[, setdiff(charCols, union(dateCol, yearCol))])
 
       } else {
         catchdata <- data.frame(catchdata)
@@ -1677,15 +1679,12 @@ server <- function(input, output, session){
                            SigmaC=input$SigmaC,
                            SigmaI=input$SigmaI,
                            R0=input$R0,
-                           Frate=input$Frate,
-                           Fequil=input$Fequil,
                            qcoef=input$qcoef,
                            start_ages=input$start_ages,
-                           rho=input$rho,
                            theta=input$theta,
                            nseasons=input$nseasons,
                            nfleets=1 # fleetParVals$nfleets
-                           )
+                           ) # omit Frate, Fequil, rho (simulation-only) parameters
 
       # length records
       length_records <- isolate(lengthRecordsFilter())
@@ -1757,7 +1756,7 @@ server <- function(input, output, session){
                           input=inputs_all,
                           data_avail="LC", 
                           est_selex_f = fleetParVals$est_selex_f,
-                          vals_selex_ft = lh$S_fl)
+                          vals_selex_ft = ifelse(fleetParVals$est_selex_f, -1, lh$S_fl))
       end <- Sys.time() - start
 
       # outputs
@@ -2443,6 +2442,15 @@ server <- function(input, output, session){
     list(stock_status = stock_status,  fleet_select = fleet_select)
   })
   
+  obsMeanLengthMLL <- reactive({
+    length_records <- lengthRecordsFilter()
+    length_col <- newLengthCol()
+    MLL <- max(ifelse(is.null(setFleetPars()$SLMin), NA , setFleetPars()$SLMin), input$MLL, na.rm = TRUE)
+    length_records <- length_records[length_records[,length_col] >= MLL,]
+    yearCol <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
+    aggregate(length_records[sapply(length_records, is.numeric)], 
+              by = list(year = length_records[, yearCol]), FUN = mean, na.rm = TRUE)
+  })
 
   createPlotLBAestimates <- reactive({
     if(input$lengthBasedAssessmentMethod == "LIME"){
@@ -2459,6 +2467,11 @@ server <- function(input, output, session){
         #                        set_ylim=list("Fish"=c(0,Ft_uci*1.1),"SPR"=c(0,1)))
         outLIME <- collate_lime_output(lc_only$input, lc_only$Report, lc_only$Sdreport)
         lime_plots_th <- lapply(outLIME$limeTH, FUN = "gg_lime_time", outLIME$years_o)
+        lime_plots_th$limeML <-
+          lime_plots_th$limeML + 
+          geom_point(data = obsMeanLengthMLL(), aes_string(x = "year", y = newLengthCol())) + 
+          geom_line(data = obsMeanLengthMLL(), aes_string(x = "year", y = newLengthCol()), 
+                    linewidth = 0.5)
         names(lime_plots_th) <- sub("lime", "plot", names(lime_plots_th))
         lime_plots_sel <- ggplot(outLIME$limeSelexF) +
           geom_line(aes(x = length, y = selectivity), colour = "green4", linewidth = 1) + 
