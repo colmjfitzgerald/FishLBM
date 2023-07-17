@@ -99,10 +99,6 @@ server <- function(input, output, session){
         catchdata[, charCols] <- sapply(catchdata[, charCols], trimws)
 
         sexCol <- grep("sex", checkboxCols, ignore.case = TRUE, value = TRUE)
-        if(length(sexCol) >0){
-          catchdata[, sexCol] <- as.factor(catchdata[, sexCol])
-        }
-
         dateCol <- grep("date", checkboxCols, ignore.case = TRUE, value = TRUE)
         yearCol <- grep("year", checkboxCols, ignore.case = TRUE, value = TRUE)
         if(length(dateCol)==1 & length(yearCol)==0){
@@ -110,7 +106,7 @@ server <- function(input, output, session){
           catchdata$yearDate <- format(catchdata[, dateCol], "%Y")
         }
         # character columns, except date, as factor
-        catchdata[, setdiff(charCols, union(dateCol, yearCol))] <- as.factor(catchdata[, setdiff(charCols, union(dateCol, yearCol))])
+        catchdata[, setdiff(charCols, union(dateCol, yearCol))] <- data.frame(lapply(catchdata[, setdiff(charCols, union(dateCol, yearCol)), drop = FALSE], as.factor))
 
       } else {
         catchdata <- data.frame(catchdata)
