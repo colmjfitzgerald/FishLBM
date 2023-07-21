@@ -343,7 +343,7 @@ ui <- navbarPage(
                                    column(width = 9,
                                           plotly::plotlyOutput(outputId = "plotLengthComposition",
                                                        width = "100%",
-                                                       height = "600px")
+                                                       height = "800px")
                                    )
                                  ),
                                ),
@@ -500,7 +500,7 @@ ui <- navbarPage(
                                                        class = "btn-success"),
                                    ),
                                    column(width = 9,
-                                          plotly::plotlyOutput(outputId = "plotLengthCompSelect", height = "600px")
+                                          plotly::plotlyOutput(outputId = "plotLengthCompSelect", height = "800px")
                                    )
                                  )
                                )
@@ -515,7 +515,7 @@ ui <- navbarPage(
                                               column(width = 9,
                                                      plotly::plotlyOutput(outputId = "plotLBAModelFit",
                                                                   width = "100%",
-                                                                  height = "600px")
+                                                                  height = "800px")
                                               )
                                             )
                                           )

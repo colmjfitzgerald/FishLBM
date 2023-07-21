@@ -1,22 +1,47 @@
 # server function for shiny app
 server <- function(input, output, session){
   
+  file_data <- reactive({
+    inputFile <- req(input$uploadFile)
+    ext <- tools::file_ext(inputFile$datapath)
+    if(ext == "xlsx" || ext == "XLSX"){
+      sheetNames <- openxlsx::getSheetNames(file = inputFile$datapath)
+    } else if (ext == "xls" || ext == "XLS") {
+      sheetNames <- unlist(readxl::excel_sheets(path = inputFile$datapath))
+    } else {
+      sheetNames <- NULL
+    }
+      
+    list(ext = tools::file_ext(inputFile$datapath),
+         path = inputFile$datapath,
+         sheets = sheetNames)
+  })
+  
   # read catch data file - reactive expression ----
   catchdata_read <- reactive({
-    file_in <- input$uploadFile
-    ext <- tools::file_ext(file_in$datapath)
-    req(file_in)
+    
+    fileExt <- file_data()$ext
+    filePath <- file_data()$path
+    sheetNames <- file_data()$sheets
     
     # data from file
-    if(ext == "csv" || ext == ".CSV"){
-      catch_data <- read.csv(file = file_in$datapath, header = TRUE)
-    } else if(ext == "xlsx" || ext == "XLSX"){
+    if(fileExt == "csv" || fileExt == ".CSV"){
+      catch_data <- read.csv(file = filePath, header = TRUE)
+    } else if(fileExt == "xlsx" || fileExt == "XLSX"){
       if(requireNamespace("openxlsx", quietly = FALSE)){
-        catch_data <- openxlsx::read.xlsx(xlsxFile = file_in$datapath, sheet = 1, check.names = TRUE)
+        sheetNames <- openxlsx::getSheetNames(file = filePath)
+        showModal(
+          modalDialog(
+            renderUI({selectInput(inputId = "selectWorksheet", label = "Select input", choices = sheetNames, selected = sheetNames[1])}), 
+            footer = modalButton("Dismiss")), 
+          session)
+        catch_data <- openxlsx::read.xlsx(xlsxFile = filePath, sheet = 1, check.names = TRUE)
       }
-    } else if(ext == "xls" || ext == "XLS"){
+    } else if(fileExt == "xls" || fileExt == "XLS"){
       if(requireNamespace("readxl", quietly = FALSE)){
-        catch_data <- readxl::read_xls(path = file_in$datapath, sheet = 1)
+        catch_data <- readxl::read_xls(path = filePath, sheet = 1)
+#        showModal(modalDialog(footer = modalButton("Dismiss")), 
+#                  session)
       }
     } else{
       stop("file extension not supported")
@@ -813,6 +838,8 @@ server <- function(input, output, session){
   
   observe({
     updateNumericInput(session, "M", value = updateMortality())
+  })
+  observe({
     updateNumericInput(session, "Lm50", value = updateMaturity())
     updateNumericInput(session, "Lm95", value = updateMaturity95())
   })
@@ -1432,7 +1459,11 @@ server <- function(input, output, session){
     # maximum counts per year
     lengthDataVul$lengthBin <- cut(lengthDataVul[, lengthCol], breaks = createLengthBins()$LenBins, right = FALSE)
     maxCountPerYear <- apply(table(lengthDataVul$year, lengthDataVul$lengthBin), 1, max)
-    maxCounts <- data.frame(year = names(maxCountPerYear), maxCount = maxCountPerYear, row.names = NULL)
+    maxCounts <- data.frame(year = names(maxCountPerYear), 
+                            maxCount = maxCountPerYear, row.names = NULL)
+    if(input$analyseLengthComposition == "annual"){
+      maxCounts$year <- as.integer(maxCounts$year)
+    }
     
     # scale selectivity curves
     ggyear <- expand.grid(lengthCol = ggdata$length, year = maxCounts$year)
@@ -1745,6 +1776,11 @@ server <- function(input, output, session){
 
       inputs_all <- LIME::create_inputs(lh=lh, input_data=data_all)
 
+      # vals_selex_ft = FALSE
+      vals_selex_ft_LIME <- -1
+      if(!fleetParVals$est_selex_f){
+        vals_selex_ft_LIME <- lh$S_fl
+      }
       
       #  run_LIME ####
       start <- Sys.time()
@@ -1752,9 +1788,8 @@ server <- function(input, output, session){
                           input=inputs_all,
                           data_avail="LC", 
                           est_selex_f = fleetParVals$est_selex_f,
-                          vals_selex_ft = ifelse(fleetParVals$est_selex_f, -1, lh$S_fl))
+                          vals_selex_ft = vals_selex_ft_LIME)
       end <- Sys.time() - start
-
       # outputs
       list(length_data_raw = length_records[, c(yearCol, lengthCol)] %>% na.omit(),
            LF = LF, lc_only = lc_only, lh = lh)
@@ -1871,13 +1906,15 @@ server <- function(input, output, session){
       maxLengthYear <- rep(maxLengthYearVector, each = dim(LenDat)[2])
       NatL_LBSPR$catchFished_at_length_count <- NatL_LBSPR$catchFished_at_length*maxLengthYear
       NatL_LBSPR$selectivityF_at_length_count <- NatL_LBSPR$selectivityF_at_length*maxLengthYear
+      if(input$analyseLengthComposition == "annual"){
+        NatL_LBSPR$year <- as.integer(NatL_LBSPR$year)
+      }
       
       if(input$specifySelectivity == "Fixed value"){
         titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (specified)"
       } else if (input$specifySelectivity == "Initial estimate") {
         titleFitPlot <- "Length data, LB-SPR fit and selectivity curve (estimated)"
       }
-      
       
       # create ggplot with data...
       pg <- ggplot(length_records %>% dplyr::filter(isVulnerable)) + 
@@ -1892,15 +1929,15 @@ server <- function(input, output, session){
         geom_line(data = NatL_LBSPR,
                   mapping = aes(x = length_mid, y = selectivityF_at_length_count), 
                   colour = "red", lwd = 1) #+ 
-        labs(y = "count", #title = titleFitPlot,
-             caption = paste("Data from", input$uploadFile[[1]], sep = " "))#+ 
-      #scale_y_continuous(sec.axis = sec_axis(~  . /maxLenDat, name = "selectivity",
-      #breaks = c(0, 1),
-      #labels = c("0", "1")
-      #                                       ) )
+      # labs(y = "count", #title = titleFitPlot,
+      #      caption = paste("Data from", input$uploadFile[[1]], sep = " "))#+ 
+      # scale_y_continuous(sec.axis = sec_axis(~  . /maxLenDat, name = "selectivity",
+      # breaks = c(0, 1),
+      # labels = c("0", "1")
+      #                                        ) )
       
       expr = plotly::ggplotly(pg +  
-                        scale_x_continuous(name = length_col) +
+                        labs(y = "Count", name = gsub("_", " (", length_col, ")" )) +
                         facet_wrap(vars(year)) + 
                         theme_bw())
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
@@ -2444,7 +2481,7 @@ server <- function(input, output, session){
     MLL <- max(ifelse(is.null(setFleetPars()$SLMin), NA , setFleetPars()$SLMin), input$MLL, na.rm = TRUE)
     length_records <- length_records[length_records[,length_col] >= MLL,]
     yearCol <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
-    aggregate(length_records[sapply(length_records, is.numeric)], 
+    stats::aggregate(length_records[sapply(length_records, is.numeric)], 
               by = list(year = length_records[, yearCol]), FUN = mean, na.rm = TRUE)
   })
 
@@ -2669,8 +2706,8 @@ server <- function(input, output, session){
       diagnosticEstimatesLBSPR <- diagnostics$diagnosticEstimates
       ciEstimatesLBSPR <- diagnostics$ciEstimates
       
-      pglist <- vector("list", length = 3)
       parNames <- unique(parConstraintsLBSPR$Parameter)
+      pglist <- vector("list", length = length(parNames))
       
       for (iParEst in seq_along(parNames)){
         parCon <- parConstraintsLBSPR[parConstraintsLBSPR$Parameter == parNames[iParEst],]
@@ -2706,9 +2743,16 @@ server <- function(input, output, session){
       }
 
       # convert to plotly and arrange
-      pl_y <- plotly::subplot(pglist[[1]], pglist[[2]], pglist[[3]], nrows = 1, 
+      if(length(pglist) == 3){
+        col_widths <- c(0.31, 0.345, 0.345)
+      } else if(length(pglist) == 1){
+        col_widths <- 1
+      } else {
+        errorCondition("LB-SPR diagnostics plot input error")
+      }
+      pl_y <- plotly::subplot(pglist, nrows = 1, 
                               margin = c(0.05, 0.0, 0.0, 0.0), 
-                              widths = c(0.31, 0.345, 0.345),
+                              widths = col_widths,
                               shareY = TRUE, titleX = TRUE) %>%
         plotly::layout(xaxis = list(title = "estimate"), 
                xaxis2 = list(title = "estimate"), 
