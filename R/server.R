@@ -1766,7 +1766,8 @@ server <- function(input, output, session){
       start <- Sys.time()
       lc_only <- LIME::run_LIME(modpath=NULL, 
                           input=inputs_all,
-                          data_avail="LC", 
+                          data_avail="LC",
+                          SigRprior = c(input$SigmaR, 0.3),
                           est_selex_f = fleetParVals$est_selex_f,
                           vals_selex_ft = vals_selex_ft_LIME)
       end <- Sys.time() - start
