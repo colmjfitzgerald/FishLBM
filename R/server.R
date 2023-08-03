@@ -2514,15 +2514,15 @@ server <- function(input, output, session){
   #   subplot(ply_gg, nrows = 3)
   # })
   # renderPlotly
-  output$plotFFit <- renderPlotly(
+  output$plotFFit <- plotly::renderPlotly(
     ggplotly_config(createPlotLBAestimates()$plotF, 
-                    paste0(tolower(sub("-", "", input$lengthBasedAssessmentMethod)), "PlotF")))
-  output$plotSPRFit <- renderPlotly(
+                    paste0(tolower(sub("-", "", isolate(input$lengthBasedAssessmentMethod))), "PlotF")))
+  output$plotSPRFit <- plotly::renderPlotly(
     ggplotly_config(createPlotLBAestimates()$plotSPR,
-                    paste0(tolower(sub("-", "", input$lengthBasedAssessmentMethod)), "PlotSPR")))
-  output$plotSelexFit <- renderPlotly(
+                    paste0(tolower(sub("-", "", isolate(input$lengthBasedAssessmentMethod))), "PlotSPR")))
+  output$plotSelexFit <- plotly::renderPlotly(
     ggplotly_config(createPlotLBAestimates()$plotSelexF,
-                    paste0(tolower(sub("-", "", input$lengthBasedAssessmentMethod)), "PlotSelexF")))
+                    paste0(tolower(sub("-", "", isolate(input$lengthBasedAssessmentMethod))), "PlotSelexF")))
 
   # run insertRemovePlotServer code
   insertRemovePlotServer("limeLBSPR", reactive(input$lengthBasedAssessmentMethod), 

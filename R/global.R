@@ -127,15 +127,15 @@ insertRemovePlotServer <-
                      { if(addPlotRows() == 0 && lbsaMethod() == "LIME"){
                        insertUI(selector = paste0("#", ns("outMLFit")),
                                 where = "afterBegin",
-                                tags$div(id = ns("plotMLFit"), plotlyOutput(outputId = ns("plotMLFit")))
+                                tags$div(id = ns("plotMLFit"), plotly::plotlyOutput(outputId = ns("plotMLFit")))
                        )
                        insertUI(selector = paste0("#", ns("outSSBFit")),
                                 where = "afterBegin",
-                                tags$div(id = ns("plotSSBFit"), plotlyOutput(outputId = ns("plotSSBFit")))
+                                tags$div(id = ns("plotSSBFit"), plotly::plotlyOutput(outputId = ns("plotSSBFit")))
                        )
                        insertUI(selector = paste0("#", ns("outRFit")),
                                 where = "afterBegin",
-                                tags$div(id = ns("plotRecFit"), plotlyOutput(outputId = ns("plotRecFit")))
+                                tags$div(id = ns("plotRecFit"), plotly::plotlyOutput(outputId = ns("plotRecFit")))
                        )
                        addPlotRows(1)
                        } else if (addPlotRows() == 1 && lbsaMethod() == "LB-SPR")
@@ -149,13 +149,13 @@ insertRemovePlotServer <-
         
         observeEvent(req(lbsaMethod()) == "LIME" && btnLbsaFit(),
                      { #browser()
-                     output$plotMLFit <- renderPlotly(
+                     output$plotMLFit <- plotly::renderPlotly(
                        ggplotly_config(lbsaOutput()$plotML, 
                                        paste0(tolower(sub("-", "", lbsaMethod())), "PlotML")))
-                     output$plotSSBFit <- renderPlotly(
+                     output$plotSSBFit <- plotly::renderPlotly(
                        ggplotly_config(lbsaOutput()$plotSB, 
                                        paste0(tolower(sub("-", "", lbsaMethod())), "PlotSB")))
-                     output$plotRecFit <- renderPlotly(
+                     output$plotRecFit <- plotly::renderPlotly(
                        ggplotly_config(lbsaOutput()$plotRecruit, 
                                        paste0(tolower(sub("-", "", lbsaMethod())), "PlotRecruit")))
       })
@@ -240,7 +240,7 @@ collate_lime_output <- function(inputLIME, report, sdreport){
   lmax <- max(inputLIME$highs)
   fishlength <- seq(lmin,lmax, inputLIME$binwidth/4)
   limeSelexF <- data.frame(length = fishlength,
-                           selectivity = 1/(1+exp(-(fishlength - report$S50_f)/(report$S95_f-report$S50_f)))
+                           selectivity = 1/(1+exp(-log(19)*(fishlength - report$S50_f)/(report$S95_f-report$S50_f)))
   )
   
   # collate outputs
