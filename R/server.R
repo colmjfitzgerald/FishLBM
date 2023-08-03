@@ -1420,7 +1420,7 @@ server <- function(input, output, session){
           theme_bw() + 
           theme(legend.position = "bottom")
       }
-      expr = plotly::ggplotly(ggLengthComp)
+      expr = plotly::ggplotly(ggLengthComp) %>% plotly::layout(legend = list(orientation = "h"))
     })
   
   
@@ -1781,10 +1781,10 @@ server <- function(input, output, session){
   observeEvent(input$fitLBA,
                {updateNavbarPage(session, inputId = "methodLBSPR", selected = "tabModelFit")
                  if(input$lengthBasedAssessmentMethod == "LIME") {
-                   limeFitStatus <-  all(is.na(fitLIME()$lc_only$opt$final_gradient)) & !("Convergence_check" %in% names(fitLIME()$lc_only$opt))
+                   limeFitFailStatus <-  all(is.na(fitLIME()$lc_only$opt$final_gradient)) & !("Convergence_check" %in% names(fitLIME()$lc_only$opt))
                    showModal(modalDialog(
                      title = "TMBhelper convergence check",
-                     ifelse(limeFitStatus, 
+                     ifelse(limeFitFailStatus, 
                             paste("Model not converged:", names(fitLIME()$lc_only$opt), "=", fitLIME()$lc_only$opt$final_gradient, sep = " "), 
                             fitLIME()$lc_only$opt$Convergence_check),
                      easyClose = TRUE,
