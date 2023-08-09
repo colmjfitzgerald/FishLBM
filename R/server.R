@@ -1289,39 +1289,19 @@ server <- function(input, output, session){
 
         # "annual" only an option if year column present (length(year_col) > 0)
         # drop any entry with NA years or lengths
-        length_yearly_all <- na.omit(length_records[, c(year_col,length_col), drop = FALSE])
-        # lengthBins
-        length_yearly_all$lengthBin = cut(length_yearly_all[, length_col], 
-                                      breaks = lengthBins, right = FALSE)
-        if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-          length_yearly_all$year <- factor(length_yearly_all[, year_col])
-        } else if(input$lengthBasedAssessmentMethod == "LIME"){
-          length_yearly_all$year <- factor(length_yearly_all[, year_col], 
-                                           levels = seq(year_min, year_max, 1))
+        if(input$lengthBasedAssessmentMethod == "LIME"){
+          LF <- createAnnualLF(length_records, length_col, year_col, lengthBins, allYears = TRUE)
+          LFVul <- createAnnualLF(length_records[length_records[,length_col] >= MLL,], 
+                                  length_col, year_col, lengthBins, allYears = TRUE)
+        } else if(input$lengthBasedAssessmentMethod == "LB-SPR"){
+          LF <- createAnnualLF(length_records, length_col, year_col, lengthBins, allYears = FALSE)
+          LFVul <- createAnnualLF(length_records[length_records[,length_col] >= MLL,], 
+                                  length_col, year_col, lengthBins, allYears = FALSE)
         }
-        LF <- table(length_yearly_all$year, length_yearly_all$lengthBin, 
-              dnn = c("year", "lengthBin"))
-        colnames(LF) <- as.character(lengthBins)[-1]
-
-        
-        # repeat process for vulnerable fish
-        length_yearly_vul <- na.omit(length_records[length_records[,length_col] >= MLL, 
-                                                    c(year_col,length_col), drop = FALSE])
-        length_yearly_vul$lengthBin = cut(length_yearly_vul[, length_col], 
-                                          breaks = lengthBins, right = FALSE)
-        if(input$lengthBasedAssessmentMethod == "LB-SPR"){
-          length_yearly_vul$year <- factor(length_yearly_vul[, year_col])
-        } else if(input$lengthBasedAssessmentMethod == "LIME"){
-          length_yearly_vul$year <- factor(length_yearly_vul[, year_col], levels = seq(year_min, year_max, 1))
-        }
-        LFVul <- table(length_yearly_vul$year, length_yearly_vul$lengthBin,
-                       dnn = c("year", "lengthBin"))
-        colnames(LFVul) <- as.character(lengthBins)[-1]
     }
 
     # binned counts
-    list_out <- list(LenDat = LF, LenDatVul = LFVul)
-    list_out
+    list(LenDat = LF, LenDatVul = LFVul)
   })
   
   # app navigation
@@ -1882,20 +1862,8 @@ server <- function(input, output, session){
   
   output$plotLBAModelFit <- plotly::renderPlotly({
     # length data
-    length_records <- lengthRecordsFilter()
-    length_col <- newLengthCol()
-    length_records$isVulnerable <- length_records[,length_col] >= input$MLL
-    year_col <- names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)]
-    
-    # is year column present?
-    if(is.null(year_col) | input$analyseLengthComposition == "all periods"){
-      length_records <- length_records %>%
-        dplyr::select(!!ensym(length_col), isVulnerable) %>%
-        dplyr::mutate(year = "all periods")
-    } else {
-      #rename as year or facetting
-      names(length_records)[grepl("year", names(length_records), ignore.case = TRUE)] <- "year"
-    }
+    length_records <- lengthDataInput()$lengthRecords
+    length_col <- lengthDataInput()$lengthCol
     
     LenBins <- createLengthBins()$LenBins
     LenMids <- createLengthBins()$LenMids	

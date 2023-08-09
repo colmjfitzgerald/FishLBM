@@ -165,6 +165,25 @@ insertRemovePlotServer <-
 
 # non-reactive functions available to each user session ====
 
+# bin length data
+# how to replace the above?
+createAnnualLF <- function(length_records, length_col, year_col, lengthBins, allYears = FALSE) {
+  length_yearly_all <- na.omit(length_records[, c(year_col,length_col), drop = FALSE])
+  # create length bins
+  length_yearly_all$lengthBin = cut(length_yearly_all[, length_col], breaks = lengthBins, right = FALSE)
+  # select (categorical) year levels
+  if (allYears) {
+    yearLevels <- seq(min(length_yearly_all[, year_col]), max(length_yearly_all[, year_col]), 1)
+  } else {
+    yearLevels <- unique(length_yearly_all[, year_col])
+  }
+  length_yearly_all$year <- factor(length_yearly_all[, year_col], levels = yearLevels)
+  # build contingency table of counts at each combination of factor levels
+  LF <- table(length_yearly_all$year, length_yearly_all$lengthBin, dnn = c("year", "lengthBin"))
+  colnames(LF) <- as.character(lengthBins)[-1]
+  LF
+}
+
 # LIME model ####
 
 # collate output
