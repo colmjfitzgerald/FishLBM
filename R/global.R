@@ -163,6 +163,47 @@ insertRemovePlotServer <-
     )  
   }
 
+# module to produce LIME/LB-SPR length compositions ####
+
+# basic ui structure into and from which we inset and remove ui objects
+lcPlotTweakInput <- function(id, label = "lengthCompositionInput"){
+  ns <- NS(id)
+  tagList(
+    numericInput(ns("axisTitleFontSize"), label = "Axis label font size", min = 6, max = 16, step = 1, value = 10), #11*relSize
+    numericInput(ns("axisFontSize"), label = "Axis text font size", min = 6, max = 16, step = 1, value = 10), # 11*relSize
+    numericInput(ns("stripFontSize"), label = "Facet text font size", min = 6, max = 16, step = 1, value = 10), # 11*relSize
+    numericInput(ns("panelSpacing"), label = "Facet plot spacing", min = 1, max = 15, step = 1, value = 5),
+    selectInput(ns("statHist"), label = "Histogram statistic", choices = c("count", "density", "proportion", "ncount"),
+                selected = "count")
+  )
+}
+
+lcPlotOutput <- function(id, label = "lengthCompositionOutput"){
+  ns <- NS(id)
+  plotly::plotlyOutput(outputId = ns("plotLengthComposition"), width = "100%", height = "800px")
+}
+
+lcPlotServer <- 
+  function(id, lengthDataInput, createLengthBins, Linc, MLL) {
+    moduleServer(
+      id, 
+      function(input, output, session){
+        stopifnot(is.reactive(lengthDataInput), is.reactive(createLengthBins), is.reactive(Linc), is.reactive(MLL))
+
+        output$plotLengthComposition <- renderPlotly({
+          gglc <- ggplot_length_composition(lengthDataInput(), createLengthBins()$LenBins, Linc(), MLL(), input$statHist) + 
+            ggplot2::theme(axis.text = element_text(size = input$axisFontSize),
+                  axis.title = element_text(size = input$axisTitleFontSize),
+                  strip.text = element_text(size = input$stripFontSize),
+                  panel.spacing = ggplot2::unit(input$panelSpacing, "pt")
+            )
+          expr = plotly::ggplotly(gglc) %>% plotly::layout(legend = list(orientation = "h"))
+          })
+      }
+    )
+  }
+
+
 # non-reactive functions available to each user session ====
 
 # bin length data
@@ -182,6 +223,36 @@ createAnnualLF <- function(length_records, length_col, year_col, lengthBins, all
   LF <- table(length_yearly_all$year, length_yearly_all$lengthBin, dnn = c("year", "lengthBin"))
   colnames(LF) <- as.character(lengthBins)[-1]
   LF
+}
+
+# length composition plots ####
+
+ggplot_length_composition <- function(lengthDataInput, lengthBins, Linc, MLL, stat_type){
+  stopifnot(is.list(lengthDataInput), 
+            "lengthRecords" %in% names(lengthDataInput),
+            "lengthCol" %in% names(lengthDataInput))
+  
+  lengthData <- lengthDataInput$lengthRecords
+  lengthCol <- lengthDataInput$lengthCol
+
+  binwidth <- Linc
+  stat_formula <- stat_type
+  if(stat_type == "density"){
+    stat_formula <- "count/sum(count)/width"
+  } else if(stat_type == "proportion"){
+    stat_formula <- "count/sum(count)"
+  }
+  ggplot(lengthData %>% 
+           dplyr::filter(!is.na(!!sym(lengthCol))) %>%
+           dplyr::mutate(isVulnerable = factor(isVulnerable, levels = c(TRUE, FALSE)))) + 
+    geom_histogram(mapping = aes(x = !!sym(lengthCol), fill = isVulnerable, after_stat(!!parse_expr(stat_formula))), 
+                   breaks = lengthBins, closed = "left", colour = "black", binwidth = binwidth) +
+    facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, value = TRUE)," ~ ."))) +
+    scale_fill_manual(name = "fishery \n vulnerable", breaks = waiver(), values = c("grey80", "grey20")) +
+    geom_vline(xintercept = MLL, colour = "red", linetype = 2, linewidth = 1) +
+    labs(y = stat_type) +
+    theme_bw() + 
+    theme(legend.position = "bottom")
 }
 
 # LIME model ####

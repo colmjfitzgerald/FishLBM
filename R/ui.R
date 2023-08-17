@@ -338,12 +338,15 @@ ui <- navbarPage(
                                                        selected = "all periods"
                                           ),
                                           actionButton(inputId = "btnLengthComposition", label = "Input length composition",
-                                                       class = "btn-success")
+                                                       class = "btn-success"),
+                                          div(id = "abovePlotTweakBox", hr()),
+                                          shinydashboard::box(
+                                            status = "info", width = NULL, collapsible = TRUE, collapsed = TRUE, title = "Adjust plot",
+                                            lcPlotTweakInput("lCMLL")
+                                          )
                                    ),
                                    column(width = 9,
-                                          plotly::plotlyOutput(outputId = "plotLengthComposition",
-                                                       width = "100%",
-                                                       height = "800px")
+                                          lcPlotOutput("lCMLL")
                                    )
                                  ),
                                ),

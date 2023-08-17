@@ -1396,33 +1396,12 @@ server <- function(input, output, session){
   })
   
   # plot length composition of filtered data - change with slider input
-  output$plotLengthComposition <- 
-    plotly::renderPlotly({
-      lengthData <- lengthDataInput()$lengthRecords
-      lengthCol <- lengthDataInput()$lengthCol
-      
-      if(all(lengthData$isVulnerable, na.rm = TRUE)) {
-        ggLengthComp <- ggplot(lengthData %>% dplyr::filter(!is.na(!!sym(newLengthCol())))) +  
-          geom_histogram(mapping = aes_string(x = lengthCol), fill = "grey80",
-                         breaks = createLengthBins()$LenBins, # slideLenBins(),
-                         closed = "left", colour = "black") +
-          facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, value = TRUE)," ~ ."))) +
-          geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
-          theme_bw()
-      } else {
-        ggLengthComp <- ggplot(lengthData %>% dplyr::filter(!is.na(!!sym(newLengthCol())))) + 
-          geom_histogram(mapping = aes_string(x = lengthCol, fill = "isVulnerable"),
-                         breaks = createLengthBins()$LenBins, # slideLenBins(),
-                         closed = "left", colour = "black") +
-          facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, value = TRUE)," ~ ."))) +
-          scale_fill_manual(name = "fishery \n vulnerable", breaks = waiver(), values = c("grey20", "grey80")) + 
-          geom_vline(xintercept = input$MLL, colour = "red", linetype = 2, size = 1) +
-          theme_bw() + 
-          theme(legend.position = "bottom")
-      }
-      expr = plotly::ggplotly(ggLengthComp) %>% plotly::layout(legend = list(orientation = "h"))
-    })
-  
+  # output$plotLengthComposition <- 
+  #   plotly::renderPlotly({
+  #     ggLengthComp <-  
+  #     expr = plotly::ggplotly(ggLengthComp) %>% plotly::layout(legend = list(orientation = "h"))
+  #   })
+  lcPlotServer("lCMLL", lengthDataInput, createLengthBins, reactive(input$Linc), reactive({input$MLL}))
   
   output$plotLengthCompSelect <- plotly::renderPlotly({
     ggdata <- selectionCurves()

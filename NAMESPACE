@@ -10,7 +10,7 @@ importFrom(ggplot2, ggplot, geom_histogram, geom_line, geom_rug,
 	expand_limits)
 importFrom(plotly, renderPlotly, plotlyOutput)
 importFrom(dplyr, "%>%")
-importFrom(rlang, "!!", ":=", ".data")
+importFrom(rlang, "!!", ":=", ".data", parse_expr)
 importFrom(shinydashboard, box)
 importFrom(LIME, create_lh_list, run_LIME, sim_pop, plot_output)
 importFrom(LBSPRDome, optLBSPRDome, simLBSPRDome)
