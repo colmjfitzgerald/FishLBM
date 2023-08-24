@@ -1401,45 +1401,32 @@ server <- function(input, output, session){
   #     ggLengthComp <-  
   #     expr = plotly::ggplotly(ggLengthComp) %>% plotly::layout(legend = list(orientation = "h"))
   #   })
-  lcPlotServer("lCMLL", lengthDataInput, createLengthBins, reactive(input$Linc), reactive({input$MLL}))
-  
+  lengthComposition <- lcPlotServer("lCMLL", lengthDataInput, createLengthBins, reactive(input$Linc), reactive({input$MLL}))
+
   output$plotLengthCompSelect <- plotly::renderPlotly({
     ggdata <- selectionCurves()
-    if(req(input$specifySelectivity) == "Initial estimate" ){
-      gg_lty <- 2
-    } else if(input$specifySelectivity == "Fixed value") {
-      gg_lty <- 1
-    }
+    gg_lty <- ifelse(req(input$specifySelectivity) == "Initial estimate", 2, 1) # if(input$specifySelectivity == "Fixed value") { gg_lty <- 1 }
     
-    lengthData <- lengthDataInput()$lengthRecords
-    lengthDataVul <- lengthData %>% dplyr::filter(isVulnerable)
-    lengthCol <-  lengthDataInput()$lengthCol   
+    catchLHist <- max_counts_per_year(lengthData = lengthDataInput()$lengthRecords, lengthCol = lengthDataInput()$lengthCol, 
+                        lengthBins = createLengthBins()$LenBins, analyseLengthComposition =input$analyseLengthComposition,
+                        statHist = lengthComposition$statHist())
 
-    # maximum counts per year
-    lengthDataVul$lengthBin <- cut(lengthDataVul[, lengthCol], breaks = createLengthBins()$LenBins, right = FALSE)
-    maxCountPerYear <- apply(table(lengthDataVul$year, lengthDataVul$lengthBin), 1, max)
-    maxCounts <- data.frame(year = names(maxCountPerYear), 
-                            maxCount = maxCountPerYear, row.names = NULL)
-    if(input$analyseLengthComposition == "annual"){
-      maxCounts$year <- as.integer(maxCounts$year)
+    # scale selectivity curves
+    ggyear <- expand.grid(lengthCol = ggdata$length, year = catchLHist$year)
+    ggyear$proportion <- rep(ggdata$proportion, dim(catchLHist)[1])
+    if(lengthComposition$statHist() == "count"){
+      ggyear$scaled_proportion <- as.vector(outer(ggdata$proportion, catchLHist$maxCount))
+    } else if(lengthComposition$statHist() == "proportion"){
+      ggyear$scaled_proportion <- as.vector(outer(ggdata$proportion, catchLHist$maxProportion))
+    } else if(lengthComposition$statHist() == "density"){
+      ggyear$scaled_proportion <- as.vector(outer(ggdata$proportion, catchLHist$maxDensity))
     }
     
-    # scale selectivity curves
-    ggyear <- expand.grid(lengthCol = ggdata$length, year = maxCounts$year)
-    ggyear$proportion <- rep(ggdata$proportion, length(maxCountPerYear))
-    ggyear$scaled_proportion <- as.vector(outer(ggdata$proportion,maxCountPerYear))
-    
-    pg <- ggplot(lengthDataVul) +
-      geom_histogram(mapping = aes_string(x = lengthCol), fill = "grey80",
-                     breaks = createLengthBins()$LenBins, # slideLenBins(),
-                     closed = "left", colour = "black") + 
+    pg <- lengthComposition$pg() +
       geom_line(data = ggyear,
                 mapping = aes(x = lengthCol, y = scaled_proportion), 
                 linetype = gg_lty, colour = "red", size = 1) +
-      scale_size_identity() +
-      labs(y = "Count") +
-      facet_wrap(vars(year)) +
-      theme_bw()
+      scale_size_identity()
     expr = plotly::ggplotly(pg)
   })
 
@@ -1884,10 +1871,11 @@ server <- function(input, output, session){
       # labels = c("0", "1")
       #                                        ) )
       
-      expr = plotly::ggplotly(pg +  
-                        labs(y = "Count", name = gsub("_", " (", length_col, ")" )) +
+      expr = plotly::ggplotly(pg +
+                        labs(y = "count", name = gsub("_", " (", length_col, ")" )) +
                         facet_wrap(vars(year)) + 
-                        theme_bw())
+                        theme_bw() + 
+                        lengthComposition$themeTweak())
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
       limeFit <- fitLIME()
       
@@ -1936,7 +1924,7 @@ server <- function(input, output, session){
           scale_color_brewer(palette="Set1", direction=-1)
       }
 
-      expr = plotly::ggplotly(pg + theme_bw()) %>% 
+      expr = plotly::ggplotly(pg + theme_bw() + lengthComposition$themeTweak()) %>% 
         plotly::layout(autosize = TRUE)
     }
     

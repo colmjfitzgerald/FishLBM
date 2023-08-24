@@ -173,8 +173,7 @@ lcPlotTweakInput <- function(id, label = "lengthCompositionInput"){
     numericInput(ns("axisFontSize"), label = "Axis text font size", min = 6, max = 16, step = 1, value = 10), # 11*relSize
     numericInput(ns("stripFontSize"), label = "Facet text font size", min = 6, max = 16, step = 1, value = 10), # 11*relSize
     numericInput(ns("panelSpacing"), label = "Facet plot spacing", min = 1, max = 15, step = 1, value = 5),
-    selectInput(ns("statHist"), label = "Histogram statistic", choices = c("count", "density", "proportion", "ncount"),
-                selected = "count")
+    selectInput(ns("statHist"), label = "Histogram statistic", choices = c("count"), selected = "count") #"density", "proportion"),
   )
 }
 
@@ -189,16 +188,28 @@ lcPlotServer <-
       id, 
       function(input, output, session){
         stopifnot(is.reactive(lengthDataInput), is.reactive(createLengthBins), is.reactive(Linc), is.reactive(MLL))
+        
+        themeTweak <- reactive({theme(axis.text = element_text(size = input$axisFontSize),
+                                        axis.title = element_text(size = input$axisTitleFontSize),
+                                        strip.text = element_text(size = input$stripFontSize),
+                                        panel.spacing = unit(input$panelSpacing, "pt"))
+        })
+        
+        pgLengthComposition <- reactive({
+          ggplot_length_composition(lengthDataInput(), createLengthBins()$LenBins, Linc(), MLL(), input$statHist) + 
+            themeTweak()
+          }) 
+          
 
         output$plotLengthComposition <- renderPlotly({
-          gglc <- ggplot_length_composition(lengthDataInput(), createLengthBins()$LenBins, Linc(), MLL(), input$statHist) + 
-            ggplot2::theme(axis.text = element_text(size = input$axisFontSize),
-                  axis.title = element_text(size = input$axisTitleFontSize),
-                  strip.text = element_text(size = input$stripFontSize),
-                  panel.spacing = ggplot2::unit(input$panelSpacing, "pt")
-            )
+          gglc <- pgLengthComposition() +
+            geom_vline(xintercept = MLL(), colour = "red", linetype = 2, linewidth = 1)
           expr = plotly::ggplotly(gglc) %>% plotly::layout(legend = list(orientation = "h"))
           })
+
+        return(list(pg = pgLengthComposition, 
+                    statHist = reactive({input$statHist}),
+                    themeTweak = themeTweak ))
       }
     )
   }
@@ -226,7 +237,6 @@ createAnnualLF <- function(length_records, length_col, year_col, lengthBins, all
 }
 
 # length composition plots ####
-
 ggplot_length_composition <- function(lengthDataInput, lengthBins, Linc, MLL, stat_type){
   stopifnot(is.list(lengthDataInput), 
             "lengthRecords" %in% names(lengthDataInput),
@@ -249,10 +259,33 @@ ggplot_length_composition <- function(lengthDataInput, lengthBins, Linc, MLL, st
                    breaks = lengthBins, closed = "left", colour = "black", binwidth = binwidth) +
     facet_wrap(as.formula(paste0(grep("year", colnames(lengthData), ignore.case = TRUE, value = TRUE)," ~ ."))) +
     scale_fill_manual(name = "fishery \n vulnerable", breaks = waiver(), values = c("grey80", "grey20")) +
-    geom_vline(xintercept = MLL, colour = "red", linetype = 2, linewidth = 1) +
     labs(y = stat_type) +
     theme_bw() + 
     theme(legend.position = "bottom")
+}
+
+# maximum counts per year
+max_counts_per_year <- function(lengthData, lengthCol, lengthBins, analyseLengthComposition, statHist = NULL){
+  stopifnot("isVulnerable" %in% colnames(lengthData), "year" %in% colnames(lengthData), is.character(lengthCol))
+  # lengthDataInput() reactive ensures lengthData features a year column (value could be "all periods")
+
+  # filter vulnerable fish, categorise (cut) fish by lengthBins, calculate maximum fish per length bin by year
+  lengthDataVul <- lengthData %>% dplyr::filter(isVulnerable) 
+  lengthDataVul$lengthBin <- cut(lengthDataVul[, lengthCol], breaks = lengthBins, right = FALSE)
+  maxCountPerYear <- apply(table(lengthDataVul$year, lengthDataVul$lengthBin), 1, max)
+  sumCountPerYear <- apply(table(lengthDataVul$year, lengthDataVul$lengthBin), 1, sum)
+  catchLenHist <- data.frame(year = names(maxCountPerYear), 
+                             maxCount = maxCountPerYear, 
+                             maxProportion = maxCountPerYear/sumCountPerYear,
+                             row.names = NULL)
+  if(statHist == "density" & !is.null(statHist)){
+    catchLenHist <- cbind(catchLenHist, 
+                          list(maxDensity = maxCountPerYear/sumCountPerYear/mean(diff(lengthBins)))) # assumes constant lengthBin widths
+  }
+  if(analyseLengthComposition == "annual"){
+    catchLenHist$year <- as.integer(catchLenHist$year)
+  }
+  catchLenHist
 }
 
 # LIME model ####
