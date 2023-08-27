@@ -1427,7 +1427,7 @@ server <- function(input, output, session){
                 mapping = aes(x = lengthCol, y = scaled_proportion), 
                 linetype = gg_lty, colour = "red", size = 1) +
       scale_size_identity()
-    expr = plotly::ggplotly(pg)
+    expr = ggplotly_config(pg, "plotLengthCompSelectivity")
   })
 
 
@@ -1871,11 +1871,11 @@ server <- function(input, output, session){
       # labels = c("0", "1")
       #                                        ) )
       
-      expr = plotly::ggplotly(pg +
+      expr = ggplotly_config(pg +
                         labs(y = "count", name = gsub("_", " (", length_col, ")" )) +
                         facet_wrap(vars(year)) + 
                         theme_bw() + 
-                        lengthComposition$themeTweak())
+                        lengthComposition$themeTweak(), "plotLCModelFit")
     } else if(input$lengthBasedAssessmentMethod == "LIME"){
       limeFit <- fitLIME()
       
@@ -1924,7 +1924,7 @@ server <- function(input, output, session){
           scale_color_brewer(palette="Set1", direction=-1)
       }
 
-      expr = plotly::ggplotly(pg + theme_bw() + lengthComposition$themeTweak()) %>% 
+      expr = ggplotly_config(pg + theme_bw() + lengthComposition$themeTweak(), "plotLCModelFit") %>% 
         plotly::layout(autosize = TRUE)
     }
     

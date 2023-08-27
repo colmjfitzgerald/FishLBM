@@ -204,7 +204,8 @@ lcPlotServer <-
         output$plotLengthComposition <- renderPlotly({
           gglc <- pgLengthComposition() +
             geom_vline(xintercept = MLL(), colour = "red", linetype = 2, linewidth = 1)
-          expr = plotly::ggplotly(gglc) %>% plotly::layout(legend = list(orientation = "h"))
+          expr = ggplotly_config(gglc, "plotLengthComposition") %>% 
+            plotly::layout(legend = list(orientation = "h"))
           })
 
         return(list(pg = pgLengthComposition, 
