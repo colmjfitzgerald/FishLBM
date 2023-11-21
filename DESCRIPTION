@@ -1,5 +1,5 @@
-Package: shinyFishLBSA
-Title: Shiny App Interfacing with LB-SPR and LIME data-limited methods
+Package: FishLBM
+Title: Shiny App Interfacing with LB-SPR and LIME data-limited, length-based methods (LBMs)
 Version: 0.0.0.9000
 Authors@R: 
     person("Colm", "Fitzgerald", , "colm.fitzgerald@fisheriesireland.ie", 
