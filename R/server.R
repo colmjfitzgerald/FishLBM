@@ -17,6 +17,18 @@ server <- function(input, output, session){
          sheets = sheetNames)
   })
   
+  # excelModal defined in global
+  observeEvent(req(file_data()$ext %in% c("xls", "XLS", "xlsx", "XLSX")), {
+    showModal(excelModal(session))
+  })
+  
+  output$excelSheets <- renderUI({
+    ns <- session$ns
+    selectInput(inputId = ns("selectWorksheet"),
+                label = "Select input",
+                choices = file_data()$sheets, selected = file_data()$sheets[1])
+  })
+  
   # read catch data file - reactive expression ----
   catchdata_read <- reactive({
     
@@ -29,19 +41,12 @@ server <- function(input, output, session){
       catch_data <- read.csv(file = filePath, header = TRUE)
     } else if(fileExt == "xlsx" || fileExt == "XLSX"){
       if(requireNamespace("openxlsx", quietly = FALSE)){
-        sheetNames <- openxlsx::getSheetNames(file = filePath)
-        showModal(
-          modalDialog(
-            renderUI({selectInput(inputId = "selectWorksheet", label = "Select input", choices = sheetNames, selected = sheetNames[1])}), 
-            footer = modalButton("Dismiss")), 
-          session)
-        catch_data <- openxlsx::read.xlsx(xlsxFile = filePath, sheet = 1, check.names = TRUE)
+        catch_data <- openxlsx::read.xlsx(xlsxFile = filePath, sheet = as.character(req(input$selectWorksheet)), 
+                                          check.names = TRUE)
       }
     } else if(fileExt == "xls" || fileExt == "XLS"){
       if(requireNamespace("readxl", quietly = FALSE)){
         catch_data <- readxl::read_xls(path = filePath, sheet = 1)
-#        showModal(modalDialog(footer = modalButton("Dismiss")), 
-#                  session)
       }
     } else{
       stop("file extension not supported")

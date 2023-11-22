@@ -9,6 +9,15 @@ utils::globalVariables(c("Estimate", "Initial", "Lower", "LowerCI", "Model", "Pa
                          "lci", "uci", "selectivity",
                          "lengthMid", "meanSL", "lowerci", "upperci", "lowerciSL", "upperciSL"))
 
+# read length data ####
+# if excelModal defined outside server, session must be called
+excelModal <- function(session) {
+  ns <- session$ns
+  modalDialog(
+    uiOutput(outputId = ns("excelSheets")),
+    footer = modalButton("Enter"))
+}
+
 
 # weight-length module ####
 

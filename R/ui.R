@@ -16,32 +16,12 @@ sidebar <- sidebarPanel(
     selected = NULL
   ),
   
-  #  withTags({
-  #    div(class="form-group shiny-input-container",
-  #        label(class="control-label", id="test_label", `for`="test"),
-  #        select(id = "test", option(value = "test", selected = "test")),
-  #        script(type="application/json", 
-  #               `data-for`="test", 
-  #               `data-nonempty`="">{"plugins":["selectize-plugin-a11y"]}))
-  #  })
-  #uiOutput(outputId = "checkboxData", width = "100%"),
   checkboxGroupInput(inputId = "checkboxCatchData", 
                      label = "Select attributes",
                      choices = NULL, selected = NULL),
   
   hr(),
   div(id = "columnSelect"),#, h5("Apply data filters")),
-  # # species, sex, gear, age, maturity, year
-  # fluidRow(
-  #   column(width = 6, 
-  #          uiOutput(outputId = "speciesSelect", width = "100%")),
-  #   column(width = 6,
-  #          uiOutput(outputId = "sexSelect", width = "100%")),
-  #   column(width = 6, 
-  #          uiOutput(outputId = "gearSelect", width = "100%")),
-  #   column(width = 6,
-  #          uiOutput(outputId = "yearSelect", width = "100%"))
-  # ),
   uiOutput(outputId = "btnSelectCols", width = "100%"),
 )
 
@@ -259,47 +239,6 @@ ui <- navbarPage(
                                        fitWeightLengthOutput("wlCurve"))
                               )
                       ),
-                      # tags$head(
-                      #   tags$style(
-                      #     'thead {
-                      #        display: table-header-group;
-                      #        vertical-align: middle;
-                      #        border-color: inherit;
-                      #      }
-                      # 
-                      #      tr:nth-child(1) {
-                      #        border: solid thick;
-                      #      }
-                      # 
-                      #      tr:nth-child(2) {
-                      #        border: solid thick;
-                      #      }
-                      # 
-                      #      th {
-                      #        text-align: center;
-                      #      }
-                      # 
-                      #      td, th {
-                      #        outline: none;
-                      #      }
-                      # 
-                      #      table { 
-                      #        display: table;
-                      #        border-collapse: separate;
-                      #        white-space: normal;
-                      #        line-height: normal;
-                      #        font-family: times-new-roman;
-                      #        font-weight: normal;
-                      #        font-size: medium;
-                      #        font-style: normal;
-                      #        color: -internal-quirk-inherit;
-                      #        text-align: start;
-                      #        border-spacing: 2px;
-                      #        border-color: grey;
-                      #        font-variant: normal;
-                      #        }  '
-                      #   )
-                      # ),
            )
   ),
   tabPanel("Length-based assessment", value = "tabLBA",
@@ -626,24 +565,6 @@ ui <- navbarPage(
                                  icon = icon("tasks")
                       )
            ),
-           icon = icon("list-ui")
+           icon = icon("list")
   ),
-  ##---------------
-  ## USER FEEDBACK
-  ##---------------
-  ## code block from DAMARA web-app
-  ## see https://archimer.ifremer.fr/doc/00390/50174/50795.pdf for details
-  tabPanel(title = "App feedback",
-           shinydashboard::box(
-             title = "User feedback", status = "primary",
-             textInput("user", "User name", "User name"),
-             textAreaInput("exampleTextarea", '', width = "100%", height = "300px"),
-             actionButton("submitfeed", "Submit", icon("arrow-circle-right")),
-             tags$style(type='text/css', '#outText {background-color: white; color: green; border: white}'),
-             verbatimTextOutput("outText"),
-             solidHeader = TRUE,
-             width=8
-           )
-  )                 
-  # )
 )

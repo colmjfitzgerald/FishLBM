@@ -4,6 +4,6 @@
 
 options(shiny.maxRequestSize = 5*1024^2)
 
-myFishApp <- function(){
+fishLBMApp <- function(){
   shinyApp(ui, server)
 }
